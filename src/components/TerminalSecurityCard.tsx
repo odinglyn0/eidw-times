@@ -219,8 +219,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       axisLine={false}
                       tickLine={false}
                       interval={0}
-                      angle={-45}
-                      textAnchor="end"
+                      textAnchor="middle" // Changed to middle
                       tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
                     />
                     <YAxis
@@ -228,6 +227,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       width={50}
                       axisLine={false}
                       tickLine={false}
+                      domain={[0, 60]} // Set domain from 0 to 60
+                      ticks={[0, 15, 30, 45, 60]} // Set specific ticks
                     />
                     <Tooltip />
                     <Line
