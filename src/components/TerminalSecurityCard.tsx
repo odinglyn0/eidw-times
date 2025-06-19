@@ -169,6 +169,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     value: d[lineDataKey] !== null && d[lineDataKey] > 30 ? d[lineDataKey] : null
   }));
 
+  // Log historical data right before rendering the chart
+  console.log("Historical Data for Chart (before render):", historicalData);
+  console.log("Historical Data Length (before render):", historicalData.length);
+
+
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
       <CardHeader className="bg-custom-green p-4 text-white text-center relative">
@@ -211,16 +216,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
+                  <LineChart data={historicalData} key={JSON.stringify(historicalData)} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
                       dataKey="formattedDate"
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      interval={0}
-                      textAnchor="middle" // Changed to middle
+                      interval={0} // Show all ticks
+                      tick={{ angle: 0, textAnchor: 'middle', fontSize: 10 }} // Explicitly set angle and textAnchor
                       tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
+                      height={30} // Ensure enough space for labels
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
