@@ -139,7 +139,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       // Populate the map with fetched data, ensuring only the latest entry for each day is kept
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
-        const itemDateFormatted = format(itemDate, "EEE d"); // e.g., "Thu 19"
+        const itemDateFormatted = format(itemDate, "EEE"); // Changed format to "EEE" for abbreviated day
         // Overwrite if a newer entry for the same day is found (due to order by timestamp)
         dailyDataMap.set(itemDateFormatted, {
           timestamp: itemDateFormatted,
@@ -153,7 +153,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       const today = new Date();
       for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago up to today
         const date = subDays(today, i);
-        const formattedDate = format(date, "EEE d");
+        const formattedDate = format(date, "EEE"); // Changed format to "EEE" for abbreviated day
         
         const dataForDay = dailyDataMap.get(formattedDate);
         
