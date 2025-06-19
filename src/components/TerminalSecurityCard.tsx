@@ -250,9 +250,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalData}>
+                  <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
-                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
+                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} interval={0} />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
                       width={50}
@@ -263,7 +263,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     {/* Color-coded lines */}
                     <Line
                       type="monotone"
-                      dataKey="value" // Always use "value"
+                      dataKey="value"
                       data={historicalDataGreen}
                       stroke="#4CAF50" // Green
                       strokeWidth={2}
@@ -271,7 +271,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey="value" // Always use "value"
+                      dataKey="value"
                       data={historicalDataOrange}
                       stroke="#FFC107" // Orange
                       strokeWidth={2}
@@ -279,7 +279,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey="value" // Always use "value"
+                      dataKey="value"
                       data={historicalDataRed}
                       stroke="#F44336" // Red
                       strokeWidth={2}
