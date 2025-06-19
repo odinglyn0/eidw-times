@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  timestamp: Date; // Changed to Date object
+  timestamp: string;
   t1: number | null;
   t2: number | null;
 }
@@ -134,7 +134,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Historical data for T${terminalId}:`, historical);
 
       const formattedHistoricalData = historical.map((item) => ({
-        timestamp: new Date(item.timestamp), // Store as Date object
+        timestamp: format(new Date(item.timestamp), "EEE d"),
         [`t${terminalId}`]: item[`t${terminalId}`],
       }));
       setHistoricalData(formattedHistoricalData);
@@ -209,18 +209,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                 <ResponsiveContainer width="100%" height={150}>
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="timestamp"
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => format(value, "MMM d")} // Format Date object for display
-                      interval="preserveStartEnd" // Helps prevent overlapping ticks
-                    />
+                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} />
                     <YAxis
                       domain={[0, 60]}
                       ticks={[15, 30, 45, 60]}
                       tickFormatter={(value) => `${value}m`}
-                      width={40} // Increased width for Y-axis labels
+                      width={30}
                       axisLine={false}
                       tickLine={false}
                     />
