@@ -12,13 +12,14 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours, startOfDay } from "date-fns"; // Added startOfDay
+import { format, subDays, differenceInMinutes, getHours, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  timestamp: Date; // Changed to Date object
+  timestamp: Date;
+  formattedDate: string; // Added for XAxis dataKey
   t1: number | null;
   t2: number | null;
 }
@@ -51,7 +52,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Fetching departure data for Terminal ${terminalId} from 'departures' table...`);
       const threeDaysAgo = subDays(new Date(), 3).toISOString();
       const { data, error } = await supabase
-        .from("departures") // Fetching from the new 'departures' table
+        .from("departures")
         .select("departure_datetime, departure_count")
         .eq("terminal_id", terminalId)
         .gte("departure_datetime", threeDaysAgo)
@@ -75,7 +76,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
           const itemDate = new Date(item.departure_datetime);
           if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
             const hour = getHours(itemDate);
-            // Assuming departure_count is for the specific hour
             hourlyCounts[hour] = item.departure_count;
           }
         });
@@ -102,7 +102,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     setRefreshing(true);
     try {
       console.log(`Fetching current data for Terminal ${terminalId}...`);
-      // Fetch current times
       const { data: currentData, error: currentError } = await supabase
         .from("security_times_current")
         .select(`t${terminalId}, last_updated`)
@@ -119,8 +118,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setLastUpdated(currentData.last_updated);
 
       console.log(`Fetching historical data for Terminal ${terminalId}...`);
-      // Fetch historical data for a sufficient period (e.g., last 14 days)
-      // to ensure we capture all 7 unique days, even if some days have sparse data.
       const fourteenDaysAgo = subDays(new Date(), 14).toISOString();
       const { data: historical, error: historicalError } = await supabase
         .from("security_times")
@@ -134,49 +131,46 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       }
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
-      // Create a map to store the LATEST data for each unique day
       const dailyDataMap = new Map<string, SecurityTimeData>();
 
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
-        // Ensure the date is valid before formatting
         if (isNaN(itemDate.getTime())) {
           console.warn("Invalid date found in historical data:", item.timestamp);
-          return; // Skip invalid dates
+          return;
         }
         const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd");
 
-        // Only store if it's the latest entry for that day, or the first entry
         const existingEntry = dailyDataMap.get(itemDateFormattedKey);
         if (!existingEntry || itemDate.getTime() > existingEntry.timestamp.getTime()) {
           dailyDataMap.set(itemDateFormattedKey, {
             timestamp: itemDate,
+            formattedDate: itemDateFormattedKey, // Store the formatted string
             t1: item.t1,
             t2: item.t2,
           });
         }
       });
 
-      // Explicitly construct the array for the last 7 days, ensuring timestamps are at midnight
       const sevenDayChartData: SecurityTimeData[] = [];
-      const today = startOfDay(new Date()); // Start from midnight of today
+      const today = startOfDay(new Date());
 
-      for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago (index 0) to today (index 6)
-        const dateForDay = startOfDay(subDays(today, i)); // Ensure each date is at midnight
+      for (let i = 6; i >= 0; i--) {
+        const dateForDay = startOfDay(subDays(today, i));
         const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
         const dataForThisDay = dailyDataMap.get(formattedDateKey);
 
         sevenDayChartData.push({
-          timestamp: dateForDay, // This will now be midnight for each day
+          timestamp: dateForDay,
+          formattedDate: formattedDateKey, // Ensure this is always present
           t1: dataForThisDay ? dataForThisDay.t1 : null,
           t2: dataForThisDay ? dataForThisDay.t2 : null,
         });
       }
 
-      // Sort the final array by timestamp to ensure correct chronological order for the chart
       sevenDayChartData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-      console.log("Final sevenDayChartData (after explicit construction and midnight standardization):", sevenDayChartData);
+      console.log("Final sevenDayChartData (after explicit construction and formattedDate):", sevenDayChartData);
       setHistoricalData(sevenDayChartData);
 
     } catch (error) {
@@ -205,7 +199,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
     : null;
 
-  // Prepare data for color-coded lines
   const lineDataKey = `t${terminalId}`;
   const historicalDataGreen = historicalData.map(d => ({
     ...d,
@@ -265,13 +258,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                   <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
-                      dataKey="timestamp" // Now uses Date object
+                      dataKey="formattedDate" // Changed to use the new formattedDate string
                       axisLine={false}
                       tickLine={false}
                       interval={0}
-                      angle={-45} // Rotate labels
-                      textAnchor="end" // Anchor text at the end for rotation
-                      tickFormatter={(value: Date) => format(value, "EEE").toUpperCase()} // Value is now a Date object
+                      angle={-45}
+                      textAnchor="end"
+                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()} // Format the string back to EEE
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
@@ -280,12 +273,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       tickLine={false}
                     />
                     <Tooltip />
-                    {/* Color-coded lines */}
                     <Line
                       type="monotone"
                       dataKey="value"
                       data={historicalDataGreen}
-                      stroke="#4CAF50" // Green
+                      stroke="#4CAF50"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -293,7 +285,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       type="monotone"
                       dataKey="value"
                       data={historicalDataOrange}
-                      stroke="#FFC107" // Orange
+                      stroke="#FFC107"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -301,7 +293,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       type="monotone"
                       dataKey="value"
                       data={historicalDataRed}
-                      stroke="#F44336" // Red
+                      stroke="#F44336"
                       strokeWidth={2}
                       dot={false}
                     />
