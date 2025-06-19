@@ -100,7 +100,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Historical data for T${terminalId}:`, historical);
 
       const formattedHistoricalData = historical.map((item) => ({
-        timestamp: format(new Date(item.timestamp), "EEE"), // Format for chart X-axis (MON, TUE, etc.)
+        timestamp: format(new Date(item.timestamp), "EEE d"), // Changed format to include day of month
         [`t${terminalId}`]: item[`t${terminalId}`],
       }));
       setHistoricalData(formattedHistoricalData);
