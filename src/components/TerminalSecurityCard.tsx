@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours } from "date-fns";
-import { cn } from "@/lib/utils"; // Corrected this line
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
@@ -211,8 +211,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="timestamp" axisLine={false} tickLine={false} />
                     <YAxis
-                      domain={[0, 60]}
-                      ticks={[15, 30, 45, 60]}
+                      // Removed domain and ticks for autoscaling
                       tickFormatter={(value) => `${value}m`}
                       width={50}
                       axisLine={false}
