@@ -165,6 +165,21 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
     : null;
 
+  // Prepare data for color-coded lines
+  const lineDataKey = `t${terminalId}`;
+  const historicalDataGreen = historicalData.map(d => ({
+    ...d,
+    value: d[lineDataKey] !== null && d[lineDataKey] <= 15 ? d[lineDataKey] : null
+  }));
+  const historicalDataOrange = historicalData.map(d => ({
+    ...d,
+    value: d[lineDataKey] !== null && d[lineDataKey] > 15 && d[lineDataKey] <= 30 ? d[lineDataKey] : null
+  }));
+  const historicalDataRed = historicalData.map(d => ({
+    ...d,
+    value: d[lineDataKey] !== null && d[lineDataKey] > 30 ? d[lineDataKey] : null
+  }));
+
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
       <CardHeader className="bg-custom-green p-4 text-white text-center relative">
@@ -208,7 +223,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
                   <LineChart data={historicalData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={true} /> {/* Added vertical lines */}
                     <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
@@ -217,10 +232,28 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       tickLine={false}
                     />
                     <Tooltip />
+                    {/* Color-coded lines */}
                     <Line
                       type="monotone"
-                      dataKey={`t${terminalId}`}
-                      stroke="#82ca9d"
+                      dataKey={historicalDataGreen.length > 0 ? "value" : undefined}
+                      data={historicalDataGreen}
+                      stroke="#4CAF50" // Green
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={historicalDataOrange.length > 0 ? "value" : undefined}
+                      data={historicalDataOrange}
+                      stroke="#FFC107" // Orange
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={historicalDataRed.length > 0 ? "value" : undefined}
+                      data={historicalDataRed}
+                      stroke="#F44336" // Red
                       strokeWidth={2}
                       dot={false}
                     />
