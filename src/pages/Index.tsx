@@ -1,6 +1,5 @@
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import SecurityTimesDisplay from "@/components/SecurityTimesDisplay";
-import SecurityTimesChart from "@/components/SecurityTimesChart";
+import TerminalSecurityCard from "@/components/TerminalSecurityCard";
 
 const Index = () => {
   return (
@@ -11,9 +10,9 @@ const Index = () => {
           Real-time updates and historical data for T1 and T2.
         </p>
       </div>
-      <div className="w-full max-w-4xl space-y-8">
-        <SecurityTimesDisplay />
-        <SecurityTimesChart />
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
+        <TerminalSecurityCard terminalId={1} />
+        <TerminalSecurityCard terminalId={2} />
       </div>
       <MadeWithDyad />
     </div>

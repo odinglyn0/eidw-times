@@ -62,6 +62,10 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "custom-green": {
+          DEFAULT: "#4CAF50", // A vibrant green for the border and main numbers
+          dark: "#388E3C", // A slightly darker green for dark mode if needed
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
