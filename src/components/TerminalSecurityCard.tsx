@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn } => "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
@@ -119,11 +119,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setLastUpdated(currentData.last_updated);
 
       console.log(`Fetching historical data for Terminal ${terminalId}...`);
-      // Fetch historical data for the last 7 days
+      // Fetch historical data for the last 7 days, fetching both t1 and t2
       const sevenDaysAgo = subDays(new Date(), 7).toISOString();
       const { data: historical, error: historicalError } = await supabase
         .from("security_times")
-        .select(`timestamp, t${terminalId}`)
+        .select(`timestamp, t1, t2`) // Fetch both t1 and t2
         .gte("timestamp", sevenDaysAgo)
         .order("timestamp", { ascending: true });
 
@@ -131,13 +131,36 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
         throw historicalError;
       }
-      console.log(`Historical data for T${terminalId}:`, historical);
+      console.log(`Raw historical data for T${terminalId}:`, historical);
 
-      const formattedHistoricalData = historical.map((item) => ({
-        timestamp: format(new Date(item.timestamp), "EEE d"),
-        [`t${terminalId}`]: item[`t${terminalId}`],
-      }));
-      setHistoricalData(formattedHistoricalData);
+      // Create a base array for the last 7 days, initialized with nulls
+      const today = new Date();
+      const sevenDayChartData: SecurityTimeData[] = [];
+      for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago up to today
+        const date = subDays(today, i);
+        sevenDayChartData.push({
+          timestamp: format(date, "EEE d"), // e.g., "Thu 19"
+          t1: null,
+          t2: null,
+        });
+      }
+
+      // Populate the 7-day array with fetched data
+      historical.forEach(item => {
+        const itemDate = new Date(item.timestamp);
+        const itemDateFormatted = format(itemDate, "EEE d");
+        
+        // Find the corresponding day in our 7-day array
+        const dayIndex = sevenDayChartData.findIndex(d => d.timestamp === itemDateFormatted);
+        
+        if (dayIndex !== -1) {
+          // Update both t1 and t2 for the found day
+          sevenDayChartData[dayIndex].t1 = item.t1;
+          sevenDayChartData[dayIndex].t2 = item.t2;
+        }
+      });
+
+      setHistoricalData(sevenDayChartData);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -223,7 +246,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
                   <LineChart data={historicalData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={true} /> {/* Added vertical lines */}
+                    <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
