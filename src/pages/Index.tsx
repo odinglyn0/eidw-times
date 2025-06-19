@@ -9,12 +9,23 @@ const Index = () => {
         <img
           src={DublinAirportLogo}
           alt="Dublin Airport Logo"
-          className="mx-auto h-16 w-auto" // Adjusted height to h-16
+          className="mx-auto h-16 w-auto"
         />
       </div>
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
         <TerminalSecurityCard terminalId={1} />
         <TerminalSecurityCard terminalId={2} />
+      </div>
+      <div className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
+        Made with ❤️ from{" "}
+        <a
+          href="https://odinglynn.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
+        >
+          Odin Glynn Photography
+        </a>
       </div>
     </div>
   );
