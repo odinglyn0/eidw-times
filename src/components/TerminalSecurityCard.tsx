@@ -224,6 +224,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       axisLine={false}
                       tickLine={false}
                       interval={0} // Show all ticks
+                      tickCount={7} // Explicitly set tick count to 7
                       tick={{ angle: 0, textAnchor: 'middle', fontSize: 10 }} // Explicitly set angle and textAnchor
                       tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
                       height={30} // Ensure enough space for labels
