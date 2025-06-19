@@ -9,7 +9,7 @@ const Index = () => {
         <img
           src={DublinAirportLogo}
           alt="Dublin Airport Logo"
-          className="mx-auto h-24 w-auto" // Adjust height and width as needed
+          className="mx-auto h-16 w-auto" // Adjusted height to h-16
         />
       </div>
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
