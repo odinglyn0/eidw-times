@@ -3,9 +3,8 @@ import DublinAirportLogo from "@/assets/Dublin_airport_logo.svg.png"; // Import 
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4"> {/* Removed bg-gray-100 dark:bg-gray-900 */}
       <div className="text-center mb-8">
-        {/* Removed the h1 tag */}
         <img
           src={DublinAirportLogo}
           alt="Dublin Airport Logo"

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import NeuralNetworkBackground from "@/components/NeuralNetworkBackground"; // Import the new component
 
 const queryClient = new QueryClient();
 
@@ -13,6 +14,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <NeuralNetworkBackground /> {/* Add the background component here */}
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
