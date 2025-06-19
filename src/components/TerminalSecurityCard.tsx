@@ -11,9 +11,9 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { showError } => "@/utils/toast";
+import { showError } from "@/utils/toast"; // Corrected this line
 import { format, subDays, differenceInMinutes, getHours } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn } => "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
@@ -214,7 +214,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       domain={[0, 60]}
                       ticks={[15, 30, 45, 60]}
                       tickFormatter={(value) => `${value}m`}
-                      width={50} {/* Increased width from 30 to 50 */}
+                      width={50}
                       axisLine={false}
                       tickLine={false}
                     />
