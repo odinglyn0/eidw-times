@@ -209,9 +209,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                 <ResponsiveContainer width="100%" height={150}>
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} />
+                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                     <YAxis
-                      // Removed domain and ticks for autoscaling
                       tickFormatter={(value) => `${value}m`}
                       width={50}
                       axisLine={false}
