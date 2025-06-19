@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  timestamp: string; // Will now store 'yyyy-MM-dd'
+  timestamp: Date; // Changed to Date object
   t1: number | null;
   t2: number | null;
 }
@@ -134,14 +134,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
       // Create a map to store the latest data for each day, using full date (yyyy-MM-dd) as key
-      const dailyDataMap = new Map<string, SecurityTimeData>();
+      const dailyDataMap = new Map<string, { dateObj: Date; t1: number | null; t2: number | null }>();
 
       // Populate the map with fetched data
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
-        const itemDateFormatted = format(itemDate, "yyyy-MM-dd"); // Use full date as key
-        dailyDataMap.set(itemDateFormatted, {
-          timestamp: itemDateFormatted, // Store full date here
+        const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd"); // Use full date as key for map
+        dailyDataMap.set(itemDateFormattedKey, {
+          dateObj: itemDate, // Store the actual Date object
           t1: item.t1,
           t2: item.t2,
         });
@@ -157,7 +157,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         const dataForDay = dailyDataMap.get(formattedDateKey);
         
         sevenDayChartData.push({
-          timestamp: formattedDateKey, // Store full date here
+          timestamp: dataForDay ? dataForDay.dateObj : date, // Store Date object. If no data, use the iterated date.
           t1: dataForDay ? dataForDay.t1 : null,
           t2: dataForDay ? dataForDay.t2 : null,
         });
@@ -252,13 +252,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                   <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
-                      dataKey="timestamp" // Now uses 'yyyy-MM-dd'
+                      dataKey="timestamp" // Now uses Date object
                       axisLine={false}
                       tickLine={false}
                       interval={0}
                       angle={-45} // Rotate labels
                       textAnchor="end" // Anchor text at the end for rotation
-                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()} // Format for display
+                      tickFormatter={(value: Date) => format(value, "EEE").toUpperCase()} // Value is now a Date object
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
