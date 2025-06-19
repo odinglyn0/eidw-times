@@ -10,7 +10,6 @@ interface Node {
 
 const NeuralNetworkBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Removed mousePos state
   const nodesRef = useRef<Node[]>([]);
   const animationFrameId = useRef<number | null>(null);
 
@@ -18,7 +17,6 @@ const NeuralNetworkBackground: React.FC = () => {
   const nodeSpeed = 0.1;
   const nodeRadius = 1.5;
   const connectionDistance = 120; // Max distance for lines between nodes
-  // Removed mouseConnectionDistance
   const lineColor = 'rgba(100, 100, 100, 0.3)'; // Light grey for lines
   const nodeColor = 'rgba(150, 150, 150, 0.8)'; // Slightly darker grey for nodes
 
@@ -77,10 +75,8 @@ const NeuralNetworkBackground: React.FC = () => {
       }
     }
 
-    // Removed logic for drawing connections from nodes to mouse
-
     animationFrameId.current = requestAnimationFrame(draw);
-  }, [numNodes, connectionDistance, lineColor, nodeColor]); // Removed mousePos from dependencies
+  }, [numNodes, connectionDistance, lineColor, nodeColor]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,13 +91,10 @@ const NeuralNetworkBackground: React.FC = () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas(); // Initial resize
 
-    // Removed handleMouseMove and mousemove event listener
-
     animationFrameId.current = requestAnimationFrame(draw);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      // Removed mousemove event listener cleanup
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
@@ -111,7 +104,7 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1] bg-gray-100 dark:bg-gray-900" // Ensure it's behind content
+      className="fixed inset-0 z-[-1]" // Removed background colors
     />
   );
 };
