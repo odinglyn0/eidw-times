@@ -67,6 +67,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
   const fetchSecurityData = async () => {
     setLoading(true);
     try {
+      console.log(`Fetching current data for Terminal ${terminalId}...`);
       // Fetch current times
       const { data: currentData, error: currentError } = await supabase
         .from("security_times_current")
@@ -75,12 +76,15 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         .single();
 
       if (currentError) {
+        console.error(`Supabase current data error for T${terminalId}:`, currentError);
         throw currentError;
       }
+      console.log(`Current data for T${terminalId}:`, currentData);
 
       setCurrentTime(currentData[`t${terminalId}`]);
       setLastUpdated(currentData.last_updated);
 
+      console.log(`Fetching historical data for Terminal ${terminalId}...`);
       // Fetch historical data for the last 7 days
       const sevenDaysAgo = subDays(new Date(), 7).toISOString();
       const { data: historical, error: historicalError } = await supabase
@@ -90,8 +94,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         .order("timestamp", { ascending: true });
 
       if (historicalError) {
+        console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
         throw historicalError;
       }
+      console.log(`Historical data for T${terminalId}:`, historical);
 
       const formattedHistoricalData = historical.map((item) => ({
         timestamp: format(new Date(item.timestamp), "EEE"), // Format for chart X-axis (MON, TUE, etc.)
@@ -101,7 +107,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
-      showError(`Failed to load data for Terminal ${terminalId}.`);
+      showError(`Failed to load data for Terminal ${terminalId}. Please check console for details.`);
       setCurrentTime(null);
       setLastUpdated(null);
       setHistoricalData([]);
