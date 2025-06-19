@@ -259,13 +259,32 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
                       dataKey="formattedDate"
-                      type="category" // Explicitly set type to category
+                      type="category"
                       axisLine={false}
                       tickLine={false}
                       interval={0}
                       angle={-45}
                       textAnchor="end"
-                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
+                      tickFormatter={(value: string) => {
+                        // Manually parse the "YYYY-MM-DD" string to create a Date object reliably
+                        const parts = value.split('-');
+                        if (parts.length !== 3) {
+                          console.error("tickFormatter received malformed date string:", value);
+                          return "Error"; // Fallback for malformed string
+                        }
+                        const year = parseInt(parts[0], 10);
+                        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+                        const day = parseInt(parts[2], 10);
+
+                        const date = new Date(year, month, day);
+
+                        // Check if the created date is valid before formatting
+                        if (isNaN(date.getTime())) {
+                          console.error("Invalid date created from parts in tickFormatter:", value);
+                          return "Invalid"; // Fallback for invalid date
+                        }
+                        return format(date, "EEE").toUpperCase();
+                      }}
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
