@@ -1,4 +1,3 @@
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
 
 const Index = () => {
@@ -14,7 +13,6 @@ const Index = () => {
         <TerminalSecurityCard terminalId={1} />
         <TerminalSecurityCard terminalId={2} />
       </div>
-      <MadeWithDyad />
     </div>
   );
 };
