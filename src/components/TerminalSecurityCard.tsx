@@ -18,8 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  timestamp: Date;
-  formattedDate: string; // Added for XAxis dataKey
+  formattedDate: string; // Now directly from backend
   t1: number | null;
   t2: number | null;
 }
@@ -117,61 +116,18 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setCurrentTime(currentData[`t${terminalId}`]);
       setLastUpdated(currentData.last_updated);
 
-      console.log(`Fetching historical data for Terminal ${terminalId}...`);
-      const fourteenDaysAgo = subDays(new Date(), 14).toISOString();
-      const { data: historical, error: historicalError } = await supabase
-        .from("security_times")
-        .select(`timestamp, t1, t2`)
-        .gte("timestamp", fourteenDaysAgo)
-        .order("timestamp", { ascending: true });
+      console.log(`Invoking Edge Function 'get-security-data' for historical data...`);
+      const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
 
-      if (historicalError) {
-        console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
-        throw historicalError;
-      }
-      console.log(`Raw historical data for T${terminalId}:`, historical);
-
-      const dailyDataMap = new Map<string, SecurityTimeData>();
-
-      historical.forEach(item => {
-        const itemDate = new Date(item.timestamp);
-        if (isNaN(itemDate.getTime())) {
-          console.warn("Invalid date found in historical data:", item.timestamp);
-          return;
-        }
-        const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd");
-
-        const existingEntry = dailyDataMap.get(itemDateFormattedKey);
-        if (!existingEntry || itemDate.getTime() > existingEntry.timestamp.getTime()) {
-          dailyDataMap.set(itemDateFormattedKey, {
-            timestamp: itemDate,
-            formattedDate: itemDateFormattedKey, // Store the formatted string
-            t1: item.t1,
-            t2: item.t2,
-          });
-        }
-      });
-
-      const sevenDayChartData: SecurityTimeData[] = [];
-      const today = startOfDay(new Date());
-
-      for (let i = 6; i >= 0; i--) {
-        const dateForDay = startOfDay(subDays(today, i));
-        const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
-        const dataForThisDay = dailyDataMap.get(formattedDateKey);
-
-        sevenDayChartData.push({
-          timestamp: dateForDay,
-          formattedDate: formattedDateKey, // Ensure this is always present
-          t1: dataForThisDay ? dataForThisDay.t1 : null,
-          t2: dataForThisDay ? dataForThisDay.t2 : null,
-        });
+      if (edgeFunctionError) {
+        console.error(`Edge Function 'get-security-data' error:`, edgeFunctionError);
+        throw edgeFunctionError;
       }
 
-      sevenDayChartData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-      console.log("Data being set to historicalData:", sevenDayChartData); // Added logging here
-      setHistoricalData(sevenDayChartData);
+      // The Edge Function returns the data directly in the desired format
+      const processedHistoricalData: SecurityTimeData[] = historicalResponse as SecurityTimeData[];
+      console.log("Processed historical data from Edge Function:", processedHistoricalData);
+      setHistoricalData(processedHistoricalData);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -265,43 +221,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       interval={0}
                       angle={-45}
                       textAnchor="end"
-                      tickFormatter={(value: string) => {
-                        console.log("tickFormatter input value:", value); // Log the raw input
-                        const parts = value.split('-');
-                        console.log("tickFormatter split parts:", parts); // Log the split parts
-
-                        if (parts.length !== 3) {
-                          console.error("tickFormatter: Malformed date string received. Value:", value, "Parts:", parts);
-                          return "Error"; // Return a fallback string
-                        }
-
-                        const year = parseInt(parts[0], 10);
-                        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-                        const day = parseInt(parts[2], 10);
-
-                        // Check if parsing resulted in NaN for any part
-                        if (isNaN(year) || isNaN(month) || isNaN(day)) {
-                          console.error("tickFormatter: Failed to parse date components to numbers. Value:", value, "Parsed:", { year, month, day });
-                          return "Parse Error"; // Return a fallback string
-                        }
-
-                        const date = new Date(year, month, day);
-                        console.log("tickFormatter created Date object:", date); // Log the created Date object
-
-                        if (isNaN(date.getTime())) {
-                          console.error("tickFormatter: Invalid Date object created. Value:", value, "Date object:", date);
-                          return "Invalid"; // Return a fallback string
-                        }
-
-                        try {
-                          const formatted = format(date, "EEE").toUpperCase();
-                          console.log("tickFormatter successfully formatted:", formatted);
-                          return formatted;
-                        } catch (e) {
-                          console.error("tickFormatter: Error during date-fns format. Date object:", date, "Error:", e);
-                          return "Format Error"; // Return a fallback string
-                        }
-                      }}
+                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
