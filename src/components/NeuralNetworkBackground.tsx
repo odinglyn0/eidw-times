@@ -10,7 +10,7 @@ interface Node {
 
 const NeuralNetworkBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [mousePos, setMousePos] = useState({ x: -1, y: -1 });
+  // Removed mousePos state
   const nodesRef = useRef<Node[]>([]);
   const animationFrameId = useRef<number | null>(null);
 
@@ -18,7 +18,7 @@ const NeuralNetworkBackground: React.FC = () => {
   const nodeSpeed = 0.1;
   const nodeRadius = 1.5;
   const connectionDistance = 120; // Max distance for lines between nodes
-  const mouseConnectionDistance = 150; // Max distance for lines from nodes to mouse
+  // Removed mouseConnectionDistance
   const lineColor = 'rgba(100, 100, 100, 0.3)'; // Light grey for lines
   const nodeColor = 'rgba(150, 150, 150, 0.8)'; // Slightly darker grey for nodes
 
@@ -77,25 +77,10 @@ const NeuralNetworkBackground: React.FC = () => {
       }
     }
 
-    // Draw connections from nodes to mouse
-    if (mousePos.x !== -1 && mousePos.y !== -1) {
-      nodesRef.current.forEach(node => {
-        const dist = Math.sqrt(
-          Math.pow(node.x - mousePos.x, 2) + Math.pow(node.y - mousePos.y, 2)
-        );
-
-        if (dist < mouseConnectionDistance) {
-          ctx.beginPath();
-          ctx.moveTo(node.x, node.y);
-          ctx.lineTo(mousePos.x, mousePos.y);
-          ctx.lineWidth = (1 - dist / mouseConnectionDistance) * 2; // Thicker lines for closer nodes to mouse
-          ctx.stroke();
-        }
-      });
-    }
+    // Removed logic for drawing connections from nodes to mouse
 
     animationFrameId.current = requestAnimationFrame(draw);
-  }, [mousePos, numNodes, connectionDistance, mouseConnectionDistance, lineColor, nodeColor]);
+  }, [numNodes, connectionDistance, lineColor, nodeColor]); // Removed mousePos from dependencies
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -110,17 +95,13 @@ const NeuralNetworkBackground: React.FC = () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas(); // Initial resize
 
-    const handleMouseMove = (event: MouseEvent) => {
-      setMousePos({ x: event.clientX, y: event.clientY });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
+    // Removed handleMouseMove and mousemove event listener
 
     animationFrameId.current = requestAnimationFrame(draw);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      window.removeEventListener('mousemove', handleMouseMove);
+      // Removed mousemove event listener cleanup
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
