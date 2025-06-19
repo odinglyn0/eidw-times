@@ -170,7 +170,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
 
       sevenDayChartData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-      console.log("Final sevenDayChartData (after explicit construction and formattedDate):", sevenDayChartData);
+      console.log("Data being set to historicalData:", sevenDayChartData); // Added logging here
       setHistoricalData(sevenDayChartData);
 
     } catch (error) {
@@ -266,24 +266,41 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       angle={-45}
                       textAnchor="end"
                       tickFormatter={(value: string) => {
-                        // Manually parse the "YYYY-MM-DD" string to create a Date object reliably
+                        console.log("tickFormatter input value:", value); // Log the raw input
                         const parts = value.split('-');
+                        console.log("tickFormatter split parts:", parts); // Log the split parts
+
                         if (parts.length !== 3) {
-                          console.error("tickFormatter received malformed date string:", value);
-                          return "Error"; // Fallback for malformed string
+                          console.error("tickFormatter: Malformed date string received. Value:", value, "Parts:", parts);
+                          return "Error"; // Return a fallback string
                         }
+
                         const year = parseInt(parts[0], 10);
                         const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
                         const day = parseInt(parts[2], 10);
 
-                        const date = new Date(year, month, day);
-
-                        // Check if the created date is valid before formatting
-                        if (isNaN(date.getTime())) {
-                          console.error("Invalid date created from parts in tickFormatter:", value);
-                          return "Invalid"; // Fallback for invalid date
+                        // Check if parsing resulted in NaN for any part
+                        if (isNaN(year) || isNaN(month) || isNaN(day)) {
+                          console.error("tickFormatter: Failed to parse date components to numbers. Value:", value, "Parsed:", { year, month, day });
+                          return "Parse Error"; // Return a fallback string
                         }
-                        return format(date, "EEE").toUpperCase();
+
+                        const date = new Date(year, month, day);
+                        console.log("tickFormatter created Date object:", date); // Log the created Date object
+
+                        if (isNaN(date.getTime())) {
+                          console.error("tickFormatter: Invalid Date object created. Value:", value, "Date object:", date);
+                          return "Invalid"; // Return a fallback string
+                        }
+
+                        try {
+                          const formatted = format(date, "EEE").toUpperCase();
+                          console.log("tickFormatter successfully formatted:", formatted);
+                          return formatted;
+                        } catch (e) {
+                          console.error("tickFormatter: Error during date-fns format. Date object:", date, "Error:", e);
+                          return "Format Error"; // Return a fallback string
+                        }
                       }}
                     />
                     <YAxis
