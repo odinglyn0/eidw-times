@@ -119,14 +119,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setLastUpdated(currentData.last_updated);
 
       console.log(`Fetching historical data for Terminal ${terminalId}...`);
-      // Fetch historical data for the last 7 days, fetching both t1 and t2
-      // Fetch a slightly wider range to ensure we have enough data for the last 7 unique days
-      const tenDaysAgo = subDays(new Date(), 10).toISOString(); // Fetch data from 10 days ago
+      // Fetch historical data for a sufficient period (e.g., last 14 days)
+      // to ensure we capture all 7 unique days, even if some days have sparse data.
+      const fourteenDaysAgo = subDays(new Date(), 14).toISOString();
       const { data: historical, error: historicalError } = await supabase
         .from("security_times")
-        .select(`timestamp, t1, t2`) // Fetch both t1 and t2
-        .gte("timestamp", tenDaysAgo)
-        .order("timestamp", { ascending: true }); // Order by timestamp to get latest for a day
+        .select(`timestamp, t1, t2`)
+        .gte("timestamp", fourteenDaysAgo)
+        .order("timestamp", { ascending: true });
 
       if (historicalError) {
         console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
@@ -134,27 +134,49 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       }
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
-      // Create a map to store the latest data for each day, using full date (yyyy-MM-dd) as key
+      // Create a map to store the LATEST data for each unique day
       const dailyDataMap = new Map<string, SecurityTimeData>();
 
-      // Populate the map with fetched data, ensuring only the latest entry for each day is kept
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
-        const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd"); // Use full date as key for map
-        dailyDataMap.set(itemDateFormattedKey, {
-          timestamp: itemDate, // Store the actual Date object
-          t1: item.t1,
-          t2: item.t2,
-        });
+        // Ensure the date is valid before formatting
+        if (isNaN(itemDate.getTime())) {
+          console.warn("Invalid date found in historical data:", item.timestamp);
+          return; // Skip invalid dates
+        }
+        const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd");
+
+        // Only store if it's the latest entry for that day, or the first entry
+        const existingEntry = dailyDataMap.get(itemDateFormattedKey);
+        if (!existingEntry || itemDate.getTime() > existingEntry.timestamp.getTime()) {
+          dailyDataMap.set(itemDateFormattedKey, {
+            timestamp: itemDate,
+            t1: item.t1,
+            t2: item.t2,
+          });
+        }
       });
 
-      // Convert map values to an array and sort by timestamp
-      const allUniqueDailyData = Array.from(dailyDataMap.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      // Explicitly construct the array for the last 7 days
+      const sevenDayChartData: SecurityTimeData[] = [];
+      const today = new Date();
 
-      // Take the last 7 entries to ensure exactly 7 days are displayed
-      const sevenDayChartData = allUniqueDailyData.slice(-7);
+      for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago (index 0) to today (index 6)
+        const dateForDay = subDays(today, i);
+        const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
+        const dataForThisDay = dailyDataMap.get(formattedDateKey);
 
-      console.log("Final sevenDayChartData:", sevenDayChartData); // Debug log
+        sevenDayChartData.push({
+          timestamp: dateForDay, // Always use a valid Date object for the day
+          t1: dataForThisDay ? dataForThisDay.t1 : null,
+          t2: dataForThisDay ? dataForThisDay.t2 : null,
+        });
+      }
+
+      // Sort the final array by timestamp to ensure correct chronological order for the chart
+      sevenDayChartData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+      console.log("Final sevenDayChartData (after explicit construction):", sevenDayChartData);
       setHistoricalData(sevenDayChartData);
 
     } catch (error) {
