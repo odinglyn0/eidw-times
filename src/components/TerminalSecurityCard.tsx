@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ResponsiveContainer,
@@ -12,8 +12,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
   timestamp: string;
@@ -27,6 +29,11 @@ interface CurrentSecurityTimes {
   last_updated: string | null;
 }
 
+interface HourlyDepartureDisplayData {
+  date: string; // e.g., "TODAY", "MON, JUL 1"
+  hours: { value: number; colorClass: string }[]; // 24 entries for each hour
+}
+
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
 }
@@ -35,37 +42,64 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalData, setHistoricalData] = useState<SecurityTimeData[]>([]);
+  const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Dummy data for "Number of Departures" as it's not in the provided schema
-  const generateDepartureData = () => {
-    const data = [];
-    const today = new Date();
-    const yesterday = subDays(today, 1);
-    const dayBeforeYesterday = subDays(today, 2);
+  const fetchDepartureData = useCallback(async () => {
+    try {
+      console.log(`Fetching departure data for Terminal ${terminalId} from 'departures' table...`);
+      const threeDaysAgo = subDays(new Date(), 3).toISOString();
+      const { data, error } = await supabase
+        .from("departures") // Fetching from the new 'departures' table
+        .select("departure_datetime, departure_count")
+        .eq("terminal_id", terminalId)
+        .gte("departure_datetime", threeDaysAgo)
+        .order("departure_datetime", { ascending: true });
 
-    const generateHourlyData = () => {
-      const hours = [];
-      for (let i = 0; i < 24; i++) {
-        const value = Math.floor(Math.random() * 20); // Random departures
-        let colorClass = "bg-green-500";
-        if (value > 10 && value <= 15) colorClass = "bg-orange-500";
-        if (value > 15) colorClass = "bg-red-500";
-        hours.push({ value, colorClass });
+      if (error) {
+        console.error(`Supabase departure data error for T${terminalId}:`, error);
+        throw error;
       }
-      return hours;
-    };
+      console.log(`Raw departure data for T${terminalId}:`, data);
 
-    data.push({ date: "TODAY", hours: generateHourlyData() });
-    data.push({ date: format(yesterday, "EEE, MMM do").toUpperCase(), hours: generateHourlyData() });
-    data.push({ date: format(dayBeforeYesterday, "EEE, MMM do").toUpperCase(), hours: generateHourlyData() });
-    return data;
-  };
+      const processedData: HourlyDepartureDisplayData[] = [];
+      const today = new Date();
+      const datesToProcess = [today, subDays(today, 1), subDays(today, 2)];
 
-  const departureData = generateDepartureData();
+      datesToProcess.forEach((date, index) => {
+        const dayString = index === 0 ? "TODAY" : format(date, "EEE, MMM do").toUpperCase();
+        const hourlyCounts: number[] = Array(24).fill(0);
 
-  const fetchSecurityData = async () => {
+        data.forEach(item => {
+          const itemDate = new Date(item.departure_datetime);
+          if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
+            const hour = getHours(itemDate);
+            // Assuming departure_count is for the specific hour
+            hourlyCounts[hour] = item.departure_count;
+          }
+        });
+
+        const hoursWithColors = hourlyCounts.map(count => {
+          let colorClass = "bg-green-500";
+          if (count > 10 && count <= 15) colorClass = "bg-orange-500";
+          if (count > 15) colorClass = "bg-red-500";
+          return { value: count, colorClass };
+        });
+
+        processedData.push({ date: dayString, hours: hoursWithColors });
+      });
+
+      setDepartureData(processedData);
+    } catch (error) {
+      console.error(`Error fetching departure data for Terminal ${terminalId}:`, error);
+      setDepartureData([]);
+    }
+  }, [terminalId]);
+
+  const fetchSecurityData = useCallback(async () => {
     setLoading(true);
+    setRefreshing(true);
     try {
       console.log(`Fetching current data for Terminal ${terminalId}...`);
       // Fetch current times
@@ -100,7 +134,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Historical data for T${terminalId}:`, historical);
 
       const formattedHistoricalData = historical.map((item) => ({
-        timestamp: format(new Date(item.timestamp), "EEE d"), // Changed format to include day of month
+        timestamp: format(new Date(item.timestamp), "EEE d"),
         [`t${terminalId}`]: item[`t${terminalId}`],
       }));
       setHistoricalData(formattedHistoricalData);
@@ -113,12 +147,19 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setHistoricalData([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [terminalId]);
 
   useEffect(() => {
     fetchSecurityData();
-  }, [terminalId]);
+    fetchDepartureData();
+  }, [terminalId, fetchSecurityData, fetchDepartureData]);
+
+  const handleRefresh = () => {
+    fetchSecurityData();
+    fetchDepartureData();
+  };
 
   const timeSinceLastUpdate = lastUpdated
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
@@ -126,9 +167,23 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
 
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
-      <CardHeader className="bg-custom-green p-4 text-white text-center">
+      <CardHeader className="bg-custom-green p-4 text-white text-center relative">
         <CardTitle className="text-lg font-semibold mb-1">Security queue wait</CardTitle>
         <h2 className="text-3xl font-bold">Terminal {terminalId}</h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="absolute top-4 right-4 text-white hover:bg-white hover:text-custom-green"
+        >
+          {refreshing ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-5 w-5" />
+          )}
+          <span className="sr-only">Refresh data</span>
+        </Button>
       </CardHeader>
       <CardContent className="p-6 text-center">
         {loading ? (
@@ -167,7 +222,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     <Line
                       type="monotone"
                       dataKey={`t${terminalId}`}
-                      stroke="#82ca9d" // Green for the line
+                      stroke="#82ca9d"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -180,39 +235,43 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
 
             <div>
               <h3 className="text-md font-semibold text-gray-700 mb-4">Number of Departures</h3>
-              {departureData.map((day, dayIndex) => (
-                <div key={dayIndex} className="mb-4 last:mb-0">
-                  <p className="text-xs font-medium text-gray-500 mb-2">{day.date}</p>
-                  <div className="grid grid-cols-12 gap-1">
-                    {day.hours.slice(0, 12).map((hour, hourIndex) => (
-                      <div
-                        key={hourIndex}
-                        className={cn(
-                          "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                          hour.colorClass
-                        )}
-                      >
-                        {hour.value}
-                      </div>
-                    ))}
+              {departureData.length > 0 ? (
+                departureData.map((day, dayIndex) => (
+                  <div key={dayIndex} className="mb-4 last:mb-0">
+                    <p className="text-xs font-medium text-gray-500 mb-2">{day.date}</p>
+                    <div className="grid grid-cols-12 gap-1">
+                      {day.hours.slice(0, 12).map((hour, hourIndex) => (
+                        <div
+                          key={hourIndex}
+                          className={cn(
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
+                          )}
+                        >
+                          {hour.value}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-12 gap-1 mt-1">
+                      {day.hours.slice(12, 24).map((hour, hourIndex) => (
+                        <div
+                          key={hourIndex + 12}
+                          className={cn(
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
+                          )}
+                        >
+                          {hour.value}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-12 gap-1 mt-1">
-                    {day.hours.slice(12, 24).map((hour, hourIndex) => (
-                      <div
-                        key={hourIndex + 12}
-                        className={cn(
-                          "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                          hour.colorClass
-                        )}
-                      >
-                        {hour.value}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
+              )}
               <p className="text-xs text-gray-500 mt-4">
-                Note: "Number of Departures" data is simulated as it's not available in the provided schema.
+                This data is fetched from the 'departures' table in your Supabase database.
               </p>
             </div>
           </>
