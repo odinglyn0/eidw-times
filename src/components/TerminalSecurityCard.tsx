@@ -252,7 +252,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                 <ResponsiveContainer width="100%" height={150}>
                   <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
-                    <XAxis dataKey="timestamp" axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} interval={0} />
+                    <XAxis
+                      dataKey="timestamp"
+                      axisLine={false}
+                      tickLine={false}
+                      interval={0}
+                      angle={-45} // Rotate labels
+                      textAnchor="end" // Anchor text at the end for rotation
+                    />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
                       width={50}
