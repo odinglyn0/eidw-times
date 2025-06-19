@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  timestamp: string;
+  timestamp: string; // Will now store 'yyyy-MM-dd'
   t1: number | null;
   t2: number | null;
 }
@@ -133,16 +133,15 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       }
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
-      // Create a map to store the latest data for each day
+      // Create a map to store the latest data for each day, using full date (yyyy-MM-dd) as key
       const dailyDataMap = new Map<string, SecurityTimeData>();
 
-      // Populate the map with fetched data, ensuring only the latest entry for each day is kept
+      // Populate the map with fetched data
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
-        const itemDateFormatted = format(itemDate, "EEE"); // Changed format to "EEE" for abbreviated day
-        // Overwrite if a newer entry for the same day is found (due to order by timestamp)
+        const itemDateFormatted = format(itemDate, "yyyy-MM-dd"); // Use full date as key
         dailyDataMap.set(itemDateFormatted, {
-          timestamp: itemDateFormatted,
+          timestamp: itemDateFormatted, // Store full date here
           t1: item.t1,
           t2: item.t2,
         });
@@ -153,12 +152,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       const today = new Date();
       for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago up to today
         const date = subDays(today, i);
-        const formattedDate = format(date, "EEE"); // Changed format to "EEE" for abbreviated day
+        const formattedDateKey = format(date, "yyyy-MM-dd"); // Key to look up in map
         
-        const dataForDay = dailyDataMap.get(formattedDate);
+        const dataForDay = dailyDataMap.get(formattedDateKey);
         
         sevenDayChartData.push({
-          timestamp: formattedDate,
+          timestamp: formattedDateKey, // Store full date here
           t1: dataForDay ? dataForDay.t1 : null,
           t2: dataForDay ? dataForDay.t2 : null,
         });
@@ -253,12 +252,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                   <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
-                      dataKey="timestamp"
+                      dataKey="timestamp" // Now uses 'yyyy-MM-dd'
                       axisLine={false}
                       tickLine={false}
                       interval={0}
                       angle={-45} // Rotate labels
                       textAnchor="end" // Anchor text at the end for rotation
+                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()} // Format for display
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
