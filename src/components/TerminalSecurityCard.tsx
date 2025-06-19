@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { showError } from "@/utils/toast";
+import { showError } => "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -214,7 +214,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       domain={[0, 60]}
                       ticks={[15, 30, 45, 60]}
                       tickFormatter={(value) => `${value}m`}
-                      width={30}
+                      width={50} {/* Increased width from 30 to 50 */}
                       axisLine={false}
                       tickLine={false}
                     />
