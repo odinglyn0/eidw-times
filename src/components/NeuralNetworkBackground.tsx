@@ -15,7 +15,7 @@ const NeuralNetworkBackground: React.FC = () => {
   const animationFrameId = useRef<number | null>(null);
 
   const numNodes = 100;
-  const nodeSpeed = 0.05; // Reduced from 0.1 to 0.05 for slower movement
+  const nodeSpeed = 0.1;
   const nodeRadius = 1.5;
   const connectionDistance = 120; // Max distance for lines between nodes
   const mouseConnectionDistance = 150; // Max distance for lines from nodes to mouse
