@@ -258,13 +258,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                   <LineChart data={historicalData} key={JSON.stringify(historicalData)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
-                      dataKey="formattedDate" // Changed to use the new formattedDate string
+                      dataKey="formattedDate"
+                      type="category" // Explicitly set type to category
                       axisLine={false}
                       tickLine={false}
                       interval={0}
                       angle={-45}
                       textAnchor="end"
-                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()} // Format the string back to EEE
+                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
