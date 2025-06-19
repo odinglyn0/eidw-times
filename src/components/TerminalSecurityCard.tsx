@@ -120,11 +120,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
 
       console.log(`Fetching historical data for Terminal ${terminalId}...`);
       // Fetch historical data for the last 7 days, fetching both t1 and t2
-      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+      // Fetch a slightly wider range to ensure we have enough data for the last 7 unique days
+      const tenDaysAgo = subDays(new Date(), 10).toISOString(); // Fetch data from 10 days ago
       const { data: historical, error: historicalError } = await supabase
         .from("security_times")
         .select(`timestamp, t1, t2`) // Fetch both t1 and t2
-        .gte("timestamp", sevenDaysAgo)
+        .gte("timestamp", tenDaysAgo)
         .order("timestamp", { ascending: true }); // Order by timestamp to get latest for a day
 
       if (historicalError) {
@@ -134,34 +135,24 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
       // Create a map to store the latest data for each day, using full date (yyyy-MM-dd) as key
-      const dailyDataMap = new Map<string, { dateObj: Date; t1: number | null; t2: number | null }>();
+      const dailyDataMap = new Map<string, SecurityTimeData>();
 
-      // Populate the map with fetched data
+      // Populate the map with fetched data, ensuring only the latest entry for each day is kept
       historical.forEach(item => {
         const itemDate = new Date(item.timestamp);
         const itemDateFormattedKey = format(itemDate, "yyyy-MM-dd"); // Use full date as key for map
         dailyDataMap.set(itemDateFormattedKey, {
-          dateObj: itemDate, // Store the actual Date object
+          timestamp: itemDate, // Store the actual Date object
           t1: item.t1,
           t2: item.t2,
         });
       });
 
-      // Create the final 7-day array, ensuring all 7 days are present and in order
-      const sevenDayChartData: SecurityTimeData[] = [];
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago up to today
-        const date = subDays(today, i);
-        const formattedDateKey = format(date, "yyyy-MM-dd"); // Key to look up in map
-        
-        const dataForDay = dailyDataMap.get(formattedDateKey);
-        
-        sevenDayChartData.push({
-          timestamp: dataForDay ? dataForDay.dateObj : date, // Store Date object. If no data, use the iterated date.
-          t1: dataForDay ? dataForDay.t1 : null,
-          t2: dataForDay ? dataForDay.t2 : null,
-        });
-      }
+      // Convert map values to an array and sort by timestamp
+      const allUniqueDailyData = Array.from(dailyDataMap.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+      // Take the last 7 entries to ensure exactly 7 days are displayed
+      const sevenDayChartData = allUniqueDailyData.slice(-7);
 
       console.log("Final sevenDayChartData:", sevenDayChartData); // Debug log
       setHistoricalData(sevenDayChartData);
