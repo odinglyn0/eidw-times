@@ -270,9 +270,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               ) : (
                 <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
               )}
-              <p className="text-xs text-gray-500 mt-4">
-                This data is fetched from the 'departures' table in your Supabase database.
-              </p>
             </div>
           </>
         )}
