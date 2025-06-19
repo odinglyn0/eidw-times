@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours } from "date-fns";
-import { cn } from "@/lib/utils"; // Corrected this line
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
@@ -125,7 +125,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         .from("security_times")
         .select(`timestamp, t1, t2`) // Fetch both t1 and t2
         .gte("timestamp", sevenDaysAgo)
-        .order("timestamp", { ascending: true });
+        .order("timestamp", { ascending: true }); // Order by timestamp to get latest for a day
 
       if (historicalError) {
         console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
@@ -133,33 +133,38 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       }
       console.log(`Raw historical data for T${terminalId}:`, historical);
 
-      // Create a base array for the last 7 days, initialized with nulls
-      const today = new Date();
+      // Create a map to store the latest data for each day
+      const dailyDataMap = new Map<string, SecurityTimeData>();
+
+      // Populate the map with fetched data, ensuring only the latest entry for each day is kept
+      historical.forEach(item => {
+        const itemDate = new Date(item.timestamp);
+        const itemDateFormatted = format(itemDate, "EEE d"); // e.g., "Thu 19"
+        // Overwrite if a newer entry for the same day is found (due to order by timestamp)
+        dailyDataMap.set(itemDateFormatted, {
+          timestamp: itemDateFormatted,
+          t1: item.t1,
+          t2: item.t2,
+        });
+      });
+
+      // Create the final 7-day array, ensuring all 7 days are present and in order
       const sevenDayChartData: SecurityTimeData[] = [];
+      const today = new Date();
       for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago up to today
         const date = subDays(today, i);
+        const formattedDate = format(date, "EEE d");
+        
+        const dataForDay = dailyDataMap.get(formattedDate);
+        
         sevenDayChartData.push({
-          timestamp: format(date, "EEE d"), // e.g., "Thu 19"
-          t1: null,
-          t2: null,
+          timestamp: formattedDate,
+          t1: dataForDay ? dataForDay.t1 : null,
+          t2: dataForDay ? dataForDay.t2 : null,
         });
       }
 
-      // Populate the 7-day array with fetched data
-      historical.forEach(item => {
-        const itemDate = new Date(item.timestamp);
-        const itemDateFormatted = format(itemDate, "EEE d");
-        
-        // Find the corresponding day in our 7-day array
-        const dayIndex = sevenDayChartData.findIndex(d => d.timestamp === itemDateFormatted);
-        
-        if (dayIndex !== -1) {
-          // Update both t1 and t2 for the found day
-          sevenDayChartData[dayIndex].t1 = item.t1;
-          sevenDayChartData[dayIndex].t2 = item.t2;
-        }
-      });
-
+      console.log("Final sevenDayChartData:", sevenDayChartData); // Debug log
       setHistoricalData(sevenDayChartData);
 
     } catch (error) {
@@ -258,7 +263,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     {/* Color-coded lines */}
                     <Line
                       type="monotone"
-                      dataKey={historicalDataGreen.length > 0 ? "value" : undefined}
+                      dataKey="value" // Always use "value"
                       data={historicalDataGreen}
                       stroke="#4CAF50" // Green
                       strokeWidth={2}
@@ -266,7 +271,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey={historicalDataOrange.length > 0 ? "value" : undefined}
+                      dataKey="value" // Always use "value"
                       data={historicalDataOrange}
                       stroke="#FFC107" // Orange
                       strokeWidth={2}
@@ -274,7 +279,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey={historicalDataRed.length > 0 ? "value" : undefined}
+                      dataKey="value" // Always use "value"
                       data={historicalDataRed}
                       stroke="#F44336" // Red
                       strokeWidth={2}
