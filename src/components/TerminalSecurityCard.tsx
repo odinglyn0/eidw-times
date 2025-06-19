@@ -12,7 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours, startOfDay } from "date-fns"; // Added startOfDay
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -157,17 +157,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         }
       });
 
-      // Explicitly construct the array for the last 7 days
+      // Explicitly construct the array for the last 7 days, ensuring timestamps are at midnight
       const sevenDayChartData: SecurityTimeData[] = [];
-      const today = new Date();
+      const today = startOfDay(new Date()); // Start from midnight of today
 
       for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago (index 0) to today (index 6)
-        const dateForDay = subDays(today, i);
+        const dateForDay = startOfDay(subDays(today, i)); // Ensure each date is at midnight
         const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
         const dataForThisDay = dailyDataMap.get(formattedDateKey);
 
         sevenDayChartData.push({
-          timestamp: dateForDay, // Always use a valid Date object for the day
+          timestamp: dateForDay, // This will now be midnight for each day
           t1: dataForThisDay ? dataForThisDay.t1 : null,
           t2: dataForThisDay ? dataForThisDay.t2 : null,
         });
@@ -176,7 +176,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       // Sort the final array by timestamp to ensure correct chronological order for the chart
       sevenDayChartData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-      console.log("Final sevenDayChartData (after explicit construction):", sevenDayChartData);
+      console.log("Final sevenDayChartData (after explicit construction and midnight standardization):", sevenDayChartData);
       setHistoricalData(sevenDayChartData);
 
     } catch (error) {
