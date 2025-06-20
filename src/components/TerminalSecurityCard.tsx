@@ -174,18 +174,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
-  const historicalDataGreen = historicalDailyAverages.map(d => ({
-    ...d,
-    value: d.t1Average !== null && d.t1Average <= 15 ? d.t1Average : null
-  }));
-  const historicalDataOrange = historicalDailyAverages.map(d => ({
-    ...d,
-    value: d.t1Average !== null && d.t1Average > 15 && d.t1Average <= 30 ? d.t1Average : null
-  }));
-  const historicalDataRed = historicalDailyAverages.map(d => ({
-    ...d,
-    value: d.t1Average !== null && d.t1Average > 30 ? d.t1Average : null
-  }));
+  // Log the data right before rendering the chart
+  console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
@@ -248,28 +238,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       domain={[0, 60]}
                       ticks={[0, 15, 30, 45, 60]}
                     />
-                    <Tooltip />
+                    <Tooltip formatter={(value: number) => [`${value}m`, `T${terminalId} Avg`]} />
                     <Line
                       type="monotone"
-                      dataKey="t1Average"
-                      data={historicalDataGreen}
-                      stroke="#4CAF50"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="t1Average"
-                      data={historicalDataOrange}
-                      stroke="#FFC107"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="t1Average"
-                      data={historicalDataRed}
-                      stroke="#F44336"
+                      dataKey="t1Average" // Plot t1Average directly
+                      stroke="#4CAF50" // Use a single color for now
                       strokeWidth={2}
                       dot={false}
                     />
