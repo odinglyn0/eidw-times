@@ -271,9 +271,15 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       className={cn(
                         "flex flex-col items-center justify-center p-1 rounded-sm",
                         hourData.t1 === null ? "bg-gray-200 text-gray-500" :
-                        hourData.t1 <= 15 ? "bg-green-500 text-white" :
-                        hourData.t1 <= 30 ? "bg-orange-500 text-white" :
-                        "bg-red-500 text-white"
+                        hourData.t1 === 0 ? "bg-departure-green-dark text-white" :
+                        hourData.t1 === 1 ? "bg-departure-green-light text-white" :
+                        (hourData.t1 >= 2 && hourData.t1 <= 3) ? "bg-departure-yellow text-white" :
+                        (hourData.t1 >= 4 && hourData.t1 <= 5) ? "bg-departure-orange-yellow text-white" :
+                        (hourData.t1 >= 6 && hourData.t1 <= 10) ? "bg-departure-orange text-white" :
+                        (hourData.t1 >= 11 && hourData.t1 <= 20) ? "bg-departure-red-light text-white" :
+                        (hourData.t1 >= 21 && hourData.t1 <= 40) ? "bg-departure-red text-white" :
+                        (hourData.t1 >= 41 && hourData.t1 <= 60) ? "bg-departure-red-deep text-white" :
+                        "bg-black text-white" // For times > 60
                       )}
                     >
                       <span className="font-bold">{hourData.hour}h</span>
