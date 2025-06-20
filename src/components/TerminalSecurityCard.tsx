@@ -12,13 +12,13 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours, startOfDay } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
 interface SecurityTimeData {
-  formattedDate: string; // Now directly from backend
+  timestamp: Date; // Changed to Date object
   t1: number | null;
   t2: number | null;
 }
@@ -51,7 +51,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       console.log(`Fetching departure data for Terminal ${terminalId} from 'departures' table...`);
       const threeDaysAgo = subDays(new Date(), 3).toISOString();
       const { data, error } = await supabase
-        .from("departures")
+        .from("departures") // Fetching from the new 'departures' table
         .select("departure_datetime, departure_count")
         .eq("terminal_id", terminalId)
         .gte("departure_datetime", threeDaysAgo)
@@ -75,6 +75,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
           const itemDate = new Date(item.departure_datetime);
           if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
             const hour = getHours(itemDate);
+            // Assuming departure_count is for the specific hour
             hourlyCounts[hour] = item.departure_count;
           }
         });
@@ -101,6 +102,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     setRefreshing(true);
     try {
       console.log(`Fetching current data for Terminal ${terminalId}...`);
+      // Fetch current times
       const { data: currentData, error: currentError } = await supabase
         .from("security_times_current")
         .select(`t${terminalId}, last_updated`)
@@ -116,19 +118,26 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
       setCurrentTime(currentData[`t${terminalId}`]);
       setLastUpdated(currentData.last_updated);
 
-      console.log(`Invoking Edge Function 'get-security-data' for historical data...`);
-      const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
+      console.log(`Fetching historical data for Terminal ${terminalId}...`);
+      // Fetch historical data for the last 7 days
+      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+      const { data: historical, error: historicalError } = await supabase
+        .from("security_times")
+        .select(`timestamp, t${terminalId}`)
+        .gte("timestamp", sevenDaysAgo)
+        .order("timestamp", { ascending: true });
 
-      if (edgeFunctionError) {
-        console.error(`Edge Function 'get-security-data' error:`, edgeFunctionError);
-        throw edgeFunctionError;
+      if (historicalError) {
+        console.error(`Supabase historical data error for T${terminalId}:`, historicalError);
+        throw historicalError;
       }
+      console.log(`Historical data for T${terminalId}:`, historical);
 
-      // The Edge Function now returns the data directly in the desired format (oldest to newest, 7 unique days)
-      const processedHistoricalData: SecurityTimeData[] = historicalResponse as SecurityTimeData[];
-      console.log("Processed historical data from Edge Function (oldest to newest, 7 days):", processedHistoricalData);
-      
-      setHistoricalData(processedHistoricalData); // No more reversing here
+      const formattedHistoricalData = historical.map((item) => ({
+        timestamp: new Date(item.timestamp), // Store as Date object
+        [`t${terminalId}`]: item[`t${terminalId}`],
+      }));
+      setHistoricalData(formattedHistoricalData);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -147,13 +156,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     fetchDepartureData();
   }, [terminalId, fetchSecurityData, fetchDepartureData]);
 
-  // Add this log to inspect the state after it's set
-  useEffect(() => {
-    console.log("TerminalSecurityCard: Historical Data state after update:", historicalData);
-    console.log("TerminalSecurityCard: Historical Data state length after update:", historicalData.length);
-    historicalData.forEach(d => console.log("TerminalSecurityCard: Date in state:", d.formattedDate));
-  }, [historicalData]);
-
   const handleRefresh = () => {
     fetchSecurityData();
     fetchDepartureData();
@@ -162,20 +164,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
   const timeSinceLastUpdate = lastUpdated
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
     : null;
-
-  const lineDataKey = `t${terminalId}`;
-  const historicalDataGreen = historicalData.map(d => ({
-    ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] <= 15 ? d[lineDataKey] : null
-  }));
-  const historicalDataOrange = historicalData.map(d => ({
-    ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] > 15 && d[lineDataKey] <= 30 ? d[lineDataKey] : null
-  }));
-  const historicalDataRed = historicalData.map(d => ({
-    ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] > 30 ? d[lineDataKey] : null
-  }));
 
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
@@ -219,49 +207,28 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalData} key={JSON.stringify(historicalData)} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={true} />
+                  <LineChart data={historicalData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
-                      dataKey="formattedDate"
-                      type="category"
+                      dataKey="timestamp"
                       axisLine={false}
                       tickLine={false}
-                      interval={0} // Show all ticks
-                      tickCount={7} // Explicitly set tick count to 7
-                      tick={{ angle: 0, textAnchor: 'middle', fontSize: 10 }} // Explicitly set angle and textAnchor
-                      tickFormatter={(value: string) => format(new Date(value), "EEE").toUpperCase()}
-                      height={30} // Ensure enough space for labels
+                      tickFormatter={(value) => format(value, "MMM d")} // Format Date object for display
+                      interval="preserveStartEnd" // Helps prevent overlapping ticks
                     />
                     <YAxis
+                      domain={[0, 60]}
+                      ticks={[15, 30, 45, 60]}
                       tickFormatter={(value) => `${value}m`}
-                      width={50}
+                      width={40} // Increased width for Y-axis labels
                       axisLine={false}
                       tickLine={false}
-                      domain={[0, 60]} // Set domain from 0 to 60
-                      ticks={[0, 15, 30, 45, 60]} // Set specific ticks
                     />
                     <Tooltip />
                     <Line
                       type="monotone"
-                      dataKey="value"
-                      data={historicalDataGreen}
-                      stroke="#4CAF50"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      data={historicalDataOrange}
-                      stroke="#FFC107"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      data={historicalDataRed}
-                      stroke="#F44336"
+                      dataKey={`t${terminalId}`}
+                      stroke="#82ca9d"
                       strokeWidth={2}
                       dot={false}
                     />
