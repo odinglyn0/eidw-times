@@ -209,7 +209,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
 
-            <div className="mb-8 w-full">
+            <div className="mb-8 w-full"> {/* Added w-full here */}
               <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
@@ -220,10 +220,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      interval={0} // Force all ticks to show
-                      ticks={historicalData.map(d => d.formattedDate)} // Explicitly provide all 7 day ticks
                       tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }} // Rotate labels
-                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")} // Compact "dd/MM" format
+                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")} // Changed to "dd/MM"
                       height={40} // Increased height for rotated labels
                     />
                     <YAxis
