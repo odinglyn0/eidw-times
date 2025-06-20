@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { showError } from "@/utils/toast";
+import { showError } => "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -182,6 +182,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
+  // Calculate max value for Y-axis domain
+  const maxAverageTime = historicalDailyAverages.reduce((max, item) => {
+    return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
+  }, 0);
+  const yAxisDomainMax = maxAverageTime > 0 ? Math.ceil(maxAverageTime / 10) * 10 + 10 : 60; // Round up to nearest 10 and add buffer, or default to 60
+
   // Log the data right before rendering the chart
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
@@ -243,8 +249,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       width={50}
                       axisLine={false}
                       tickLine={false}
-                      domain={[0, 60]}
-                      ticks={[0, 15, 30, 45, 60]}
+                      domain={[0, yAxisDomainMax]}
+                      ticks={Array.from({ length: Math.floor(yAxisDomainMax / 10) + 1 }, (_, i) => i * 10)} // Generate ticks every 10 minutes
                     />
                     <Tooltip formatter={(value: number) => [`${value}m`, `T${terminalId} Avg`]} />
                     <Line
