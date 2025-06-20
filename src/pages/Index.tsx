@@ -103,7 +103,7 @@ const Index = () => {
               ).
             </p>
             <p className="text-sm">
-              You can easily proceed to your preferred terminal after clearing security.
+              You can easily proceed to your preferred terminal after clearing security, and T1 has the best shops 🤫!
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               Recommendation last updated{" "}
