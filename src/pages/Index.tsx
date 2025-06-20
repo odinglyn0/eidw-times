@@ -1,6 +1,5 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
 import DublinAirportLogo from "@/assets/Dublin_airport_logo.svg.png"; // Import the logo
-import { MadeWithDyad } from "@/components/made-with-dyad"; // Import MadeWithDyad component
 
 const Index = () => {
   return (
@@ -45,7 +44,6 @@ const Index = () => {
           Disclaimer: This is a personal project and is in no way affiliated with the DAA or Dublin Airport.
         </p>
       </div>
-      <MadeWithDyad />
     </div>
   );
 };
