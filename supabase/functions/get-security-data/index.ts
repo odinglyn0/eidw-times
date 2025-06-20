@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { format, subDays } from "https://esm.sh/date-fns@3.6.0";
+import { format, subDays, startOfDay, getHours, parseISO } from "https://esm.sh/date-fns@3.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +24,7 @@ serve(async (req) => {
     );
 
     const today = new Date();
-    const sevenDaysAgo = subDays(today, 6); // Get data for today and the past 6 days
+    const sevenDaysAgo = subDays(startOfDay(today), 6); // Start of day 7 days ago
 
     const { data, error } = await supabase
       .from("security_times")
@@ -42,33 +42,40 @@ serve(async (req) => {
 
     console.log("Raw data from security_times:", data);
 
-    // Generate a map of data for the last 7 days, keyed by formatted date
-    const dailyDataMap = new Map();
+    // Organize data by day and hour, taking the latest entry for each hour
+    const dailyHourlyDataMap = new Map<string, Map<number, { t1: number | null; t2: number | null }>>();
+
     data.forEach((item) => {
-      const dateKey = format(new Date(item.timestamp), "yyyy-MM-dd");
-      // For simplicity, taking the last recorded value for the day if multiple exist
-      dailyDataMap.set(dateKey, {
-        formattedDate: dateKey,
-        t1: item.t1,
-        t2: item.t2,
-      });
+      const itemDate = parseISO(item.timestamp);
+      const dateKey = format(itemDate, "yyyy-MM-dd");
+      const hour = getHours(itemDate);
+
+      if (!dailyHourlyDataMap.has(dateKey)) {
+        dailyHourlyDataMap.set(dateKey, new Map());
+      }
+      // Always store the latest entry for that hour
+      dailyHourlyDataMap.get(dateKey)?.set(hour, { t1: item.t1, t2: item.t2 });
     });
 
-    // Create a complete list of the last 7 days, filling in nulls for missing days
+    // Create a complete list of the last 7 days with 24 hourly slots
     const historicalData = [];
     for (let i = 6; i >= 0; i--) {
       const date = subDays(today, i);
       const dateKey = format(date, "yyyy-MM-dd");
-      historicalData.push(
-        dailyDataMap.get(dateKey) || {
-          formattedDate: dateKey,
-          t1: null,
-          t2: null,
-        },
-      );
+      const hourlyData = [];
+      const currentDayHourlyMap = dailyHourlyDataMap.get(dateKey) || new Map();
+
+      for (let hour = 0; hour < 24; hour++) {
+        hourlyData.push({
+          hour,
+          t1: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t1 : null,
+          t2: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t2 : null,
+        });
+      }
+      historicalData.push({ date: dateKey, hourlyData });
     }
 
-    console.log("Processed historical data (7 days, oldest to newest):", historicalData);
+    console.log("Processed historical data (7 days, oldest to newest, with hourly data):", historicalData);
 
     return new Response(JSON.stringify(historicalData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

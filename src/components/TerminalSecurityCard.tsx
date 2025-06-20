@@ -12,21 +12,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours, startOfDay } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 
-interface SecurityTimeData {
-  formattedDate: string; // Now directly from backend
+interface HourlySecurityData {
+  hour: number;
   t1: number | null;
   t2: number | null;
 }
 
-interface CurrentSecurityTimes {
-  t1: number | null;
-  t2: number | null;
-  last_updated: string | null;
+interface DailySecurityData {
+  date: string; // yyyy-MM-dd
+  hourlyData: HourlySecurityData[];
 }
 
 interface HourlyDepartureDisplayData {
@@ -41,7 +40,10 @@ interface TerminalSecurityCardProps {
 const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [historicalData, setHistoricalData] = useState<SecurityTimeData[]>([]);
+  const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
+    { date: string; t1Average: number | null }[]
+  >([]);
+  const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -124,19 +126,34 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         throw edgeFunctionError;
       }
 
-      // The Edge Function now returns the data directly in the desired format (oldest to newest, 7 unique days)
-      const processedHistoricalData: SecurityTimeData[] = historicalResponse as SecurityTimeData[];
-      console.log("Client: Processed historical data received from Edge Function (oldest to newest, 7 days):", processedHistoricalData);
-      console.log("Client: Length of historical data received:", processedHistoricalData.length);
+      const allHistoricalData: DailySecurityData[] = historicalResponse as DailySecurityData[];
+      console.log("Client: Processed historical data received from Edge Function:", allHistoricalData);
       
-      setHistoricalData(processedHistoricalData); // No more reversing here
+      // Calculate daily averages for the 7-day chart
+      const dailyAverages = allHistoricalData.map(dayData => {
+        const validTimes = dayData.hourlyData
+          .map(h => h[`t${terminalId}`])
+          .filter((t): t is number => t !== null);
+        const t1Average = validTimes.length > 0
+          ? Math.round(validTimes.reduce((sum, val) => sum + val, 0) / validTimes.length)
+          : null;
+        return { date: dayData.date, t1Average };
+      });
+      setHistoricalDailyAverages(dailyAverages);
+      console.log("Client: Calculated daily averages for chart:", dailyAverages);
+
+      // Get current day's hourly data (last element in the array)
+      const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
+      setCurrentDayHourlyData(todayHourlyData);
+      console.log("Client: Current day's hourly data:", todayHourlyData);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
       showError(`Failed to load data for Terminal ${terminalId}. Please check console for details.`);
       setCurrentTime(null);
       setLastUpdated(null);
-      setHistoricalData([]);
+      setHistoricalDailyAverages([]);
+      setCurrentDayHourlyData([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -154,21 +171,20 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
   };
 
   const timeSinceLastUpdate = lastUpdated
-    ? differenceInMinutes(new Date(), new Date(lastUpdated))
+    ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
-  const lineDataKey = `t${terminalId}`;
-  const historicalDataGreen = historicalData.map(d => ({
+  const historicalDataGreen = historicalDailyAverages.map(d => ({
     ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] <= 15 ? d[lineDataKey] : null
+    value: d.t1Average !== null && d.t1Average <= 15 ? d.t1Average : null
   }));
-  const historicalDataOrange = historicalData.map(d => ({
+  const historicalDataOrange = historicalDailyAverages.map(d => ({
     ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] > 15 && d[lineDataKey] <= 30 ? d[lineDataKey] : null
+    value: d.t1Average !== null && d.t1Average > 15 && d.t1Average <= 30 ? d.t1Average : null
   }));
-  const historicalDataRed = historicalData.map(d => ({
+  const historicalDataRed = historicalDailyAverages.map(d => ({
     ...d,
-    value: d[lineDataKey] !== null && d[lineDataKey] > 30 ? d[lineDataKey] : null
+    value: d.t1Average !== null && d.t1Average > 30 ? d.t1Average : null
   }));
 
   return (
@@ -209,20 +225,20 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
 
-            <div className="mb-8 w-full"> {/* Added w-full here */}
-              <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
-              {historicalData.length > 0 ? (
+            <div className="mb-8 w-full">
+              <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days (Daily Average)</h3>
+              {historicalDailyAverages.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalData} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                  <LineChart data={historicalDailyAverages} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
-                      dataKey="formattedDate"
+                      dataKey="date"
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }} // Rotate labels
-                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")} // Changed to "dd/MM"
-                      height={40} // Increased height for rotated labels
+                      tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }}
+                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")}
+                      height={40}
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
@@ -235,7 +251,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     <Tooltip />
                     <Line
                       type="monotone"
-                      dataKey="value"
+                      dataKey="t1Average"
                       data={historicalDataGreen}
                       stroke="#4CAF50"
                       strokeWidth={2}
@@ -243,7 +259,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey="value"
+                      dataKey="t1Average"
                       data={historicalDataOrange}
                       stroke="#FFC107"
                       strokeWidth={2}
@@ -251,7 +267,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                     />
                     <Line
                       type="monotone"
-                      dataKey="value"
+                      dataKey="t1Average"
                       data={historicalDataRed}
                       stroke="#F44336"
                       strokeWidth={2}
@@ -261,6 +277,31 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                 </ResponsiveContainer>
               ) : (
                 <p className="text-center text-muted-foreground text-sm">No historical data for last 7 days.</p>
+              )}
+            </div>
+
+            <div className="mb-8 w-full">
+              <h3 className="text-md font-semibold text-gray-700 mb-4">Today's Hourly Security Times</h3>
+              {currentDayHourlyData.length > 0 ? (
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-24 gap-1 text-xs">
+                  {currentDayHourlyData.map((hourData) => (
+                    <div
+                      key={hourData.hour}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-1 rounded-sm",
+                        hourData.t1 === null ? "bg-gray-200 text-gray-500" :
+                        hourData.t1 <= 15 ? "bg-green-500 text-white" :
+                        hourData.t1 <= 30 ? "bg-orange-500 text-white" :
+                        "bg-red-500 text-white"
+                      )}
+                    >
+                      <span className="font-bold">{hourData.hour}h</span>
+                      <span>{hourData.t1 !== null ? `${hourData.t1}m` : "N/A"}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm">No hourly data for today.</p>
               )}
             </div>
 
