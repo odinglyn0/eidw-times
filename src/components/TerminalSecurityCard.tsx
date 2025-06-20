@@ -82,9 +82,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         });
 
         const hoursWithColors = hourlyCounts.map(count => {
-          let colorClass = "bg-green-500";
-          if (count > 10 && count <= 15) colorClass = "bg-orange-500";
-          if (count > 15) colorClass = "bg-red-500";
+          let colorClass = "bg-gray-200"; // Default for no data or 0
+          if (count === 0) colorClass = "bg-departure-green-dark";
+          else if (count === 1) colorClass = "bg-departure-green-light";
+          else if (count >= 2 && count <= 3) colorClass = "bg-departure-yellow";
+          else if (count >= 4 && count <= 5) colorClass = "bg-departure-orange-yellow";
+          else if (count >= 6 && count <= 10) colorClass = "bg-departure-orange";
+          else if (count >= 11 && count <= 20) colorClass = "bg-departure-red-light";
+          else if (count >= 21 && count <= 40) colorClass = "bg-departure-red";
+          else if (count >= 41 && count <= 60) colorClass = "bg-departure-red-deep";
+          else if (count > 60) colorClass = "bg-black"; // For counts > 60, just in case
+
           return { value: count, colorClass };
         });
 

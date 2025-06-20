@@ -66,6 +66,14 @@ export default {
           DEFAULT: "#4CAF50", // A vibrant green for the border and main numbers
           dark: "#388E3C", // A slightly darker green for dark mode if needed
         },
+        "departure-green-dark": "#00B050",
+        "departure-green-light": "#92D050",
+        "departure-yellow": "#FFFF00",
+        "departure-orange-yellow": "#FFC000",
+        "departure-orange": "#FF8000",
+        "departure-red-light": "#FF4D4D",
+        "departure-red": "#FF0000",
+        "departure-red-deep": "#800000",
       },
       borderRadius: {
         lg: "var(--radius)",
