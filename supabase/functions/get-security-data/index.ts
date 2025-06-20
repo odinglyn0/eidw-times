@@ -39,6 +39,8 @@ serve(async (req) => {
       });
     }
 
+    console.log("Edge Function: Raw historical data fetched (count:", historical.length, "):", historical.map(d => ({ timestamp: d.timestamp, t1: d.t1, t2: d.t2 })));
+
     const dailyDataMap = new Map<string, { timestamp: Date; t1: number | null; t2: number | null }>();
 
     historical.forEach(item => {
@@ -59,6 +61,9 @@ serve(async (req) => {
         });
       }
     });
+    console.log("Edge Function: Daily data map size:", dailyDataMap.size);
+    dailyDataMap.forEach((value, key) => console.log(`  Map entry - ${key}: ${value.timestamp.toISOString()} (T1: ${value.t1}, T2: ${value.t2})`));
+
 
     const sevenDayChartData: { formattedDate: string; t1: number | null; t2: number | null }[] = [];
     const today = startOfDay(new Date());
@@ -68,6 +73,7 @@ serve(async (req) => {
       const dateForDay = startOfDay(subDays(today, i));
       const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
       const dataForThisDay = dailyDataMap.get(formattedDateKey);
+      console.log(`  Processing day ${i} days ago (${formattedDateKey}). Data found in map: ${!!dataForThisDay}`);
 
       sevenDayChartData.push({
         formattedDate: formattedDateKey,
@@ -79,7 +85,7 @@ serve(async (req) => {
     // Sort by date to ensure correct order for the chart (oldest to newest for "propagate from right")
     sevenDayChartData.sort((a, b) => new Date(a.formattedDate).getTime() - new Date(b.formattedDate).getTime());
 
-    console.log("Edge Function: Final 7-day chart data prepared:", sevenDayChartData);
+    console.log("Edge Function: Final 7-day chart data prepared (length:", sevenDayChartData.length, "):", sevenDayChartData);
 
     return new Response(JSON.stringify(sevenDayChartData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
