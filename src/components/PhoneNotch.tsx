@@ -41,7 +41,7 @@ const PhoneNotch: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // The notch should be collapsed only if it's marked as collapsed by scroll AND not currently hovered
+  // The notch should be collapsed if it's marked as collapsed by scroll AND not currently hovered
   const shouldBeCollapsed = isCollapsed && !isHovered;
 
   return (
