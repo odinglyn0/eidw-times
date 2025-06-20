@@ -35,9 +35,10 @@ interface HourlyDepartureDisplayData {
 
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
+  globalMaxTime?: number | null; // New prop for consistent scaling
 }
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -182,11 +183,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
-  // Calculate max value for Y-axis domain, rounding up to nearest 10, with a minimum of 20
-  const maxAverageTime = historicalDailyAverages.reduce((max, item) => {
-    return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
-  }, 0);
-  const yAxisDomainMax = Math.max(20, maxAverageTime > 0 ? Math.ceil(maxAverageTime / 10) * 10 : 0);
+  // Calculate max value for Y-axis domain, using globalMaxTime if provided
+  const yAxisDomainMax = globalMaxTime !== null && globalMaxTime !== undefined
+    ? Math.max(20, Math.ceil(globalMaxTime / 10) * 10) // Use global max, rounded up to nearest 10, min 20
+    : Math.max(20, historicalDailyAverages.reduce((max, item) => { // Fallback to local max if global not provided
+        return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
+      }, 0) > 0 ? Math.ceil(historicalDailyAverages.reduce((max, item) => {
+        return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
+      }, 0) / 10) * 10 : 0);
 
   // Log the data right before rendering the chart
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);

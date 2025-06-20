@@ -6,11 +6,24 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
 
+// Define interfaces for historical data structure received from Edge Function
+interface HourlySecurityData {
+  hour: number;
+  t1: number | null;
+  t2: number | null;
+}
+
+interface DailySecurityData {
+  date: string; // yyyy-MM-dd
+  hourlyData: HourlySecurityData[];
+}
+
 const Index = () => {
   const [t1CurrentTime, setT1CurrentTime] = useState<number | null>(null);
   const [t2CurrentTime, setT2CurrentTime] = useState<number | null>(null);
   const [recommendationLastUpdated, setRecommendationLastUpdated] = useState<string | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
+  const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
 
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
@@ -41,9 +54,36 @@ const Index = () => {
     }
   }, []);
 
+  const fetchGlobalSecurityData = useCallback(async () => {
+    try {
+      console.log(`Invoking Edge Function 'get-security-data' for global historical data...`);
+      const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
+
+      if (edgeFunctionError) {
+        console.error(`Edge Function 'get-security-data' error:`, edgeFunctionError);
+        throw edgeFunctionError;
+      }
+
+      const allHistoricalData: DailySecurityData[] = historicalResponse as DailySecurityData[];
+      let maxOverallTime = 0;
+      allHistoricalData.forEach(dayData => {
+        dayData.hourlyData.forEach(hourData => {
+          if (hourData.t1 !== null) maxOverallTime = Math.max(maxOverallTime, hourData.t1);
+          if (hourData.t2 !== null) maxOverallTime = Math.max(maxOverallTime, hourData.t2);
+        });
+      });
+      setGlobalMaxSecurityTime(maxOverallTime);
+      console.log("Client: Calculated global max security time:", maxOverallTime);
+    } catch (error) {
+      console.error("Error fetching global security data:", error);
+      setGlobalMaxSecurityTime(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRecommendationData();
-  }, [fetchRecommendationData]);
+    fetchGlobalSecurityData(); // Fetch global data on mount
+  }, [fetchRecommendationData, fetchGlobalSecurityData]);
 
   const recommendedTerminal = (() => {
     if (t1CurrentTime === null && t2CurrentTime === null) {
@@ -132,8 +172,8 @@ const Index = () => {
       </div>
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
-        <TerminalSecurityCard terminalId={1} />
-        <TerminalSecurityCard terminalId={2} />
+        <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} />
+        <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} />
       </div>
       <div className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4">
         <span>
