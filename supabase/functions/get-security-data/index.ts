@@ -23,12 +23,13 @@ serve(async (req) => {
       }
     );
 
-    const fourteenDaysAgo = subDays(new Date(), 14).toISOString(); // Fetch a bit more to ensure we have data for the last 7 days
+    // Fetch data for the last 14 days to ensure we have enough to pick the latest for each of the last 7.
+    const fourteenDaysAgo = subDays(new Date(), 14).toISOString(); 
     const { data: historical, error: historicalError } = await supabase
       .from("security_times")
       .select(`timestamp, t1, t2`)
       .gte("timestamp", fourteenDaysAgo)
-      .order("timestamp", { ascending: true });
+      .order("timestamp", { ascending: true }); // Order by timestamp to easily pick the latest
 
     if (historicalError) {
       console.error("Supabase historical data error:", historicalError);
@@ -62,7 +63,8 @@ serve(async (req) => {
     const sevenDayChartData: { formattedDate: string; t1: number | null; t2: number | null }[] = [];
     const today = startOfDay(new Date());
 
-    for (let i = 6; i >= 0; i--) {
+    // Populate data for the last 7 days, ensuring one entry per day
+    for (let i = 6; i >= 0; i--) { // Iterate from 6 days ago to today
       const dateForDay = startOfDay(subDays(today, i));
       const formattedDateKey = format(dateForDay, "yyyy-MM-dd");
       const dataForThisDay = dailyDataMap.get(formattedDateKey);
@@ -74,8 +76,10 @@ serve(async (req) => {
       });
     }
 
-    // Sort by date to ensure correct order for the chart
+    // Sort by date to ensure correct order for the chart (oldest to newest for "propagate from right")
     sevenDayChartData.sort((a, b) => new Date(a.formattedDate).getTime() - new Date(b.formattedDate).getTime());
+
+    console.log("Edge Function: Final 7-day chart data prepared:", sevenDayChartData);
 
     return new Response(JSON.stringify(sevenDayChartData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

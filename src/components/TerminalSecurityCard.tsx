@@ -124,10 +124,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
         throw edgeFunctionError;
       }
 
-      // The Edge Function returns the data directly in the desired format
+      // The Edge Function now returns the data directly in the desired format (oldest to newest, 7 unique days)
       const processedHistoricalData: SecurityTimeData[] = historicalResponse as SecurityTimeData[];
-      console.log("Processed historical data from Edge Function:", processedHistoricalData);
-      setHistoricalData(processedHistoricalData);
+      console.log("Processed historical data from Edge Function (oldest to newest, 7 days):", processedHistoricalData);
+      
+      setHistoricalData(processedHistoricalData); // No more reversing here
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -146,10 +147,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     fetchDepartureData();
   }, [terminalId, fetchSecurityData, fetchDepartureData]);
 
-  const handleRefresh = () => {
-    fetchSecurityData();
-    fetchDepartureData();
-  };
+  // Add this log to inspect the state after it's set
+  useEffect(() => {
+    console.log("TerminalSecurityCard: Historical Data state after update:", historicalData);
+    console.log("TerminalSecurityCard: Historical Data state length after update:", historicalData.length);
+    historicalData.forEach(d => console.log("TerminalSecurityCard: Date in state:", d.formattedDate));
+  }, [historicalData]);
+
 
   const timeSinceLastUpdate = lastUpdated
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
@@ -168,11 +172,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ...d,
     value: d[lineDataKey] !== null && d[lineDataKey] > 30 ? d[lineDataKey] : null
   }));
-
-  // Log historical data right before rendering the chart
-  console.log("Historical Data for Chart (before render):", historicalData);
-  console.log("Historical Data Length (before render):", historicalData.length);
-
 
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
