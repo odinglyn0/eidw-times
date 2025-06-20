@@ -195,6 +195,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   // Log the data right before rendering the chart
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
+  const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
+
   return (
     <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
       <CardHeader className="bg-custom-green p-4 text-white text-center relative">
@@ -307,8 +309,19 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               {departureData.length > 0 ? (
                 departureData.map((day, dayIndex) => (
                   <div key={dayIndex} className="mb-4 last:mb-0">
-                    <p className="text-xs font-medium text-gray-500 mb-2">{day.date}</p>
-                    <div className="grid grid-cols-12 gap-1">
+                    {/* Hourly Labels */}
+                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
+                      <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
+                      {hourLabels.map((label, i) => (
+                        <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* AM Row */}
+                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
+                      <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
                       {day.hours.slice(0, 12).map((hour, hourIndex) => (
                         <div
                           key={hourIndex}
@@ -321,7 +334,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         </div>
                       ))}
                     </div>
-                    <div className="grid grid-cols-12 gap-1 mt-1">
+
+                    {/* PM Row */}
+                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
+                      <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
                       {day.hours.slice(12, 24).map((hour, hourIndex) => (
                         <div
                           key={hourIndex + 12}
@@ -334,6 +350,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         </div>
                       ))}
                     </div>
+
+                    <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
                   </div>
                 ))
               ) : (
