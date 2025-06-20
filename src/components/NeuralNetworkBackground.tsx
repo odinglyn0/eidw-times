@@ -16,11 +16,8 @@ const NeuralNetworkBackground: React.FC = () => {
   const planeImageRef = useRef<HTMLImageElement | null>(null); // Ref to store the loaded SVG image
 
   const planeSize = 12; // Base size for the plane symbol (will be scaled to 2x this)
-  const planeSpacing = 60; // Pixels between the center of each plane in the grid
-  const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Changed to a vibrant green for visibility
-
-  // SVG content as a Data URL
-  const planeSvgDataUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93My5vcmcvMjAwMC9zdmciPgo8cGF0aCBkPSJNMjIgMTYuOTk5OUwxMiAxMS45OTk5TDIgMTYuOTk5OVYxOS45OTk5TDEyIDE0Ljk5OTlMMjIgMTkuOTk5OVYxNi45OTk5Wk0yMiA2Ljk5OTlMMTIgMS45OTk5TDIgNi45OTk5VjkuOTk5OUwxMiA0Ljk5OTlMMjIgOS45OTk5VjYuOTk5OVoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPgo8L3N2Zz4=';
+  const planeSpacing = 40; // Pixels between the center of each plane in the grid (reduced for more density)
+  const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Vibrant green for visibility
 
   const initNodes = useCallback((width: number, height: number) => {
     nodesRef.current = [];
@@ -67,7 +64,6 @@ const NeuralNetworkBackground: React.FC = () => {
       if (mousePos) {
         // The SVG is designed with its "nose" pointing right (0 degrees).
         // Math.atan2 gives angle relative to positive x-axis.
-        // So, if the mouse is to the right, angle is 0. If up, angle is -PI/2.
         angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x);
       }
 
@@ -94,9 +90,9 @@ const NeuralNetworkBackground: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Load the SVG image
+    // Load the SVG image from the public folder
     const img = new Image();
-    img.src = planeSvgDataUrl;
+    img.src = "/images/plane.svg"; // Correct path to the SVG file
     img.onload = () => {
       planeImageRef.current = img;
       // Once image is loaded, re-draw to ensure it appears
@@ -106,7 +102,7 @@ const NeuralNetworkBackground: React.FC = () => {
       animationFrameId.current = requestAnimationFrame(draw);
     };
     img.onerror = (err) => {
-      console.error("Failed to load plane SVG image:", err);
+      console.error("Failed to load plane SVG image from /images/plane.svg:", err);
     };
 
     const resizeCanvas = () => {
@@ -132,7 +128,7 @@ const NeuralNetworkBackground: React.FC = () => {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [draw, initNodes, planeSvgDataUrl]); // Added planeSvgDataUrl to dependencies
+  }, [draw, initNodes]); // Removed planeSvgDataUrl from dependencies as it's no longer used
 
   return (
     <canvas
