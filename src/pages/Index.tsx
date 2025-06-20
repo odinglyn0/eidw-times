@@ -1,10 +1,10 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
-import DublinAirportLogo from "@/assets/Dublin_airport_logo.svg.png";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
+import PhoneNotch from "@/components/PhoneNotch"; // Import the new PhoneNotch component
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -112,14 +112,8 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="text-center mb-8">
-        <img
-          src={DublinAirportLogo}
-          alt="Dublin Airport Logo"
-          className="mx-auto h-16 w-auto"
-        />
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20"> {/* Added pt-20 to push content down */}
+      <PhoneNotch /> {/* Add the PhoneNotch component here */}
 
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation ? (
