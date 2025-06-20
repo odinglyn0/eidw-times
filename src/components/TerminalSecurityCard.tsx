@@ -154,6 +154,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     historicalData.forEach(d => console.log("TerminalSecurityCard: Date in state:", d.formattedDate));
   }, [historicalData]);
 
+  const handleRefresh = () => {
+    fetchSecurityData();
+    fetchDepartureData();
+  };
 
   const timeSinceLastUpdate = lastUpdated
     ? differenceInMinutes(new Date(), new Date(lastUpdated))
