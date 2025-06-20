@@ -222,9 +222,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                       tickLine={false}
                       interval={0} // Show all ticks if space allows
                       ticks={historicalData.map(d => d.formattedDate)} // Explicitly provide ticks for 7 days
-                      tick={{ angle: 0, textAnchor: 'middle', fontSize: 10 }}
-                      tickFormatter={(value: string) => format(new Date(value), "EE").toUpperCase()} // Changed to "EE" for two-letter day
-                      height={30} // Slightly increased height
+                      tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }} // Rotated labels
+                      tickFormatter={(value: string) => format(new Date(value), "EE").toUpperCase()}
+                      height={30}
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
