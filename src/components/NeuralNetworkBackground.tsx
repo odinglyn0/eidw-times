@@ -3,9 +3,9 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 interface Node {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  radius: number;
+  vx: number; // Will be 0 for static planes
+  vy: number; // Will be 0 for static planes
+  radius: number; // Used for scaling the plane symbol
 }
 
 const NeuralNetworkBackground: React.FC = () => {
@@ -14,24 +14,35 @@ const NeuralNetworkBackground: React.FC = () => {
   const nodesRef = useRef<Node[]>([]);
   const animationFrameId = useRef<number | null>(null);
 
-  const numNodes = 100;
-  const nodeSpeed = 0.1;
-  const planeSize = 8; // Size of the plane (e.g., length of the triangle)
+  const planeSize = 8; // Base size for the plane symbol
+  const planeSpacing = 60; // Pixels between the center of each plane in the grid
   const nodeColor = 'rgba(150, 150, 150, 0.8)'; // Color for the planes
 
   const initNodes = useCallback((width: number, height: number) => {
-    nodesRef.current = Array.from({ length: numNodes }).map(() => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * nodeSpeed,
-      vy: (Math.random() - 0.5) * nodeSpeed,
-      radius: planeSize, // Using planeSize as radius for consistency
-    }));
+    nodesRef.current = [];
+    const numCols = Math.floor(width / planeSpacing);
+    const numRows = Math.floor(height / planeSpacing);
+
+    // Calculate offset to center the grid
+    const offsetX = (width - numCols * planeSpacing) / 2 + planeSpacing / 2;
+    const offsetY = (height - numRows * planeSpacing) / 2 + planeSpacing / 2;
+
+    for (let row = 0; row < numRows; row++) {
+      for (let col = 0; col < numCols; col++) {
+        nodesRef.current.push({
+          x: col * planeSpacing + offsetX,
+          y: row * planeSpacing + offsetY,
+          vx: 0, // Planes are static, no velocity
+          vy: 0, // Planes are static, no velocity
+          radius: planeSize,
+        });
+      }
+    }
     // Initialize mouse position to center if not already set
     if (mousePos === null) {
       setMousePos({ x: width / 2, y: height / 2 });
     }
-  }, [numNodes, nodeSpeed, planeSize, mousePos]);
+  }, [planeSize, planeSpacing, mousePos]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -44,14 +55,11 @@ const NeuralNetworkBackground: React.FC = () => {
 
     ctx.fillStyle = nodeColor;
 
-    // Update and draw nodes (planes)
+    // Draw nodes (planes)
     nodesRef.current.forEach(node => {
-      node.x += node.vx;
-      node.y += node.vy;
-
-      // Bounce off walls
-      if (node.x < 0 || node.x > width) node.vx *= -1;
-      if (node.y < 0 || node.y > height) node.vy *= -1;
+      // Planes are static, no position update needed here
+      // node.x += node.vx;
+      // node.y += node.vy;
 
       // Calculate angle to mouse position
       let angle = 0;
@@ -63,12 +71,32 @@ const NeuralNetworkBackground: React.FC = () => {
       ctx.translate(node.x, node.y); // Move origin to node's position
       ctx.rotate(angle); // Rotate the canvas
 
-      // Draw a simple triangle representing a plane, pointing right by default
+      // Draw a stylized plane shape (top-down view)
       ctx.beginPath();
-      ctx.moveTo(node.radius, 0); // Nose
-      ctx.lineTo(-node.radius * 0.6, -node.radius * 0.6); // Left wing
-      ctx.lineTo(-node.radius * 0.4, 0); // Tail
-      ctx.lineTo(-node.radius * 0.6, node.radius * 0.6); // Right wing
+      // Nose
+      ctx.moveTo(node.radius * 1.5, 0);
+      // Body to front wings
+      ctx.lineTo(node.radius * 0.5, -node.radius * 0.2);
+      // Left wing tip
+      ctx.lineTo(node.radius * 0.2, -node.radius * 1.0);
+      // Left wing inner
+      ctx.lineTo(node.radius * 0.0, -node.radius * 0.2);
+      // Body to rear wings
+      ctx.lineTo(-node.radius * 0.8, -node.radius * 0.2);
+      // Tail left
+      ctx.lineTo(-node.radius * 1.2, -node.radius * 0.1);
+      // Tail tip
+      ctx.lineTo(-node.radius * 1.5, 0);
+      // Tail right
+      ctx.lineTo(-node.radius * 1.2, node.radius * 0.1);
+      // Body to rear wings (right side)
+      ctx.lineTo(-node.radius * 0.8, node.radius * 0.2);
+      // Right wing inner
+      ctx.lineTo(node.radius * 0.0, node.radius * 0.2);
+      // Right wing tip
+      ctx.lineTo(node.radius * 0.2, node.radius * 1.0);
+      // Body to front wings (right side)
+      ctx.lineTo(node.radius * 0.5, node.radius * 0.2);
       ctx.closePath();
       ctx.fill();
 
@@ -76,7 +104,7 @@ const NeuralNetworkBackground: React.FC = () => {
     });
 
     animationFrameId.current = requestAnimationFrame(draw);
-  }, [numNodes, nodeColor, mousePos]);
+  }, [nodeColor, mousePos, planeSize, planeSpacing]); // Added planeSize and planeSpacing to dependencies
 
   useEffect(() => {
     const canvas = canvasRef.current;
