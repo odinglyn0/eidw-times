@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { showError } from "@/utils/toast"; // Corrected this line
+import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -182,11 +182,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
     ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
-  // Calculate max value for Y-axis domain
+  // Calculate max value for Y-axis domain, rounding up to nearest 10, with a minimum of 20
   const maxAverageTime = historicalDailyAverages.reduce((max, item) => {
     return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
   }, 0);
-  const yAxisDomainMax = maxAverageTime > 0 ? Math.ceil(maxAverageTime / 10) * 10 + 10 : 60; // Round up to nearest 10 and add buffer, or default to 60
+  const yAxisDomainMax = Math.max(20, maxAverageTime > 0 ? Math.ceil(maxAverageTime / 10) * 10 : 0);
 
   // Log the data right before rendering the chart
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
