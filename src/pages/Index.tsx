@@ -45,12 +45,27 @@ const Index = () => {
     fetchRecommendationData();
   }, [fetchRecommendationData]);
 
-  const recommendedTerminal =
-    t1CurrentTime !== null && t2CurrentTime !== null
-      ? t1CurrentTime <= t2CurrentTime
-        ? { id: 1, time: t1CurrentTime }
-        : { id: 2, time: t2CurrentTime }
-      : null;
+  const recommendedTerminal = (() => {
+    if (t1CurrentTime === null && t2CurrentTime === null) {
+      return null;
+    }
+    if (t1CurrentTime !== null && t2CurrentTime === null) {
+      return { id: 1, time: t1CurrentTime };
+    }
+    if (t1CurrentTime === null && t2CurrentTime !== null) {
+      return { id: 2, time: t2CurrentTime };
+    }
+    if (t1CurrentTime !== null && t2CurrentTime !== null) {
+      if (t1CurrentTime < t2CurrentTime) {
+        return { id: 1, time: t1CurrentTime };
+      } else if (t2CurrentTime < t1CurrentTime) {
+        return { id: 2, time: t2CurrentTime };
+      } else {
+        return { id: "either", time: t1CurrentTime }; // Both are equal
+      }
+    }
+    return null;
+  })();
 
   const timeSinceRecommendationUpdate = recommendationLastUpdated
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
@@ -77,7 +92,9 @@ const Index = () => {
             <p className="text-lg font-semibold mb-2">
               💡 We recommend using{" "}
               <span className="font-bold text-blue-900 dark:text-blue-100">
-                Terminal {recommendedTerminal.id}'s security
+                {recommendedTerminal.id === "either"
+                  ? "either Terminal's security"
+                  : `Terminal ${recommendedTerminal.id}'s security`}
               </span>{" "}
               as it is currently the quickest (
               <span className="font-bold text-blue-900 dark:text-blue-100">
