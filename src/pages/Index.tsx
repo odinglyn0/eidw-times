@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
-import PhoneNotch from "@/components/PhoneNotch"; // Import the new PhoneNotch component
+import PhoneNotch from "@/components/PhoneNotch";
+import BottomNotch from "@/components/BottomNotch"; // Import the new BottomNotch component
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -112,8 +113,9 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20"> {/* Added pt-20 to push content down */}
-      <PhoneNotch /> {/* Add the PhoneNotch component here */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20 pb-20"> {/* Adjusted padding-bottom */}
+      <PhoneNotch />
+      <BottomNotch /> {/* Add the BottomNotch component here */}
 
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation ? (
@@ -168,35 +170,6 @@ const Index = () => {
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
         <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} />
         <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} />
-      </div>
-      <div className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4">
-        <span>
-          Made with ❤️ from{" "}
-          <a
-            href="https://odinglynn.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
-          >
-            Odin Glynn Photography
-          </a>
-        </span>
-        <span>
-          🔥 Carrying on the legacy from{" "}
-          <a
-            href="https://www.reddit.com/r/ireland/comments/utoxj2/a_friend_of_mine_made_a_website_that_pulls_the/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
-          >
-            this project
-          </a>
-        </span>
-      </div>
-      <div className="mt-4 text-center text-gray-500 dark:text-gray-400 text-xs">
-        <p>
-          Disclaimer: This is a personal project and is in no way affiliated with the DAA or Dublin Airport.
-        </p>
       </div>
     </div>
   );
