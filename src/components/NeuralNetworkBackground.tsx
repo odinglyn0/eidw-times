@@ -59,12 +59,13 @@ const NeuralNetworkBackground: React.FC = () => {
 
     // Draw nodes (planes)
     nodesRef.current.forEach(node => {
-      // Calculate angle to mouse position
+      // Calculate angle from node to mouse position
       let angle = 0;
       if (mousePos) {
-        // The SVG is designed with its "nose" pointing right (0 degrees).
         // Math.atan2 gives angle relative to positive x-axis.
-        angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x);
+        // The SVG's "top" is initially pointing along the negative Y-axis.
+        // So, we add Math.PI / 2 to align its "top" with the calculated angle.
+        angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x) + Math.PI / 2;
       }
 
       ctx.save(); // Save the current canvas state
@@ -128,7 +129,7 @@ const NeuralNetworkBackground: React.FC = () => {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [draw, initNodes]); // Removed planeSvgDataUrl from dependencies as it's no longer used
+  }, [draw, initNodes]);
 
   return (
     <canvas
