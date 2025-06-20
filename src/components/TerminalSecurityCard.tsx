@@ -48,19 +48,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const getDepartureTextColorClass = (bgColorClass: string) => {
-    switch (bgColorClass) {
-      case "bg-departure-green-light":
-      case "bg-departure-yellow":
-      case "bg-departure-orange-yellow":
-      case "bg-departure-orange":
-      case "bg-departure-red-light":
-        return "text-black";
-      default:
-        return "text-white";
-    }
-  };
-
   const fetchDepartureData = useCallback(async () => {
     try {
       console.log(`Fetching departure data for Terminal ${terminalId} from 'departures' table...`);
@@ -310,9 +297,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                         <div
                           key={hourIndex}
                           className={cn(
-                            "w-6 h-6 flex items-center justify-center text-xs font-bold rounded-sm",
-                            hour.colorClass,
-                            getDepartureTextColorClass(hour.colorClass) // Apply dynamic text color
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
                           )}
                         >
                           {hour.value}
@@ -324,9 +310,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
                         <div
                           key={hourIndex + 12}
                           className={cn(
-                            "w-6 h-6 flex items-center justify-center text-xs font-bold rounded-sm",
-                            hour.colorClass,
-                            getDepartureTextColorClass(hour.colorClass) // Apply dynamic text color
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
                           )}
                         >
                           {hour.value}
