@@ -17,7 +17,7 @@ const NeuralNetworkBackground: React.FC = () => {
 
   const planeSize = 12; // Base size for the plane symbol (will be scaled to 2x this)
   const planeSpacing = 60; // Pixels between the center of each plane in the grid
-  const nodeColor = 'rgba(150, 150, 150, 0.8)'; // Color for the planes (applied via fill="currentColor" in SVG)
+  const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Changed to a vibrant green for visibility
 
   // SVG content as a Data URL
   const planeSvgDataUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93My5vcmcvMjAwMC9zdmciPgo8cGF0aCBkPSJNMjIgMTYuOTk5OUwxMiAxMS45OTk5TDIgMTYuOTk5OVYxOS45OTk5TDEyIDE0Ljk5OTlMMjIgMTkuOTk5OVYxNi45OTk5Wk0yMiA2Ljk5OTlMMTIgMS45OTk5TDIgNi45OTk5VjkuOTk5OUwxMiA0Ljk5OTlMMjIgOS45OTk5VjYuOTk5OVoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPgo8L3N2Zz4=';
@@ -65,18 +65,9 @@ const NeuralNetworkBackground: React.FC = () => {
       // Calculate angle to mouse position
       let angle = 0;
       if (mousePos) {
-        // Adjust angle by -Math.PI / 2 to make the plane point upwards initially
-        // The SVG is drawn horizontally, so we want it to point towards the cursor
-        // The SVG is drawn with its "nose" pointing right (0 degrees).
-        // If we want it to point towards the mouse, we calculate the angle directly.
         // The SVG is designed with its "nose" pointing right (0 degrees).
         // Math.atan2 gives angle relative to positive x-axis.
         // So, if the mouse is to the right, angle is 0. If up, angle is -PI/2.
-        // The SVG has two planes, one above the other. The top one points right.
-        // Let's assume we want the top plane to point towards the cursor.
-        // The SVG itself is oriented horizontally.
-        // If the SVG's default orientation is horizontal (pointing right),
-        // and we want it to point towards the mouse, Math.atan2 is correct.
         angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x);
       }
 
