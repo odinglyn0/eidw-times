@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { showError } => "@/utils/toast";
+import { showError } from "@/utils/toast"; // Corrected this line
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
