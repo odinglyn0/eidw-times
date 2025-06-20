@@ -113,10 +113,9 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20 pb-20"> {/* Adjusted padding-bottom */}
+    <div className="min-h-screen flex flex-col items-center p-4 pt-20"> {/* Removed pb-20 */}
       <PhoneNotch />
-      <BottomNotch /> {/* Add the BottomNotch component here */}
-
+      
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation ? (
           <div className="flex items-center justify-center py-4">
@@ -171,6 +170,7 @@ const Index = () => {
         <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} />
         <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} />
       </div>
+      <BottomNotch /> {/* Moved BottomNotch here to be part of the scrollable content */}
     </div>
   );
 };
