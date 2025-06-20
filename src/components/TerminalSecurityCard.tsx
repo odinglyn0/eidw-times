@@ -209,22 +209,20 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId 
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
 
-            <div className="mb-8">
+            <div className="mb-8 w-full"> {/* Added w-full here */}
               <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days</h3>
               {historicalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalData} key={JSON.stringify(historicalData)} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                  <LineChart data={historicalData} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} />
                     <XAxis
                       dataKey="formattedDate"
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      interval={0} // Show all ticks if space allows
-                      ticks={historicalData.map(d => d.formattedDate)} // Explicitly provide ticks for 7 days
-                      tick={{ angle: 0, textAnchor: 'middle', fontSize: 10 }}
-                      tickFormatter={(value: string) => format(new Date(value), "EE").toUpperCase()} // Changed to "EE" for two-letter day
-                      height={30} // Slightly increased height
+                      tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }} // Rotate labels
+                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")} // Changed to "dd/MM"
+                      height={40} // Increased height for rotated labels
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
