@@ -8,9 +8,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getCookieConsent, setCookieConsent } from '@/lib/cookies';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useTheme } from "next-themes"; // Import useTheme
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme(); // Use useTheme hook
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30); // Default to 30 seconds
   const [hasCookieConsent, setHasCookieConsent] = useState(false);
@@ -59,6 +61,14 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleDarkModeToggle = (checked: boolean) => {
+    setTheme(checked ? "dark" : "light");
+    toast({
+      title: "Theme updated",
+      description: `Dark mode is now ${checked ? "enabled" : "disabled"}.`,
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md">
@@ -72,6 +82,17 @@ const Settings: React.FC = () => {
             <CardDescription>Manage your application preferences.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dark-mode" className="text-base">
+                Enable Dark Mode
+              </Label>
+              <Switch
+                id="dark-mode"
+                checked={theme === "dark"}
+                onCheckedChange={handleDarkModeToggle}
+              />
+            </div>
+
             <div className="flex items-center justify-between">
               <Label htmlFor="auto-refresh" className="text-base">
                 Enable Auto-Refresh
