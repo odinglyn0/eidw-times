@@ -28,12 +28,12 @@ interface FeatureRequestFormProps {
 
 const formSchema = z.object({
   name: z.string().max(100, "Name must be 100 characters or less").optional(),
-  email: z.string().email("Invalid email address").max(100, "Email must be 100 characters or less").optional(),
+  email: z.string().max(100, "Email must be 100 characters or less").optional(), // Removed .email() here
   details: z.string().min(10, "Details must be at least 10 characters.").max(1000, "Details must be 1000 characters or less."),
   isNameAnonymous: z.boolean().default(false),
   isEmailAnonymous: z.boolean().default(false),
 }).superRefine((data, ctx) => {
-  // If not anonymous, name is required
+  // If not anonymous, name is required and must not be empty
   if (!data.isNameAnonymous && (!data.name || data.name.trim() === "")) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -41,13 +41,23 @@ const formSchema = z.object({
       path: ["name"],
     });
   }
-  // If not anonymous, email is required
-  if (!data.isEmailAnonymous && (!data.email || data.email.trim() === "")) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Email is required if not anonymous.",
-      path: ["email"],
-    });
+
+  // If not anonymous, email is required and must be a valid email
+  if (!data.isEmailAnonymous) {
+    if (!data.email || data.email.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email is required if not anonymous.",
+        path: ["email"],
+      });
+    } else if (!z.string().email().safeParse(data.email).success) {
+      // Explicitly validate email format here only if not anonymous and not empty
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid email address.",
+        path: ["email"],
+      });
+    }
   }
 });
 
