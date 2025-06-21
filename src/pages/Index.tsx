@@ -163,20 +163,20 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center px-4 pt-16">
       <PhoneNotch />
       
-      {/* Settings icon, fixed to top-right of the viewport */}
-      <Link to="/settings" className="fixed top-4 right-4 z-50">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
-        >
-          <SettingsIcon className="h-5 w-5" />
-          <span className="sr-only">Settings</span>
-        </Button>
-      </Link>
-
       {/* Main content starts here, with padding to clear the PhoneNotch */}
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
+        {/* Settings icon, now absolute within this div, next to refresh button */}
+        <Link to="/settings" className="absolute top-2 right-12 z-10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
+          >
+            <SettingsIcon className="h-5 w-5" />
+            <span className="sr-only">Settings</span>
+          </Button>
+        </Link>
+
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
