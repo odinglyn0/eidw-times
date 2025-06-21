@@ -99,20 +99,18 @@ const NeuralNetworkBackground: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Load the SVG image from the public folder
-    const img = new Image();
-    img.src = "/images/plane.svg"; // Correct path to the SVG file
-    img.onload = () => {
-      planeImageRef.current = img;
-      // Once image is loaded, re-draw to ensure it appears
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-      animationFrameId.current = requestAnimationFrame(draw);
-    };
-    img.onerror = (err) => {
-      console.error("Failed to load plane SVG image from /images/plane.svg:", err);
-    };
+    // Load the SVG image only once when the component mounts
+    if (!planeImageRef.current) {
+      const img = new Image();
+      img.src = "/images/plane.svg"; // Correct path to the SVG file
+      img.onload = () => {
+        planeImageRef.current = img;
+        // No need to explicitly requestAnimationFrame here, as the main loop will pick it up
+      };
+      img.onerror = (err) => {
+        console.error("Failed to load plane SVG image from /images/plane.svg:", err);
+      };
+    }
 
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
@@ -128,16 +126,20 @@ const NeuralNetworkBackground: React.FC = () => {
     window.addEventListener('mousemove', handleMouseMove);
     resizeCanvas(); // Initial resize and node initialization
 
-    animationFrameId.current = requestAnimationFrame(draw);
+    // Start animation frame loop if not already running
+    if (animationFrameId.current === null) {
+      animationFrameId.current = requestAnimationFrame(draw);
+    }
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null; // Reset the ref
       }
     };
-  }, [draw, initNodes]);
+  }, [draw, initNodes]); // Dependencies: draw, initNodes
 
   return (
     <canvas
