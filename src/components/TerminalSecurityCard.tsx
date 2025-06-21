@@ -279,27 +279,34 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               <h3 className="text-md font-semibold text-gray-700 mb-4">Today's Hourly Security Times</h3>
               {currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-24 gap-1 text-xs">
-                  {currentDayHourlyData.map((hourData) => (
-                    <div
-                      key={hourData.hour}
-                      className={cn(
-                        "flex flex-col items-center justify-center p-1 rounded-sm",
-                        hourData.t1 === null ? "bg-gray-200 text-gray-500" :
-                        hourData.t1 === 0 ? "bg-departure-green-dark text-white" :
-                        hourData.t1 === 1 ? "bg-departure-green-light text-white" :
-                        (hourData.t1 >= 2 && hourData.t1 <= 3) ? "bg-departure-yellow text-white" :
-                        (hourData.t1 >= 4 && hourData.t1 <= 5) ? "bg-departure-orange-yellow text-white" :
-                        (hourData.t1 >= 6 && hourData.t1 <= 10) ? "bg-departure-orange text-white" :
-                        (hourData.t1 >= 11 && hourData.t1 <= 20) ? "bg-departure-red-light text-white" :
-                        (hourData.t1 >= 21 && hourData.t1 <= 40) ? "bg-departure-red text-white" :
-                        (hourData.t1 >= 41 && hourData.t1 <= 60) ? "bg-departure-red-deep text-white" :
-                        "bg-black text-white" // For times > 60
-                      )}
-                    >
-                      <span className="font-bold">{hourData.hour}h</span>
-                      <span>{hourData.t1 !== null ? `${hourData.t1}m` : "N/A"}</span>
-                    </div>
-                  ))}
+                  {currentDayHourlyData.map((hourData) => {
+                    let bgColorClass = "bg-gray-200"; // Default for N/A
+                    if (hourData[`t${terminalId}`] !== null) {
+                      const time = hourData[`t${terminalId}`]!;
+                      if (time === 0) bgColorClass = "bg-departure-green-dark";
+                      else if (time === 1) bgColorClass = "bg-departure-green-light";
+                      else if (time >= 2 && time <= 3) bgColorClass = "bg-departure-yellow";
+                      else if (time >= 4 && time <= 5) bgColorClass = "bg-departure-orange-yellow";
+                      else if (time >= 6 && time <= 10) bgColorClass = "bg-departure-orange";
+                      else if (time >= 11 && time <= 20) bgColorClass = "bg-departure-red-light";
+                      else if (time >= 21 && time <= 40) bgColorClass = "bg-departure-red";
+                      else if (time >= 41 && time <= 60) bgColorClass = "bg-departure-red-deep";
+                      else if (time > 60) bgColorClass = "bg-black";
+                    }
+
+                    return (
+                      <div
+                        key={hourData.hour}
+                        className={cn(
+                          "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold",
+                          bgColorClass
+                        )}
+                      >
+                        <span>{hourData.hour}h</span>
+                        <span>{hourData[`t${terminalId}`] !== null ? `${hourData[`t${terminalId}`]}m` : "N/A"}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground text-sm">No hourly data for today.</p>
