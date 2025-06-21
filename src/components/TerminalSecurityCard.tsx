@@ -38,6 +38,11 @@ interface DailySecurityData {
   hourlyData: HourlySecurityData[];
 }
 
+interface GranularSecurityData {
+  timestamp: string;
+  time: number | null;
+}
+
 interface HourlyDepartureDisplayData {
   date: string; // e.g., "TODAY", "MON, JUL 1"
   hours: { value: number; colorClass: string }[]; // 24 entries for each hour
@@ -58,6 +63,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     { date: string; t1Average: number | null }[]
   >([]);
   const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
+  const [hourlyGranularData, setHourlyGranularData] = useState<Map<number, GranularSecurityData[]>>(new Map());
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
@@ -164,7 +170,29 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       // Get current day's hourly data (last element in the array)
       const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
       setCurrentDayHourlyData(todayHourlyData);
-      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData); // ADDED LOG HERE
+      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData);
+
+      // Fetch granular data for each hour of the current day
+      const granularDataMap = new Map<number, GranularSecurityData[]>();
+      const fetchPromises = todayHourlyData.map(async (hourData) => {
+          const targetTimestamp = `${format(new Date(), "yyyy-MM-dd")}T${String(hourData.hour).padStart(2, '0')}:00:00Z`;
+          try {
+              const { data, error: granularEdgeFunctionError } = await supabase.functions.invoke('get-hourly-interval-security-data', {
+                  body: JSON.stringify({ terminalId, targetTimestamp }),
+              });
+              if (granularEdgeFunctionError) {
+                  console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hourData.hour}:`, granularEdgeFunctionError);
+                  granularDataMap.set(hourData.hour, []);
+              } else {
+                  granularDataMap.set(hourData.hour, data as GranularSecurityData[]);
+              }
+          } catch (err) {
+              console.error(`Error fetching granular data for T${terminalId} hour ${hourData.hour}:`, err);
+              granularDataMap.set(hourData.hour, []);
+          }
+      });
+      await Promise.all(fetchPromises);
+      setHourlyGranularData(granularDataMap);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -173,6 +201,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setLastUpdated(null);
       setHistoricalDailyAverages([]);
       setCurrentDayHourlyData([]);
+      setHourlyGranularData(new Map());
     } finally {
       setLoading(false);
       setManualRefreshing(false); // Reset manual refreshing
@@ -359,6 +388,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         currentHour={hourData.hour}
                         terminalId={terminalId}
                         dateString={format(new Date(), "yyyy-MM-dd")} // Pass today's date string
+                        granularDataForHour={hourlyGranularData.get(hourData.hour) || []} // Pass the cached data
+                        isLoadingGranularData={loading} // Pass parent's loading state for initial load
                       >
                         <div
                           className={cn(
