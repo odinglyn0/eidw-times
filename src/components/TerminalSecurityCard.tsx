@@ -18,6 +18,13 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 import ChatBubble from "./ChatBubble"; // Import the new ChatBubble component
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile hook
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"; // Import Accordion components
 
 interface HourlySecurityData {
   hour: number;
@@ -53,6 +60,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
+  const isMobile = useIsMobile(); // Use the hook to detect mobile
 
   const fetchDepartureData = useCallback(async () => {
     try {
@@ -362,60 +370,121 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               )}
             </div>
 
-            <div>
-              <h3 className="text-md font-semibold text-gray-700 mb-4">Number of Departures</h3>
-              {departureData.length > 0 ? (
-                departureData.map((day, dayIndex) => (
-                  <div key={dayIndex} className="mb-4 last:mb-0">
-                    {/* Hourly Labels */}
-                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
-                      <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
-                      {hourLabels.map((label, i) => (
-                        <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
-                          {label}
-                        </div>
-                      ))}
-                    </div>
+            {isMobile ? (
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="departures">
+                  <AccordionTrigger className="text-md font-semibold text-gray-700">Number of Departures</AccordionTrigger>
+                  <AccordionContent>
+                    {departureData.length > 0 ? (
+                      departureData.map((day, dayIndex) => (
+                        <div key={dayIndex} className="mb-4 last:mb-0">
+                          {/* Hourly Labels */}
+                          <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
+                            <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
+                            {hourLabels.map((label, i) => (
+                              <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
+                                {label}
+                              </div>
+                            ))}
+                          </div>
 
-                    {/* AM Row */}
-                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
-                      <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
-                      {day.hours.slice(0, 12).map((hour, hourIndex) => (
-                        <div
-                          key={hourIndex}
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                            hour.colorClass
-                          )}
-                        >
-                          {hour.value}
-                        </div>
-                      ))}
-                    </div>
+                          {/* AM Row */}
+                          <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
+                            <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
+                            {day.hours.slice(0, 12).map((hour, hourIndex) => (
+                              <div
+                                key={hourIndex}
+                                className={cn(
+                                  "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                                  hour.colorClass
+                                )}
+                              >
+                                {hour.value}
+                              </div>
+                            ))}
+                          </div>
 
-                    {/* PM Row */}
-                    <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
-                      <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
-                      {day.hours.slice(12, 24).map((hour, hourIndex) => (
-                        <div
-                          key={hourIndex + 12}
-                          className={cn(
-                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                            hour.colorClass
-                          )}
-                        >
-                          {hour.value}
-                        </div>
-                      ))}
-                    </div>
+                          {/* PM Row */}
+                          <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
+                            <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
+                            {day.hours.slice(12, 24).map((hour, hourIndex) => (
+                              <div
+                                key={hourIndex + 12}
+                                className={cn(
+                                  "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                                  hour.colorClass
+                                )}
+                              >
+                                {hour.value}
+                              </div>
+                            ))}
+                          </div>
 
-                    <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
-              )}
-            </div>
+                          <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            ) : (
+              <div>
+                <h3 className="text-md font-semibold text-gray-700 mb-4">Number of Departures</h3>
+                {departureData.length > 0 ? (
+                  departureData.map((day, dayIndex) => (
+                    <div key={dayIndex} className="mb-4 last:mb-0">
+                      {/* Hourly Labels */}
+                      <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
+                        <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
+                        {hourLabels.map((label, i) => (
+                          <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* AM Row */}
+                      <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
+                        <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
+                        {day.hours.slice(0, 12).map((hour, hourIndex) => (
+                          <div
+                            key={hourIndex}
+                            className={cn(
+                              "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                              hour.colorClass
+                            )}
+                          >
+                            {hour.value}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* PM Row */}
+                      <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
+                        <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
+                        {day.hours.slice(12, 24).map((hour, hourIndex) => (
+                          <div
+                            key={hourIndex + 12}
+                            className={cn(
+                              "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                              hour.colorClass
+                            )}
+                          >
+                            {hour.value}
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
+                )}
+              </div>
+            )}
           </>
         )}
       </CardContent>
