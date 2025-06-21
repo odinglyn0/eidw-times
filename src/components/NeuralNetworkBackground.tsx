@@ -17,7 +17,7 @@ const NeuralNetworkBackground: React.FC = () => {
 
   const planeSize = 12; // Base size for the plane symbol (will be scaled to 2x this)
   const planeSpacing = 40; // Pixels between the center of each plane in the grid (reduced for more density)
-  const nodeColor = 'rgb(76, 175, 80)'; // Vibrant green, now fully opaque
+  const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Vibrant green for visibility
 
   const initNodes = useCallback((width: number, height: number) => {
     nodesRef.current = [];
@@ -54,39 +54,43 @@ const NeuralNetworkBackground: React.FC = () => {
     const { width, height } = canvas;
 
     // Get the computed background color from the canvas element's style
+    // This will resolve the `var(--background)` to its actual RGB value
     const computedStyle = window.getComputedStyle(canvas);
     const bgColor = computedStyle.backgroundColor;
 
-    // Draw the background color directly on the canvas, fully clearing it
+    // Draw the background color directly on the canvas
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, width, height);
 
-    // Set the global alpha for all subsequent drawing operations (planes)
-    ctx.globalAlpha = 0.3; // Apply 30% opacity to the planes
-
     // Set the fill style for the SVG (currentColor in SVG will pick this up)
-    ctx.fillStyle = nodeColor; // This will be an opaque green
+    ctx.fillStyle = nodeColor;
 
     // Draw nodes (planes)
     nodesRef.current.forEach(node => {
+      // Calculate angle from node to mouse position
       let angle = 0;
       if (mousePos) {
+        // Math.atan2 gives angle relative to positive x-axis.
+        // The SVG's "top" is initially pointing along the negative Y-axis.
+        // So, we add Math.PI / 2 to align its "top" with the calculated angle.
         angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x) + Math.PI / 2;
       }
 
-      ctx.save();
-      ctx.translate(node.x, node.y);
-      ctx.rotate(angle);
+      ctx.save(); // Save the current canvas state
+      ctx.translate(node.x, node.y); // Move origin to node's position
+      ctx.rotate(angle); // Rotate the canvas
 
+      // Draw the SVG image
+      // The SVG is 24x24. We want to draw it centered at (0,0) after translation.
+      // So, the top-left corner should be at (-width/2, -height/2).
+      // The size will be 2 * node.radius.
       if (planeImageRef.current) {
-        const drawSize = node.radius * 2;
+        const drawSize = node.radius * 2; // Scale the 24x24 SVG to 2 * planeSize
         ctx.drawImage(planeImageRef.current, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
       }
 
-      ctx.restore();
+      ctx.restore(); // Restore the canvas state
     });
-
-    ctx.globalAlpha = 1.0; // Reset global alpha for other potential drawings
 
     animationFrameId.current = requestAnimationFrame(draw);
   }, [nodeColor, mousePos, planeSize]);
@@ -95,6 +99,7 @@ const NeuralNetworkBackground: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Load the SVG image from the public folder
     const img = new Image();
     img.src = "/images/plane.svg"; // Correct path to the SVG file
     img.onload = () => {
@@ -137,7 +142,7 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1]" // Removed opacity-30
+      className="fixed inset-0 z-[-1] opacity-30" // Re-added opacity-30
       style={{ backgroundColor: 'var(--background)' }} // Still use CSS variable for the element's background, which is read by JS
     />
   );
