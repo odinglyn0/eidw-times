@@ -38,9 +38,10 @@ interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
   globalMaxTime?: number | null; // New prop for consistent scaling
   isAutoRefreshing: boolean; // New prop to indicate if auto-refresh is active
+  isRecommended: boolean; // New prop to indicate if this terminal is recommended
 }
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, isRecommended }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -199,9 +200,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 
+  const cardBorderColorClass = isRecommended ? "border-custom-green" : "border-departure-orange";
+  const cardHeaderBgClass = isRecommended ? "bg-custom-green" : "bg-departure-orange";
+  const currentTimeColorClass = isRecommended ? "text-custom-green" : "text-departure-orange";
+
   return (
-    <Card className="w-full border-2 border-custom-green rounded-lg shadow-lg overflow-hidden">
-      <CardHeader className="bg-custom-green p-4 text-white text-center relative">
+    <Card className={cn("w-full border-2 rounded-lg shadow-lg overflow-hidden", cardBorderColorClass)}>
+      <CardHeader className={cn("p-4 text-white text-center relative", cardHeaderBgClass)}>
         <CardTitle className="text-lg font-semibold mb-1">Security queue wait</CardTitle>
         <h2 className="text-3xl font-bold">Terminal {terminalId}</h2>
         <Button
@@ -229,10 +234,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           </div>
         ) : (
           <>
-            <p className="text-7xl font-extrabold text-custom-green mb-2">
+            <p className={cn("text-7xl font-extrabold mb-2", currentTimeColorClass)}>
               {currentTime !== null ? currentTime : "N/A"}
             </p>
-            <p className="text-2xl font-semibold text-custom-green mb-4">minutes</p>
+            <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>minutes</p>
             <p className="text-sm text-gray-500 mb-8">
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
@@ -264,7 +269,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     <Line
                       type="monotone"
                       dataKey="t1Average" // Plot t1Average directly
-                      stroke="#4CAF50" // Use a single color for now
+                      stroke={isRecommended ? "#4CAF50" : "#FF8000"} // Dynamic line color
                       strokeWidth={2}
                       dot={false}
                     />

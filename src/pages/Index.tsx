@@ -225,11 +225,19 @@ const Index = () => {
       </div>
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8">
-        <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
-        <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
+        <TerminalSecurityCard 
+          terminalId={1} 
+          globalMaxTime={globalMaxSecurityTime} 
+          isAutoRefreshing={isAutoRefreshing} 
+          isRecommended={recommendedTerminal?.id === 1 || recommendedTerminal?.id === "either"}
+        />
+        <TerminalSecurityCard 
+          terminalId={2} 
+          globalMaxTime={globalMaxSecurityTime} 
+          isAutoRefreshing={isAutoRefreshing} 
+          isRecommended={recommendedTerminal?.id === 2 || recommendedTerminal?.id === "either"}
+        />
       </div>
-
-      {/* The test button for custom GA event has been removed */}
 
       <BottomNotch />
     </div>
