@@ -157,6 +157,16 @@ const Index = () => {
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
     : null;
 
+  const timeDifferenceMessage = (() => {
+    if (t1CurrentTime !== null && t2CurrentTime !== null && recommendedTerminal && recommendedTerminal.id !== "either") {
+      const diff = Math.abs(t1CurrentTime - t2CurrentTime);
+      if (diff > 0 && diff < 3) {
+        return `But it doesn't really matter because it's only a ${diff} min difference 🤷‍♂️`;
+      }
+    }
+    return null;
+  })();
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
       <PhoneNotch />
@@ -183,6 +193,11 @@ const Index = () => {
                 {recommendedTerminal.time} minutes
               </span>
               ).
+              {timeDifferenceMessage && (
+                <span className="ml-2 text-base font-normal text-blue-700 dark:text-blue-300">
+                  {timeDifferenceMessage}
+                </span>
+              )}
             </p>
             <p className="text-sm">
               You can easily proceed to your preferred terminal after clearing security, and T1 has the best shops 🤫!
