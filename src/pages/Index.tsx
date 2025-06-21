@@ -193,12 +193,12 @@ const Index = () => {
                 {recommendedTerminal.time} minutes
               </span>
               ).
-              {timeDifferenceMessage && (
-                <span className="ml-2 text-base font-normal text-blue-700 dark:text-blue-300">
-                  {timeDifferenceMessage}
-                </span>
-              )}
             </p>
+            {timeDifferenceMessage && (
+              <p className="text-base font-normal text-blue-700 dark:text-blue-300 mt-2">
+                {timeDifferenceMessage}
+              </p>
+            )}
             <p className="text-sm">
               You can easily proceed to your preferred terminal after clearing security, and T1 has the best shops 🤫!
             </p>
