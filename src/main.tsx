@@ -7,7 +7,8 @@ createRoot(document.getElementById("root")!).render(<App />);
 // Register the service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/src/service-worker.ts', { type: 'module' })
+    // Register the service worker from the public directory
+    navigator.serviceWorker.register('/service-worker.ts', { type: 'module' })
       .then(registration => {
         console.log('Service Worker registered with scope:', registration.scope);
       })
