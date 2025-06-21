@@ -134,10 +134,7 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      // Use inline style for background color to ensure it applies,
-      // and use the CSS variable for dynamic theming.
-      // The opacity is still applied via Tailwind class.
-      className="fixed inset-0 z-[-1] opacity-30"
+      className="fixed inset-0 z-[-1]" // Removed opacity-30
       style={{ backgroundColor: 'var(--background)' }} // Use CSS variable for background
     />
   );
