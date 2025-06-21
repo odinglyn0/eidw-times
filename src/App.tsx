@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
 import { CookieConsentProvider } from "@/integrations/cookie-consent/CookieConsentProvider";
 import Settings from "./pages/Settings";
+import FeatureRequestPage from "./pages/FeatureRequestPage"; // Import the new page
 import { ThemeProvider } from "@/components/theme-provider";
 import ReactGA from 'react-ga4';
 import { useEffect } from "react";
@@ -42,6 +43,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/feature-request" element={<FeatureRequestPage />} /> {/* New route */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

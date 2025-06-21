@@ -2,14 +2,6 @@ import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,11 +12,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { supabase } from "@/integrations/supabase/client";
-
-interface FeatureRequestFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const formSchema = z.object({
   name: z.string().max(100, "Name must be 100 characters or less").optional(),
@@ -61,10 +50,11 @@ const formSchema = z.object({
   }
 });
 
-const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose }) => {
+const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null); // Ref for reCAPTCHA component
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -128,7 +118,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
       });
       form.reset();
       recaptchaRef.current?.reset(); // Reset reCAPTCHA after successful submission
-      onClose();
+      navigate('/'); // Navigate back to home page
     } catch (error: any) {
       console.error("Error submitting feature request:", error);
       toast({
@@ -145,14 +135,14 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
   const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "YOUR_RECAPTCHA_SITE_KEY";
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Request a Feature</DialogTitle>
-          <DialogDescription>
-            Have an idea for a new feature? Let us know!
-          </DialogDescription>
-        </DialogHeader>
+    <Card className="w-full border-2 border-gray-300 rounded-lg shadow-lg">
+      <CardHeader className="bg-gray-100 p-4 text-gray-800 text-center">
+        <CardTitle className="text-2xl font-bold">Request a Feature</CardTitle>
+        <CardDescription>
+          Have an idea for a new feature? Let us know!
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -241,7 +231,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
               />
             </div>
 
-            <DialogFooter>
+            <div className="flex justify-end"> {/* Use flex justify-end for button alignment */}
               <Button type="submit" disabled={isSubmitting}> {/* Button disabled only when submitting */}
                 {isSubmitting ? (
                   <>
@@ -252,11 +242,11 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
                   "Submit Request"
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 };
 
