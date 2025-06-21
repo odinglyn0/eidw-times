@@ -227,7 +227,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
               )}
             />
 
-            <div className="flex justify-center">
+            <div className="flex justify-center" style={{ zIndex: 99999 }}> {/* Added high z-index here */}
               <ReCAPTCHA
                 ref={recaptchaRef}
                 sitekey={recaptchaSiteKey}
