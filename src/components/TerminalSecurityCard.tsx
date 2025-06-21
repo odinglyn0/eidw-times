@@ -116,21 +116,18 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     setLoading(true);
     setManualRefreshing(true); // Set manual refreshing true for manual trigger
     try {
-      console.log(`Fetching current data for Terminal ${terminalId}...`);
-      const { data: currentData, error: currentError } = await supabase
-        .from("security_times_current")
-        .select(`t${terminalId}, last_updated`)
-        .eq("id", 1)
-        .single();
+      console.log(`Invoking Edge Function 'get-current-security-data' for current data...`);
+      const { data: currentSecurityData, error: currentError } = await supabase.functions.invoke('get-current-security-data');
 
       if (currentError) {
-        console.error(`Supabase current data error for T${terminalId}:`, currentError);
+        console.error(`Edge Function 'get-current-security-data' error:`, currentError);
         throw currentError;
       }
-      console.log(`Current data for T${terminalId}:`, currentData);
+      console.log(`Current data from Edge Function for T${terminalId}:`, currentSecurityData);
 
-      setCurrentTime(currentData[`t${terminalId}`]);
-      setLastUpdated(currentData.last_updated);
+      // Use the data from the Edge Function
+      setCurrentTime(currentSecurityData[`t${terminalId}`]);
+      setLastUpdated(currentSecurityData.last_updated);
 
       console.log(`Invoking Edge Function 'get-security-data' for historical data...`);
       const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
