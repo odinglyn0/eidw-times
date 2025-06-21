@@ -358,6 +358,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         hourlyData={currentDayHourlyData}
                         currentHour={hourData.hour}
                         terminalId={terminalId}
+                        dateString={format(new Date(), "yyyy-MM-dd")} // Pass today's date string
                       >
                         <div
                           className={cn(
