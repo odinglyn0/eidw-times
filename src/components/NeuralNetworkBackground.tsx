@@ -19,6 +19,7 @@ const NeuralNetworkBackground: React.FC = () => {
   const planeSpacing = 40; // Pixels between the center of each plane in the grid (reduced for more density)
   const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Vibrant green for visibility
 
+  // useCallback for initNodes, now truly stable as it doesn't depend on mousePos
   const initNodes = useCallback((width: number, height: number) => {
     nodesRef.current = [];
     const numCols = Math.floor(width / planeSpacing);
@@ -39,12 +40,9 @@ const NeuralNetworkBackground: React.FC = () => {
         });
       }
     }
-    // Initialize mouse position to center if not already set
-    if (mousePos === null) {
-      setMousePos({ x: width / 2, y: height / 2 });
-    }
-  }, [planeSize, planeSpacing, mousePos]);
+  }, [planeSize, planeSpacing]);
 
+  // useCallback for draw, still depends on mousePos, so it will be re-created
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -54,7 +52,6 @@ const NeuralNetworkBackground: React.FC = () => {
     const { width, height } = canvas;
 
     // Get the computed background color from the canvas element's style
-    // This will resolve the `var(--background)` to its actual RGB value
     const computedStyle = window.getComputedStyle(canvas);
     const bgColor = computedStyle.backgroundColor;
 
@@ -70,9 +67,6 @@ const NeuralNetworkBackground: React.FC = () => {
       // Calculate angle from node to mouse position
       let angle = 0;
       if (mousePos) {
-        // Math.atan2 gives angle relative to positive x-axis.
-        // The SVG's "top" is initially pointing along the negative Y-axis.
-        // So, we add Math.PI / 2 to align its "top" with the calculated angle.
         angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x) + Math.PI / 2;
       }
 
@@ -81,9 +75,6 @@ const NeuralNetworkBackground: React.FC = () => {
       ctx.rotate(angle); // Rotate the canvas
 
       // Draw the SVG image
-      // The SVG is 24x24. We want to draw it centered at (0,0) after translation.
-      // So, the top-left corner should be at (-width/2, -height/2).
-      // The size will be 2 * node.radius.
       if (planeImageRef.current) {
         const drawSize = node.radius * 2; // Scale the 24x24 SVG to 2 * planeSize
         ctx.drawImage(planeImageRef.current, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
@@ -91,33 +82,31 @@ const NeuralNetworkBackground: React.FC = () => {
 
       ctx.restore(); // Restore the canvas state
     });
-
-    animationFrameId.current = requestAnimationFrame(draw);
   }, [nodeColor, mousePos, planeSize]);
 
+  // Effect 1: Load the SVG image once when the component mounts
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Load the SVG image from the public folder
     const img = new Image();
     img.src = "/images/plane.svg"; // Correct path to the SVG file
     img.onload = () => {
       planeImageRef.current = img;
-      // Once image is loaded, re-draw to ensure it appears
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-      animationFrameId.current = requestAnimationFrame(draw);
     };
     img.onerror = (err) => {
       console.error("Failed to load plane SVG image from /images/plane.svg:", err);
     };
+  }, []); // Empty dependency array ensures this runs only once
+
+  // Effect 2: Setup canvas, resize, and mousemove listeners
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       initNodes(canvas.width, canvas.height); // Re-initialize nodes on resize
+      // Set initial mouse position to center of canvas if not already set
+      setMousePos(prevPos => prevPos === null ? { x: canvas.width / 2, y: canvas.height / 2 } : prevPos);
     };
 
     const handleMouseMove = (event: MouseEvent) => {
@@ -128,21 +117,33 @@ const NeuralNetworkBackground: React.FC = () => {
     window.addEventListener('mousemove', handleMouseMove);
     resizeCanvas(); // Initial resize and node initialization
 
-    animationFrameId.current = requestAnimationFrame(draw);
-
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [initNodes]); // initNodes is a stable useCallback, so this effect runs once
+
+  // Effect 3: Manage the animation frame loop
+  useEffect(() => {
+    const animate = () => {
+      draw(); // Call the latest `draw` function
+      animationFrameId.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameId.current = requestAnimationFrame(animate);
+
+    return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [draw, initNodes]);
+  }, [draw]); // `draw` is a dependency because it changes when `mousePos` changes.
+              // This ensures the animation loop always uses the latest `draw` function.
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1] opacity-30" // Re-added opacity-30
+      className="fixed inset-0 z-[-1] opacity-30"
       style={{ backgroundColor: 'var(--background)' }} // Still use CSS variable for the element's background, which is read by JS
     />
   );
