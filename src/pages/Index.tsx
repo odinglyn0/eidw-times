@@ -83,7 +83,7 @@ const Index = () => {
       console.error("Error fetching global security data:", error);
       setGlobalMaxSecurityTime(null);
     }
-  }, [terminalId]); // Added terminalId to dependency array for fetchGlobalSecurityData
+  }, []); // Removed terminalId from dependency array
 
   // Function to trigger all data fetches
   const refreshAllData = useCallback(async () => {
