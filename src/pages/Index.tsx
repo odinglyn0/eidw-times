@@ -10,6 +10,8 @@ import SettingsPageLink from "@/components/SettingsPageLink";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
+import FeatureRequestForm from "@/components/FeatureRequestForm"; // Import the new FeatureRequestForm
+import { MessageSquarePlus } from 'lucide-react'; // Import icon for the button
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -30,6 +32,7 @@ const Index = () => {
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  const [isFeatureRequestFormOpen, setIsFeatureRequestFormOpen] = useState(false); // State for dialog
   const autoRefreshIntervalId = useRef<number | null>(null);
 
   const fetchRecommendationData = useCallback(async () => {
@@ -174,6 +177,19 @@ const Index = () => {
       
       <SettingsPageLink />
 
+      {/* New Feature Request Button */}
+      <div className="absolute top-4 left-4 z-10">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setIsFeatureRequestFormOpen(true)}
+          className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
+        >
+          <MessageSquarePlus className="h-5 w-5" />
+          <span className="sr-only">Request a Feature</span>
+        </Button>
+      </div>
+
       <AnnouncementBanner /> {/* Add the AnnouncementBanner here */}
 
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
@@ -249,6 +265,12 @@ const Index = () => {
       </div>
 
       <BottomNotch />
+
+      {/* Feature Request Form Dialog */}
+      <FeatureRequestForm 
+        isOpen={isFeatureRequestFormOpen} 
+        onClose={() => setIsFeatureRequestFormOpen(false)} 
+      />
     </div>
   );
 };
