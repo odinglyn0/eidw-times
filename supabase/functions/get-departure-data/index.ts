@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { subDays, startOfDay } from "https://esm.sh/date-fns@3.6.0";
-import { utcToZonedTime } from "https://esm.sh/date-fns-tz@2.0.0?deps=date-fns@3.6.0"; // Explicitly define date-fns dependency
+import { utcToZonedTime } from "https://esm.sh/date-fns-tz@2.0.0"; // Import utcToZonedTime
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
