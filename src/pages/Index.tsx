@@ -1,11 +1,13 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react"; // Import Settings icon
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/PhoneNotch";
-import BottomNotch from "@/components/BottomNotch"; // Import the new BottomNotch component
+import BottomNotch from "@/components/BottomNotch";
+import { Link } from "react-router-dom"; // Import Link for navigation
+import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -25,6 +27,8 @@ const Index = () => {
   const [recommendationLastUpdated, setRecommendationLastUpdated] = useState<string | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false); // New state for auto-refreshing
+  const autoRefreshIntervalId = useRef<number | null>(null);
 
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
@@ -81,10 +85,53 @@ const Index = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchRecommendationData();
-    fetchGlobalSecurityData(); // Fetch global data on mount
+  // Function to trigger all data fetches
+  const refreshAllData = useCallback(async () => {
+    setIsAutoRefreshing(true);
+    await Promise.all([
+      fetchRecommendationData(),
+      fetchGlobalSecurityData(),
+      // TerminalSecurityCard components will handle their own fetches via their internal useEffects
+      // or could be passed a prop to trigger if needed, but current setup is fine.
+    ]);
+    setIsAutoRefreshing(false);
   }, [fetchRecommendationData, fetchGlobalSecurityData]);
+
+  useEffect(() => {
+    refreshAllData(); // Initial fetch on mount
+
+    // Setup auto-refresh based on cookie settings
+    const setupAutoRefresh = () => {
+      if (autoRefreshIntervalId.current) {
+        clearInterval(autoRefreshIntervalId.current);
+      }
+
+      const enabled = getAutoPollEnabled();
+      const interval = getAutoPollInterval();
+
+      if (enabled && interval > 0) {
+        autoRefreshIntervalId.current = setInterval(() => {
+          console.log(`Auto-refreshing data every ${interval} seconds...`);
+          refreshAllData();
+        }, interval * 1000) as unknown as number; // Cast to number for clearInterval
+      }
+    };
+
+    setupAutoRefresh();
+
+    // Listen for changes in cookie settings (e.g., from Settings page)
+    const handleStorageChange = () => {
+      setupAutoRefresh();
+    };
+    window.addEventListener('storage', handleStorageChange); // For cross-tab/window sync
+
+    return () => {
+      if (autoRefreshIntervalId.current) {
+        clearInterval(autoRefreshIntervalId.current);
+      }
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [refreshAllData]);
 
   const recommendedTerminal = (() => {
     if (t1CurrentTime === null && t2CurrentTime === null) {
@@ -117,7 +164,7 @@ const Index = () => {
       <PhoneNotch />
       
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
-        {loadingRecommendation ? (
+        {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             <p>Loading recommendation...</p>
@@ -153,22 +200,28 @@ const Index = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={fetchRecommendationData}
-          disabled={loadingRecommendation}
+          onClick={refreshAllData} // Use refreshAllData for manual refresh
+          disabled={loadingRecommendation || isAutoRefreshing}
           className="absolute top-2 right-2 text-blue-800 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800"
         >
-          {loadingRecommendation ? (
+          {loadingRecommendation || isAutoRefreshing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
           <span className="sr-only">Refresh recommendation</span>
         </Button>
+        <Link to="/settings" className="absolute top-2 right-12"> {/* Link to settings page */}
+          <Button variant="ghost" size="icon" className="text-blue-800 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800">
+            <SettingsIcon className="h-4 w-4" />
+            <span className="sr-only">Settings</span>
+          </Button>
+        </Link>
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8"> {/* Added mb-8 here */}
-        <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} />
-        <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} />
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8">
+        <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
+        <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
       </div>
       <BottomNotch />
     </div>

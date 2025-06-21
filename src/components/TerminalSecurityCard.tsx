@@ -16,6 +16,7 @@ import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
+import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 
 interface HourlySecurityData {
   hour: number;
@@ -36,9 +37,10 @@ interface HourlyDepartureDisplayData {
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
   globalMaxTime?: number | null; // New prop for consistent scaling
+  isAutoRefreshing: boolean; // New prop to indicate if auto-refresh is active
 }
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -47,7 +49,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
 
   const fetchDepartureData = useCallback(async () => {
     try {
@@ -109,7 +111,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const fetchSecurityData = useCallback(async () => {
     setLoading(true);
-    setRefreshing(true);
+    setManualRefreshing(true); // Set manual refreshing true for manual trigger
     try {
       console.log(`Fetching current data for Terminal ${terminalId}...`);
       const { data: currentData, error: currentError } = await supabase
@@ -165,7 +167,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setCurrentDayHourlyData([]);
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setManualRefreshing(false); // Reset manual refreshing
     }
   }, [terminalId]);
 
@@ -206,10 +208,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           variant="ghost"
           size="icon"
           onClick={handleRefresh}
-          disabled={refreshing}
+          disabled={manualRefreshing || isAutoRefreshing} // Disable if manual or auto refreshing
           className="absolute top-4 right-4 text-white hover:bg-white hover:text-custom-green"
         >
-          {refreshing ? (
+          {manualRefreshing || isAutoRefreshing ? ( // Show loader if manual or auto refreshing
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <RefreshCw className="h-5 w-5" />

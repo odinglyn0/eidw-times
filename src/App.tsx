@@ -5,7 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import NeuralNetworkBackground from "@/components/NeuralNetworkBackground"; // Import the new component
+import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
+import { CookieConsentProvider } from "@/integrations/cookie-consent/CookieConsentProvider"; // Import CookieConsentProvider
+import Settings from "./pages/Settings"; // Import Settings page
 
 const queryClient = new QueryClient();
 
@@ -14,13 +16,16 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <NeuralNetworkBackground /> {/* Add the background component here */}
+      <NeuralNetworkBackground />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <CookieConsentProvider> {/* Wrap routes with CookieConsentProvider */}
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/settings" element={<Settings />} /> {/* Add route for Settings page */}
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </CookieConsentProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
