@@ -206,7 +206,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const currentTimeColorClass = isRecommended ? "text-custom-green" : "text-departure-orange";
 
   return (
-    <Card className={cn("w-full border-2 rounded-lg shadow-lg overflow-hidden relative", cardBorderColorClass)}>
+    <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
       {isRecommended && (
         <ChatBubble message="Pick me!" emoji="👋" />
       )}
