@@ -1,13 +1,13 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react"; // Import Settings icon
+import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
-import { Link } from "react-router-dom"; // Import Link for navigation
-import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
+import SettingsPageLink from "@/components/SettingsPageLink"; // Import the new component
+import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies';
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -27,7 +27,7 @@ const Index = () => {
   const [recommendationLastUpdated, setRecommendationLastUpdated] = useState<string | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
   const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false); // New state for auto-refreshing
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const autoRefreshIntervalId = useRef<number | null>(null);
 
   const fetchRecommendationData = useCallback(async () => {
@@ -160,23 +160,14 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 pt-16">
+    <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative"> {/* Added relative here */}
       <PhoneNotch />
       
+      {/* Settings icon, now a separate component, positioned relative to the main scrolling div */}
+      <SettingsPageLink />
+
       {/* Main content starts here, with padding to clear the PhoneNotch */}
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
-        {/* Settings icon, now absolute within this div, next to refresh button */}
-        <Link to="/settings" className="absolute top-2 right-12 z-10">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
-          >
-            <SettingsIcon className="h-5 w-5" />
-            <span className="sr-only">Settings</span>
-          </Button>
-        </Link>
-
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
