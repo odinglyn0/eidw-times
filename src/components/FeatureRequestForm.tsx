@@ -149,7 +149,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 pb-10"> {/* Added pb-10 here */}
             <div className="grid grid-cols-4 items-center gap-4">
               <FormField
                 control={form.control}
