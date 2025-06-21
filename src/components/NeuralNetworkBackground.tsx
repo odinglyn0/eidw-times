@@ -52,7 +52,15 @@ const NeuralNetworkBackground: React.FC = () => {
     if (!ctx) return;
 
     const { width, height } = canvas;
-    ctx.clearRect(0, 0, width, height);
+
+    // Get the computed background color from the canvas element's style
+    // This will resolve the `var(--background)` to its actual RGB value
+    const computedStyle = window.getComputedStyle(canvas);
+    const bgColor = computedStyle.backgroundColor;
+
+    // Draw the background color directly on the canvas
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, width, height);
 
     // Set the fill style for the SVG (currentColor in SVG will pick this up)
     ctx.fillStyle = nodeColor;
@@ -134,8 +142,8 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1]" // Removed opacity-30
-      style={{ backgroundColor: 'var(--background)' }} // Use CSS variable for background
+      className="fixed inset-0 z-[-1]" // No opacity here, it's handled by the fillStyle
+      style={{ backgroundColor: 'var(--background)' }} // Still use CSS variable for the element's background, which is read by JS
     />
   );
 };
