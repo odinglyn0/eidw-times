@@ -31,7 +31,7 @@ interface DailySecurityData {
 
 interface HourlyDepartureDisplayData {
   date: string; // e.g., "TODAY", "MON, JUL 1"
-  hours: { value: number; bgClass: string; textClass: string }[]; // Updated to use bgClass and textClass
+  hours: { value: number; colorClass: string }[]; // 24 entries for each hour
 }
 
 interface TerminalSecurityCardProps {
@@ -85,39 +85,18 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         });
 
         const hoursWithColors = hourlyCounts.map(count => {
-          let bgClass = "bg-gray-200";
-          let textClass = "text-black"; // Default text color
+          let colorClass = "bg-gray-200"; // Default for no data or 0
+          if (count === 0) colorClass = "bg-departure-green-dark";
+          else if (count === 1) colorClass = "bg-departure-green-light";
+          else if (count >= 2 && count <= 3) colorClass = "bg-departure-yellow";
+          else if (count >= 4 && count <= 5) colorClass = "bg-departure-orange-yellow";
+          else if (count >= 6 && count <= 10) colorClass = "bg-departure-orange";
+          else if (count >= 11 && count <= 20) colorClass = "bg-departure-red-light";
+          else if (count >= 21 && count <= 40) colorClass = "bg-departure-red";
+          else if (count >= 41 && count <= 60) colorClass = "bg-departure-red-deep";
+          else if (count > 60) colorClass = "bg-black"; // For counts > 60, just in case
 
-          if (count === 0) {
-            bgClass = "bg-departure-green-dark";
-            textClass = "text-white";
-          } else if (count === 1) {
-            bgClass = "bg-departure-green-light";
-            textClass = "text-black";
-          } else if (count >= 2 && count <= 3) {
-            bgClass = "bg-departure-yellow";
-            textClass = "text-black";
-          } else if (count >= 4 && count <= 5) {
-            bgClass = "bg-departure-orange-yellow";
-            textClass = "text-black";
-          } else if (count >= 6 && count <= 10) {
-            bgClass = "bg-departure-orange";
-            textClass = "text-black";
-          } else if (count >= 11 && count <= 20) {
-            bgClass = "bg-departure-red-light";
-            textClass = "text-white";
-          } else if (count >= 21 && count <= 40) {
-            bgClass = "bg-departure-red";
-            textClass = "text-white";
-          } else if (count >= 41 && count <= 60) {
-            bgClass = "bg-departure-red-deep";
-            textClass = "text-white";
-          } else if (count > 60) {
-            bgClass = "bg-black";
-            textClass = "text-white";
-          }
-
-          return { value: count, bgClass, textClass };
+          return { value: count, colorClass };
         });
 
         processedData.push({ date: dayString, hours: hoursWithColors });
@@ -177,7 +156,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       // Get current day's hourly data (last element in the array)
       const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
       setCurrentDayHourlyData(todayHourlyData);
-      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData);
+      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData); // ADDED LOG HERE
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -302,47 +281,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-24 gap-1 text-xs">
                   {currentDayHourlyData.map((hourData) => {
                     let bgColorClass = "bg-gray-200"; // Default for N/A
-                    let textColorClass = "text-black"; // Default text color for security times
-
                     if (hourData[`t${terminalId}`] !== null) {
                       const time = hourData[`t${terminalId}`]!;
-                      if (time === 0) {
-                        bgColorClass = "bg-departure-green-dark";
-                        textColorClass = "text-white";
-                      } else if (time === 1) {
-                        bgColorClass = "bg-departure-green-light";
-                        textColorClass = "text-black";
-                      } else if (time >= 2 && time <= 3) {
-                        bgColorClass = "bg-departure-yellow";
-                        textColorClass = "text-black";
-                      } else if (time >= 4 && time <= 5) {
-                        bgColorClass = "bg-departure-orange-yellow";
-                        textColorClass = "text-black";
-                      } else if (time >= 6 && time <= 10) {
-                        bgColorClass = "bg-departure-orange";
-                        textColorClass = "text-black";
-                      } else if (time >= 11 && time <= 20) {
-                        bgColorClass = "bg-departure-red-light";
-                        textColorClass = "text-white";
-                      } else if (time >= 21 && time <= 40) {
-                        bgColorClass = "bg-departure-red";
-                        textColorClass = "text-white";
-                      } else if (time >= 41 && time <= 60) {
-                        bgColorClass = "bg-departure-red-deep";
-                        textColorClass = "text-white";
-                      } else if (time > 60) {
-                        bgColorClass = "bg-black";
-                        textColorClass = "text-white";
-                      }
+                      if (time === 0) bgColorClass = "bg-departure-green-dark";
+                      else if (time === 1) bgColorClass = "bg-departure-green-light";
+                      else if (time >= 2 && time <= 3) bgColorClass = "bg-departure-yellow";
+                      else if (time >= 4 && time <= 5) bgColorClass = "bg-departure-orange-yellow";
+                      else if (time >= 6 && time <= 10) bgColorClass = "bg-departure-orange";
+                      else if (time >= 11 && time <= 20) bgColorClass = "bg-departure-red-light";
+                      else if (time >= 21 && time <= 40) bgColorClass = "bg-departure-red";
+                      else if (time >= 41 && time <= 60) bgColorClass = "bg-departure-red-deep";
+                      else if (time > 60) bgColorClass = "bg-black";
                     }
 
                     return (
                       <div
                         key={hourData.hour}
                         className={cn(
-                          "flex flex-col items-center justify-center p-1 rounded-sm font-bold",
-                          bgColorClass,
-                          textColorClass // Apply the text color class
+                          "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold",
+                          bgColorClass
                         )}
                       >
                         <span>{hourData.hour}h</span>
@@ -378,9 +335,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         <div
                           key={hourIndex}
                           className={cn(
-                            "w-6 h-6 flex items-center justify-center text-xs font-bold rounded-sm",
-                            hour.bgClass, // Use bgClass
-                            hour.textClass // Use textClass
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
                           )}
                         >
                           {hour.value}
@@ -395,9 +351,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         <div
                           key={hourIndex + 12}
                           className={cn(
-                            "w-6 h-6 flex items-center justify-center text-xs font-bold rounded-sm",
-                            hour.bgClass, // Use bgClass
-                            hour.textClass // Use textClass
+                            "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
+                            hour.colorClass
                           )}
                         >
                           {hour.value}
