@@ -3,7 +3,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
 import { format, parseISO, getMinutes } from 'date-fns';
-import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz'; // Import date-fns-tz
 import { Loader2 } from 'lucide-react';
 
 interface HourlyDepartureDisplayData {
@@ -25,8 +24,6 @@ interface DepartureDetailPopoverProps {
   granularDataForHour: GranularDepartureData[]; // Pre-fetched granular data
   isLoadingGranularData: boolean; // Parent's loading state
 }
-
-const IRELAND_TIMEZONE = 'Europe/Dublin';
 
 const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
   children,
@@ -118,7 +115,7 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
-        <h4 className="font-semibold mb-2 text-center">Departures for Hour {currentHour}:00 - {currentHour + 1}:00 (IST)</h4>
+        <h4 className="font-semibold mb-2 text-center">Departures for Hour {currentHour}:00 - {currentHour + 1}:00</h4>
         <div className="h-24 w-full mb-2">
           {isLoadingGranularData ? (
             <div className="flex items-center justify-center h-full">
@@ -131,11 +128,7 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
-                  tickFormatter={(value) => {
-                    const dateUTC = parseISO(value); // Parse as UTC
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE); // Convert to IST
-                    return `${getMinutes(dateIST)}m`;
-                  }}
+                  tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
                   axisLine={false}
                   tickLine={false}
                   fontSize={10}
@@ -148,16 +141,8 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
                   domain={yAxisDomain}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: any) => {
-                    const dateUTC = parseISO(props.payload.timestamp);
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE);
-                    return [`${value} departures`, `Time ${formatInTimeZone(dateIST, IRELAND_TIMEZONE, 'HH:mm')}`];
-                  }}
-                  labelFormatter={(label) => {
-                    const dateUTC = parseISO(label);
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE);
-                    return `Time ${formatInTimeZone(dateIST, IRELAND_TIMEZONE, 'HH:mm')}`;
-                  }}
+                  formatter={(value: number, name: string, props: any) => [`${value} departures`, `Time ${format(parseISO(props.payload.timestamp), 'HH:mm')}`]}
+                  labelFormatter={(label) => `Time ${format(parseISO(label), 'HH:mm')}`}
                 />
                 <Line
                   type="monotone"

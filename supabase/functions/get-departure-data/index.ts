@@ -1,14 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { subDays, startOfDay } from "https://esm.sh/date-fns@3.6.0";
-import { utcToZonedTime } from "https://esm.sh/date-fns-tz@2.0.0"; // Import utcToZonedTime
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const IRELAND_TIMEZONE = 'Europe/Dublin';
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,10 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { terminalId, threeDaysAgoUTC } = await req.json(); // Receive UTC-converted IST date
+    const { terminalId, threeDaysAgo } = await req.json();
 
-    if (!terminalId || !threeDaysAgoUTC) {
-      return new Response(JSON.stringify({ error: "Missing terminalId or threeDaysAgoUTC in request body." }), {
+    if (!terminalId || !threeDaysAgo) {
+      return new Response(JSON.stringify({ error: "Missing terminalId or threeDaysAgo in request body." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
       });
@@ -39,7 +35,7 @@ serve(async (req) => {
       .from("departures")
       .select("departure_datetime, departure_count")
       .eq("terminal_id", terminalId)
-      .gte("departure_datetime", threeDaysAgoUTC) // Use the UTC-converted IST date for query
+      .gte("departure_datetime", threeDaysAgo)
       .order("departure_datetime", { ascending: true });
 
     if (error) {

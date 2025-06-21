@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { subDays, startOfDay, getHours, parseISO } from "https://esm.sh/date-fns@3.6.0";
-import { utcToZonedTime, formatInTimeZone } from "https://esm.sh/date-fns-tz@2.0.0";
+import { format, subDays, startOfDay, getHours, parseISO } from "https://esm.sh/date-fns@3.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const IRELAND_TIMEZONE = 'Europe/Dublin';
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,15 +23,13 @@ serve(async (req) => {
       },
     );
 
-    // Get current time in Ireland timezone for query range
-    const nowInIreland = utcToZonedTime(new Date(), IRELAND_TIMEZONE);
-    const todayInIreland = startOfDay(nowInIreland);
-    const sevenDaysAgoInIreland = subDays(todayInIreland, 6);
+    const today = new Date();
+    const sevenDaysAgo = subDays(startOfDay(today), 6); // Start of day 7 days ago
 
     const { data, error } = await supabase
       .from("security_times")
       .select("timestamp, t1, t2")
-      .gte("timestamp", sevenDaysAgoInIreland.toISOString()) // Query using IST-aligned start date
+      .gte("timestamp", sevenDaysAgo.toISOString())
       .order("timestamp", { ascending: true });
 
     if (error) {
@@ -47,14 +42,13 @@ serve(async (req) => {
 
     console.log("Raw data from security_times:", data);
 
+    // Organize data by day and hour, taking the latest entry for each hour
     const dailyHourlyDataMap = new Map<string, Map<number, { t1: number | null; t2: number | null }>>();
 
     data.forEach((item) => {
-      const itemDate = parseISO(item.timestamp); // This is UTC
-      const itemDateInIreland = utcToZonedTime(itemDate, IRELAND_TIMEZONE); // Convert to IST
-
-      const dateKey = formatInTimeZone(itemDateInIreland, IRELAND_TIMEZONE, "yyyy-MM-dd"); // IST date key
-      const hour = getHours(itemDateInIreland); // IST hour
+      const itemDate = parseISO(item.timestamp);
+      const dateKey = format(itemDate, "yyyy-MM-dd");
+      const hour = getHours(itemDate);
 
       if (!dailyHourlyDataMap.has(dateKey)) {
         dailyHourlyDataMap.set(dateKey, new Map());
@@ -63,10 +57,11 @@ serve(async (req) => {
       dailyHourlyDataMap.get(dateKey)?.set(hour, { t1: item.t1, t2: item.t2 });
     });
 
+    // Create a complete list of the last 7 days with 24 hourly slots
     const historicalData = [];
     for (let i = 6; i >= 0; i--) {
-      const date = subDays(todayInIreland, i); // Use IST-aligned date
-      const dateKey = formatInTimeZone(date, IRELAND_TIMEZONE, "yyyy-MM-dd"); // IST date key
+      const date = subDays(today, i);
+      const dateKey = format(date, "yyyy-MM-dd");
       const hourlyData = [];
       const currentDayHourlyMap = dailyHourlyDataMap.get(dateKey) || new Map();
 

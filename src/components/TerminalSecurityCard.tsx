@@ -13,7 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
-import { utcToZonedTime, formatInTimeZone, zonedTimeToUtc } from "date-fns-tz"; // Import date-fns-tz
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -63,8 +62,6 @@ interface TerminalSecurityCardProps {
   t2CurrentTime: number | null; // Current time for T2
 }
 
-const IRELAND_TIMEZONE = 'Europe/Dublin';
-
 const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -81,15 +78,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const fetchDepartureData = useCallback(async () => {
     try {
-      // Calculate threeDaysAgo in IST, then convert to UTC for the query
-      const nowInIreland = utcToZonedTime(new Date(), IRELAND_TIMEZONE);
-      const todayInIreland = startOfDay(nowInIreland);
-      const threeDaysAgoInIreland = subDays(todayInIreland, 2); // For 3 days: today, yesterday, day before yesterday
-      const threeDaysAgoUTC = zonedTimeToUtc(threeDaysAgoInIreland, IRELAND_TIMEZONE).toISOString();
-
+      const threeDaysAgo = subDays(new Date(), 3).toISOString();
       console.log(`Invoking Edge Function 'get-departure-data' for Terminal ${terminalId}...`);
       const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-departure-data', {
-        body: JSON.stringify({ terminalId, threeDaysAgoUTC }),
+        body: JSON.stringify({ terminalId, threeDaysAgo }),
       });
 
       if (edgeFunctionError) {
@@ -101,26 +93,21 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       console.log(`Raw departure data for T${terminalId} from Edge Function:`, rawDepartureData);
 
       const processedData: HourlyDepartureDisplayData[] = [];
-      const datesToProcess = [
-        utcToZonedTime(new Date(), IRELAND_TIMEZONE), // Today in IST
-        utcToZonedTime(subDays(new Date(), 1), IRELAND_TIMEZONE), // Yesterday in IST
-        utcToZonedTime(subDays(new Date(), 2), IRELAND_TIMEZONE)  // Day before yesterday in IST
-      ];
+      const today = new Date();
+      const datesToProcess = [today, subDays(today, 1), subDays(today, 2)];
       const newHourlyGranularDepartureData = new Map<string, Map<number, GranularDepartureData[]>>();
 
-      for (const [index, dateInIreland] of datesToProcess.entries()) {
-        const dayString = index === 0 ? "TODAY" : formatInTimeZone(dateInIreland, IRELAND_TIMEZONE, "EEE, MMM do").toUpperCase();
-        const dateKeyForGranular = formatInTimeZone(dateInIreland, IRELAND_TIMEZONE, "yyyy-MM-dd"); // Use yyyy-MM-dd for granular fetching
+      for (const [index, date] of datesToProcess.entries()) {
+        const dayString = index === 0 ? "TODAY" : format(date, "EEE, MMM do").toUpperCase();
+        const dateKeyForGranular = format(date, "yyyy-MM-dd"); // Use yyyy-MM-dd for granular fetching
         const hourlyCounts: number[] = Array(24).fill(0);
         const hourlyGranularMap = new Map<number, GranularDepartureData[]>();
 
         // Filter raw data for the current day and populate hourlyCounts
         rawDepartureData.forEach(item => {
-          const itemDateUTC = parseISO(item.departure_datetime); // This is UTC
-          const itemDateInIreland = utcToZonedTime(itemDateUTC, IRELAND_TIMEZONE); // Convert to IST
-          
-          if (formatInTimeZone(itemDateInIreland, IRELAND_TIMEZONE, 'yyyy-MM-dd') === dateKeyForGranular) {
-            const hour = getHours(itemDateInIreland); // Get IST hour
+          const itemDate = new Date(item.departure_datetime);
+          if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
+            const hour = getHours(itemDate);
             hourlyCounts[hour] = item.departure_count; // Assuming the raw data already has the latest count per hour
           }
         });
@@ -128,10 +115,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         // Fetch granular data for each hour of this day
         const fetchPromises = [];
         for (let hour = 0; hour < 24; hour++) {
-          // Pass IST dateKey and hour to the granular EF
+          const targetTimestamp = `${dateKeyForGranular}T${String(hour).padStart(2, '0')}:00:00Z`;
           fetchPromises.push(
             supabase.functions.invoke('get-hourly-interval-departure-data', {
-              body: JSON.stringify({ terminalId, dateKey: dateKeyForGranular, hour }),
+              body: JSON.stringify({ terminalId, targetTimestamp }),
             }).then(({ data, error: granularEdgeFunctionError }) => {
               if (granularEdgeFunctionError) {
                 console.error(`Edge Function 'get-hourly-interval-departure-data' error for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, granularEdgeFunctionError);
@@ -201,7 +188,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       }
 
       const allHistoricalData: DailySecurityData[] = historicalResponse as DailySecurityData[];
-      console.log("Client: Processed historical data received from Edge Function (IST-aligned):", allHistoricalData);
+      console.log("Client: Processed historical data received from Edge Function:", allHistoricalData);
       
       // Calculate daily averages for the 7-day chart
       const dailyAverages = allHistoricalData.map(dayData => {
@@ -214,22 +201,20 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         return { date: dayData.date, t1Average };
       });
       setHistoricalDailyAverages(dailyAverages);
-      console.log("Client: Calculated daily averages for chart (IST-aligned):", dailyAverages);
+      console.log("Client: Calculated daily averages for chart:", dailyAverages);
 
       // Get current day's hourly data (last element in the array)
       const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
       setCurrentDayHourlyData(todayHourlyData);
-      console.log(`Hourly data for Terminal ${terminalId} (IST-aligned):`, todayHourlyData);
+      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData);
 
       // Fetch granular data for each hour of the current day
       const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
       const fetchPromises = todayHourlyData.map(async (hourData) => {
-          // Pass IST dateKey and hour to the granular EF
-          const nowInIreland = utcToZonedTime(new Date(), IRELAND_TIMEZONE);
-          const dateKeyForGranular = formatInTimeZone(nowInIreland, IRELAND_TIMEZONE, "yyyy-MM-dd");
+          const targetTimestamp = `${format(new Date(), "yyyy-MM-dd")}T${String(hourData.hour).padStart(2, '0')}:00:00Z`;
           try {
               const { data, error: granularEdgeFunctionError } = await supabase.functions.invoke('get-hourly-interval-security-data', {
-                  body: JSON.stringify({ terminalId, dateKey: dateKeyForGranular, hour: hourData.hour }),
+                  body: JSON.stringify({ terminalId, targetTimestamp }),
               });
               if (granularEdgeFunctionError) {
                   console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hourData.hour}:`, granularEdgeFunctionError);
@@ -397,7 +382,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                       axisLine={false}
                       tickLine={false}
                       tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }}
-                      tickFormatter={(value: string) => format(parseISO(value), "dd/MM")} // Dates are already IST-aligned
+                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")}
                       height={40}
                     />
                     <YAxis
@@ -442,17 +427,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                       else if (time > 60) bgColorClass = "bg-black";
                     }
 
-                    // Get today's date in IST for passing to popover
-                    const nowInIreland = utcToZonedTime(new Date(), IRELAND_TIMEZONE);
-                    const todayISTDateString = formatInTimeZone(nowInIreland, IRELAND_TIMEZONE, "yyyy-MM-dd");
-
                     return (
                       <HourlyDetailPopover
                         key={hourData.hour}
                         hourlyData={currentDayHourlyData}
                         currentHour={hourData.hour}
                         terminalId={terminalId}
-                        dateString={todayISTDateString} // Pass today's IST date string
+                        dateString={format(new Date(), "yyyy-MM-dd")} // Pass today's date string
                         granularDataForHour={hourlyGranularSecurityData.get(hourData.hour) || []} // Pass the cached data
                         isLoadingGranularData={loading} // Pass parent's loading state for initial load
                       >

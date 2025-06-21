@@ -4,7 +4,6 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { cn } from '@/lib/utils';
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, getMinutes } from 'date-fns';
-import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz'; // Import date-fns-tz
 import { Loader2 } from 'lucide-react';
 
 interface HourlySecurityData {
@@ -23,12 +22,10 @@ interface HourlyDetailPopoverProps {
   hourlyData: HourlySecurityData[]; // All hourly data for the day (for percentage changes)
   currentHour: number; // The hour this popover is for
   terminalId: 1 | 2;
-  dateString: string; // The date for which to fetch granular data (e.g., "2024-07-26") - now IST date
+  dateString: string; // The date for which to fetch granular data (e.g., "2024-07-26")
   granularDataForHour: GranularSecurityData[]; // New prop for pre-fetched data
   isLoadingGranularData: boolean; // New prop to indicate if parent is loading
 }
-
-const IRELAND_TIMEZONE = 'Europe/Dublin';
 
 const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hourlyData, currentHour, terminalId, dateString, granularDataForHour, isLoadingGranularData }) => {
   const dataKey = `t${terminalId}` as 't1' | 't2';
@@ -116,7 +113,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
-        <h4 className="font-semibold mb-2 text-center">Hour {currentHour}:00 - {currentHour + 1}:00 (IST)</h4>
+        <h4 className="font-semibold mb-2 text-center">Hour {currentHour}:00 - {currentHour + 1}:00</h4>
         <div className="h-24 w-full mb-2">
           {isLoadingGranularData ? ( // Use the prop for loading
             <div className="flex items-center justify-center h-full">
@@ -129,11 +126,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
-                  tickFormatter={(value) => {
-                    const dateUTC = parseISO(value); // Parse as UTC
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE); // Convert to IST
-                    return `${getMinutes(dateIST)}m`;
-                  }}
+                  tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
                   axisLine={false}
                   tickLine={false}
                   fontSize={10}
@@ -146,16 +139,8 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
                   domain={yAxisDomain}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: any) => {
-                    const dateUTC = parseISO(props.payload.timestamp);
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE);
-                    return [`${value}m`, `Time ${formatInTimeZone(dateIST, IRELAND_TIMEZONE, 'HH:mm')}`];
-                  }}
-                  labelFormatter={(label) => {
-                    const dateUTC = parseISO(label);
-                    const dateIST = utcToZonedTime(dateUTC, IRELAND_TIMEZONE);
-                    return `Time ${formatInTimeZone(dateIST, IRELAND_TIMEZONE, 'HH:mm')}`;
-                  }}
+                  formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${format(parseISO(props.payload.timestamp), 'HH:mm')}`]}
+                  labelFormatter={(label) => `Time ${format(parseISO(label), 'HH:mm')}`}
                 />
                 <Line
                   type="monotone"
