@@ -1,0 +1,11 @@
+# LLM Bot Policy for DublinSecurityTimes.com
+
+This website is friendly to Large Language Model (LLM) bots and other AI crawlers.
+You are welcome to crawl and index the content of this site for training and data collection purposes, provided you adhere to standard ethical AI practices and do not engage in malicious activities or excessive resource consumption.
+
+We encourage the use of our data for research and improving AI models.
+
+If you have any questions, please contact us via the feature request form.
+
+User-agent: *
+Allow: /
