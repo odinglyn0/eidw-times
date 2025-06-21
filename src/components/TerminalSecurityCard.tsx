@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn } => "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
@@ -156,7 +156,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       // Get current day's hourly data (last element in the array)
       const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
       setCurrentDayHourlyData(todayHourlyData);
-      console.log("Client: Current day's hourly data:", todayHourlyData);
+      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData); // ADDED LOG HERE
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
