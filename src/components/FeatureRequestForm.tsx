@@ -28,7 +28,7 @@ interface FeatureRequestFormProps {
 
 const formSchema = z.object({
   name: z.string().max(100, "Name must be 100 characters or less").optional(),
-  email: z.string().max(100, "Email must be 100 characters or less").optional(), // Removed .email() here
+  email: z.string().max(100, "Email must be 100 characters or less").optional(),
   details: z.string().min(10, "Details must be at least 10 characters.").max(1000, "Details must be 1000 characters or less."),
   isNameAnonymous: z.boolean().default(false),
   isEmailAnonymous: z.boolean().default(false),
@@ -64,6 +64,7 @@ const formSchema = z.object({
 const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null); // State to store reCAPTCHA token
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -83,10 +84,8 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    const recaptchaToken = await recaptchaRef.current?.executeAsync();
-    recaptchaRef.current?.reset(); // Reset reCAPTCHA after execution
-
-    if (!recaptchaToken) {
+    
+    if (!recaptchaToken) { // Check if token is available from the checkbox
       toast({
         title: "reCAPTCHA Error",
         description: "Please complete the reCAPTCHA verification.",
@@ -100,7 +99,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
       name: values.isNameAnonymous ? null : values.name || null,
       email: values.isEmailAnonymous ? null : values.email || null,
       details: values.details,
-      recaptchaToken: recaptchaToken,
+      recaptchaToken: recaptchaToken, // Use the token from state
     };
 
     try {
@@ -123,6 +122,8 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
         description: "Your feature request has been submitted. Thank you!",
       });
       form.reset();
+      setRecaptchaToken(null); // Clear token after successful submission
+      recaptchaRef.current?.reset(); // Reset reCAPTCHA checkbox
       onClose();
     } catch (error: any) {
       console.error("Error submitting feature request:", error);
@@ -149,7 +150,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 pb-10"> {/* Added pb-10 here */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4"> {/* Removed pb-10 */}
             <div className="grid grid-cols-4 items-center gap-4">
               <FormField
                 control={form.control}
@@ -229,13 +230,15 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
             <div className="flex justify-center">
               <ReCAPTCHA
                 ref={recaptchaRef}
-                size="invisible" // Use invisible reCAPTCHA
                 sitekey={recaptchaSiteKey}
+                onChange={(token) => setRecaptchaToken(token)} // Store the token
+                onExpired={() => setRecaptchaToken(null)} // Clear token on expiry
+                size="normal" // Changed to normal for the checkbox
               />
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !recaptchaToken}> {/* Disable if no token */}
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
