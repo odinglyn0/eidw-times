@@ -64,8 +64,7 @@ const formSchema = z.object({
 const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose }) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null); // State to store reCAPTCHA token
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null); // Ref for reCAPTCHA component
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -84,25 +83,31 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    
-    if (!recaptchaToken) { // Check if token is available from the checkbox
-      toast({
-        title: "reCAPTCHA Error",
-        description: "Please complete the reCAPTCHA verification.",
-        variant: "destructive",
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    const payload = {
-      name: values.isNameAnonymous ? null : values.name || null,
-      email: values.isEmailAnonymous ? null : values.email || null,
-      details: values.details,
-      recaptchaToken: recaptchaToken, // Use the token from state
-    };
+    let recaptchaToken: string | null = null;
 
     try {
+      // Execute reCAPTCHA to get the token
+      if (recaptchaRef.current) {
+        recaptchaToken = await recaptchaRef.current.executeAsync();
+      }
+
+      if (!recaptchaToken) {
+        toast({
+          title: "reCAPTCHA Error",
+          description: "Failed to get reCAPTCHA token. Please try again.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const payload = {
+        name: values.isNameAnonymous ? null : values.name || null,
+        email: values.isEmailAnonymous ? null : values.email || null,
+        details: values.details,
+        recaptchaToken: recaptchaToken, // Use the obtained token
+      };
+
       console.log("Invoking Edge Function 'submit-feature-request'...");
       const { data, error: edgeFunctionError } = await supabase.functions.invoke('submit-feature-request', {
         body: JSON.stringify(payload),
@@ -122,8 +127,7 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
         description: "Your feature request has been submitted. Thank you!",
       });
       form.reset();
-      setRecaptchaToken(null); // Clear token after successful submission
-      recaptchaRef.current?.reset(); // Reset reCAPTCHA checkbox
+      recaptchaRef.current?.reset(); // Reset reCAPTCHA after successful submission
       onClose();
     } catch (error: any) {
       console.error("Error submitting feature request:", error);
@@ -137,8 +141,8 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
     }
   };
 
-  // Get reCAPTCHA site key from environment variable or hardcode if necessary for client-side
-  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "YOUR_RECAPTCHA_SITE_KEY"; // Replace with your actual site key or ensure VITE_RECAPTCHA_SITE_KEY is set in .env.local
+  // Get reCAPTCHA site key from environment variable
+  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "YOUR_RECAPTCHA_SITE_KEY";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -227,18 +231,18 @@ const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose
               )}
             />
 
-            <div className="flex justify-center" style={{ zIndex: 99999 }}> {/* Added high z-index here */}
+            {/* Invisible reCAPTCHA */}
+            <div className="flex justify-center">
               <ReCAPTCHA
                 ref={recaptchaRef}
                 sitekey={recaptchaSiteKey}
-                onChange={(token) => setRecaptchaToken(token)} // Store the token
-                onExpired={() => setRecaptchaToken(null)} // Clear token on expiry
-                size="normal" // Changed to normal for the checkbox
+                size="invisible" // Key change: Use invisible size
+                // onChange and onExpired are less relevant for invisible, as executeAsync is used
               />
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={isSubmitting || !recaptchaToken}> {/* Disable if no token */}
+              <Button type="submit" disabled={isSubmitting}> {/* Button disabled only when submitting */}
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
