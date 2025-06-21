@@ -97,6 +97,32 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
     changeToNextHour = `No data for next hour`;
   }
 
+  // Calculate fluctuation within the hour
+  let fluctuationMessage: string | null = null;
+  if (granularData.length > 0 && granularData.some(d => d.time !== null)) {
+    const validTimes = granularData.map(d => d.time).filter((t): t is number => t !== null);
+    if (validTimes.length > 1) {
+      const minTime = Math.min(...validTimes);
+      const maxTime = Math.max(...validTimes);
+      const range = maxTime - minTime;
+
+      if (minTime === 0 && maxTime === 0) {
+        fluctuationMessage = `No fluctuation (0m)`;
+      } else if (minTime === 0) {
+        fluctuationMessage = `Fluctuated by ${range}m (from 0m)`;
+      } else {
+        const percentageFluctuation = (range / minTime) * 100;
+        fluctuationMessage = `Fluctuated by ${range}m (${percentageFluctuation.toFixed(0)}%) within the hour`;
+      }
+    } else if (validTimes.length === 1) {
+      fluctuationMessage = `Only one data point (${validTimes[0]}m)`;
+    } else {
+      fluctuationMessage = `No data points for fluctuation`;
+    }
+  } else {
+    fluctuationMessage = `No data for fluctuation`;
+  }
+
   // Determine Y-axis domain for the granular graph
   const allTimesInGraph = granularData.map(d => d.time).filter((t): t is number => t !== null);
   const minY = allTimesInGraph.length > 0 ? Math.min(...allTimesInGraph) : 0;
@@ -152,7 +178,8 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
           {changeFromLastHour && <p>{changeFromLastHour}</p>}
           {changeToNextHour && <p>{changeToNextHour}</p>}
-          {(changeFromLastHour === null && changeToNextHour === null) && (
+          {fluctuationMessage && <p>{fluctuationMessage}</p>}
+          {(changeFromLastHour === null && changeToNextHour === null && fluctuationMessage === null) && (
             <p>No comparative data available.</p>
           )}
         </div>
