@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
+import ChatBubble from "./ChatBubble"; // Import the new ChatBubble component
 
 interface HourlySecurityData {
   hour: number;
@@ -205,7 +206,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const currentTimeColorClass = isRecommended ? "text-custom-green" : "text-departure-orange";
 
   return (
-    <Card className={cn("w-full border-2 rounded-lg shadow-lg overflow-hidden", cardBorderColorClass)}>
+    <Card className={cn("w-full border-2 rounded-lg shadow-lg overflow-hidden relative", cardBorderColorClass)}>
+      {isRecommended && (
+        <ChatBubble message="Pick me!" emoji="👋" />
+      )}
       <CardHeader className={cn("p-4 text-white text-center relative", cardHeaderBgClass)}>
         <CardTitle className="text-lg font-semibold mb-1">Security queue wait</CardTitle>
         <h2 className="text-3xl font-bold">Terminal {terminalId}</h2>
