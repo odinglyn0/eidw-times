@@ -183,7 +183,7 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative">
+    <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
       <PhoneNotch />
       
       <SettingsPageLink />
