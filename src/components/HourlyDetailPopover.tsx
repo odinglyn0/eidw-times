@@ -131,7 +131,14 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
 
   return (
     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger asChild>
+        <div
+          onMouseEnter={() => setIsPopoverOpen(true)}
+          onMouseLeave={() => setIsPopoverOpen(false)}
+        >
+          {children}
+        </div>
+      </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
         <h4 className="font-semibold mb-2 text-center">Hour {currentHour}:00 - {currentHour + 1}:00</h4>
         <div className="h-24 w-full mb-2">

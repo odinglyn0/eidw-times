@@ -363,6 +363,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         <div
                           className={cn(
                             "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold cursor-pointer",
+                            "hover:scale-105 hover:shadow-lg transition-all duration-200", // Added hover effects
                             bgColorClass
                           )}
                         >
