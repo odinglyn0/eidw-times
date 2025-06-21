@@ -113,7 +113,7 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 pt-20"> {/* Changed 'p-4' to 'px-4' to remove bottom padding */}
+    <div className="min-h-screen flex flex-col items-center px-4 pt-20">
       <PhoneNotch />
       
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
@@ -166,11 +166,11 @@ const Index = () => {
         </Button>
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center">
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8"> {/* Added mb-8 here */}
         <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} />
         <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} />
       </div>
-      <BottomNotch /> {/* Moved BottomNotch here to be part of the scrollable content */}
+      <BottomNotch />
     </div>
   );
 };
