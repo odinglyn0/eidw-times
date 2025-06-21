@@ -34,22 +34,19 @@ const Index = () => {
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
     try {
-      const { data, error } = await supabase
-        .from("security_times_current")
-        .select("t1, t2, last_updated")
-        .eq("id", 1)
-        .single();
+      console.log(`Invoking Edge Function 'get-current-security-data' for current security times...`);
+      const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-current-security-data');
 
-      if (error) {
-        console.error("Error fetching current security times for recommendation:", error);
-        setT1CurrentTime(null);
-        setT2CurrentTime(null);
-        setRecommendationLastUpdated(null);
-      } else {
-        setT1CurrentTime(data.t1);
-        setT2CurrentTime(data.t2);
-        setRecommendationLastUpdated(data.last_updated);
+      if (edgeFunctionError) {
+        console.error(`Edge Function 'get-current-security-data' error:`, edgeFunctionError);
+        throw edgeFunctionError;
       }
+
+      const currentSecurityData = data as { t1: number | null; t2: number | null; last_updated: string | null };
+      setT1CurrentTime(currentSecurityData.t1);
+      setT2CurrentTime(currentSecurityData.t2);
+      setRecommendationLastUpdated(currentSecurityData.last_updated);
+      
     } catch (err) {
       console.error("Unexpected error fetching recommendation data:", err);
       setT1CurrentTime(null);
