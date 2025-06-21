@@ -1,0 +1,173 @@
+import React, { useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { cn } from '@/lib/utils';
+import { format, parseISO, getMinutes } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+
+interface HourlyDepartureDisplayData {
+  date: string; // e.g., "TODAY", "MON, JUL 1"
+  hours: { value: number; colorClass: string }[]; // 24 entries for each hour
+}
+
+interface GranularDepartureData {
+  timestamp: string;
+  count: number | null;
+}
+
+interface DepartureDetailPopoverProps {
+  children: React.ReactNode;
+  dailyDepartureData: HourlyDepartureDisplayData[]; // All daily departure data (for percentage changes)
+  currentDateString: string; // The date string for the current day being displayed (e.g., "TODAY", "MON, JUL 1")
+  currentHour: number; // The hour this popover is for
+  terminalId: 1 | 2;
+  granularDataForHour: GranularDepartureData[]; // Pre-fetched granular data
+  isLoadingGranularData: boolean; // Parent's loading state
+}
+
+const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
+  children,
+  dailyDepartureData,
+  currentDateString,
+  currentHour,
+  terminalId,
+  granularDataForHour,
+  isLoadingGranularData,
+}) => {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  // Find the current day's data based on currentDateString
+  const currentDayData = dailyDepartureData.find(d => d.date === currentDateString);
+  const currentHourDeparture = currentDayData?.hours.find((_, idx) => idx === currentHour)?.value || null;
+
+  // Find previous and next hour data for the same day
+  const prevHourDeparture = currentHour > 0 ? currentDayData?.hours[currentHour - 1]?.value || null : null;
+  const nextHourDeparture = currentHour < 23 ? currentDayData?.hours[currentHour + 1]?.value || null : null;
+
+  let changeFromLastHour: string | null = null;
+  if (currentHourDeparture !== null && prevHourDeparture !== null) {
+    if (prevHourDeparture === 0 && currentHourDeparture === 0) {
+      changeFromLastHour = `No change from last hour (0 departures)`;
+    } else if (prevHourDeparture === 0) {
+      changeFromLastHour = `Increased from 0 to ${currentHourDeparture} departures`;
+    } else {
+      const percentage = ((currentHourDeparture - prevHourDeparture) / prevHourDeparture) * 100;
+      changeFromLastHour = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% from last hour`;
+    }
+  } else if (currentHourDeparture !== null && prevHourDeparture === null) {
+    changeFromLastHour = `No data for previous hour`;
+  }
+
+  let changeToNextHour: string | null = null;
+  if (currentHourDeparture !== null && nextHourDeparture !== null) {
+    if (currentHourDeparture === 0 && nextHourDeparture === 0) {
+      changeToNextHour = `No change to next hour (0 departures)`;
+    } else if (currentHourDeparture === 0) {
+      changeToNextHour = `Increased from 0 to ${nextHourDeparture} departures`;
+    } else {
+      const percentage = ((nextHourDeparture - currentHourDeparture) / currentHourDeparture) * 100;
+      changeToNextHour = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% to next hour`;
+    }
+  } else if (currentHourDeparture !== null && nextHourDeparture === null) {
+    changeToNextHour = `No data for next hour`;
+  }
+
+  // Calculate fluctuation within the hour
+  let fluctuationMessage: string | null = null;
+  if (granularDataForHour.length > 0 && granularDataForHour.some(d => d.count !== null)) {
+    const validCounts = granularDataForHour.map(d => d.count).filter((c): c is number => c !== null);
+    if (validCounts.length > 1) {
+      const minCount = Math.min(...validCounts);
+      const maxCount = Math.max(...validCounts);
+      const range = maxCount - minCount;
+
+      if (minCount === 0 && maxCount === 0) {
+        fluctuationMessage = `No fluctuation (0 departures)`;
+      } else if (minCount === 0) {
+        fluctuationMessage = `Fluctuated by ${range} departures (from 0)`;
+      } else {
+        const percentageFluctuation = (range / minCount) * 100;
+        fluctuationMessage = `Fluctuated by ${range} departures (${percentageFluctuation.toFixed(0)}%) within the hour`;
+      }
+    } else if (validCounts.length === 1) {
+      fluctuationMessage = `Only one data point (${validCounts[0]} departures)`;
+    } else {
+      fluctuationMessage = `No data points for fluctuation`;
+    }
+  } else {
+    fluctuationMessage = `No data for fluctuation`;
+  }
+
+  // Determine Y-axis domain for the granular graph
+  const allCountsInGraph = granularDataForHour.map(d => d.count).filter((c): c is number => c !== null);
+  const minY = allCountsInGraph.length > 0 ? Math.min(...allCountsInGraph) : 0;
+  const maxY = allCountsInGraph.length > 0 ? Math.max(...allCountsInGraph) : 5; // Default max if no data
+  const yAxisDomain = [minY > 0 ? minY - 1 : 0, maxY + 1]; // Add some padding
+
+  return (
+    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+      <PopoverTrigger asChild>
+        <div
+          onMouseEnter={() => setIsPopoverOpen(true)}
+          onMouseLeave={() => setIsPopoverOpen(false)}
+        >
+          {children}
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
+        <h4 className="font-semibold mb-2 text-center">Departures for Hour {currentHour}:00 - {currentHour + 1}:00</h4>
+        <div className="h-24 w-full mb-2">
+          {isLoadingGranularData ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Loading graph...
+            </div>
+          ) : granularDataForHour.length > 0 && granularDataForHour.some(d => d.count !== null) ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={granularDataForHour} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={10}
+                />
+                <YAxis
+                  tickFormatter={(value) => `${value}`}
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={10}
+                  domain={yAxisDomain}
+                />
+                <Tooltip
+                  formatter={(value: number, name: string, props: any) => [`${value} departures`, `Time ${format(parseISO(props.payload.timestamp), 'HH:mm')}`]}
+                  labelFormatter={(label) => `Time ${format(parseISO(label), 'HH:mm')}`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#FF8000" // Orange for departure graph line
+                  strokeWidth={2}
+                  dot={true}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-muted-foreground text-xs mt-8">No granular data for graph.</p>
+          )}
+        </div>
+        <div className="space-y-1 text-gray-700 dark:text-gray-300">
+          {changeFromLastHour && <p>{changeFromLastHour}</p>}
+          {changeToNextHour && <p>{changeToNextHour}</p>}
+          {fluctuationMessage && <p>{fluctuationMessage}</p>}
+          {(changeFromLastHour === null && changeToNextHour === null && fluctuationMessage === null) && (
+            <p>No comparative data available.</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export default DepartureDetailPopover;

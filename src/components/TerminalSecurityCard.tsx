@@ -26,6 +26,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion components
 import HourlyDetailPopover from "./HourlyDetailPopover"; // Import the new HourlyDetailPopover
+import DepartureDetailPopover from "./DepartureDetailPopover"; // Import the new DepartureDetailPopover
 
 interface HourlySecurityData {
   hour: number;
@@ -41,6 +42,11 @@ interface DailySecurityData {
 interface GranularSecurityData {
   timestamp: string;
   time: number | null;
+}
+
+interface GranularDepartureData {
+  timestamp: string;
+  count: number | null;
 }
 
 interface HourlyDepartureDisplayData {
@@ -63,8 +69,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     { date: string; t1Average: number | null }[]
   >([]);
   const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
-  const [hourlyGranularData, setHourlyGranularData] = useState<Map<number, GranularSecurityData[]>>(new Map());
+  const [hourlyGranularSecurityData, setHourlyGranularSecurityData] = useState<Map<number, GranularSecurityData[]>>(new Map());
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
+  const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map()); // Map<DateString, Map<Hour, Data[]>>
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
   const isMobile = useIsMobile(); // Use the hook to detect mobile
@@ -88,18 +95,45 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       const processedData: HourlyDepartureDisplayData[] = [];
       const today = new Date();
       const datesToProcess = [today, subDays(today, 1), subDays(today, 2)];
+      const newHourlyGranularDepartureData = new Map<string, Map<number, GranularDepartureData[]>>();
 
-      datesToProcess.forEach((date, index) => {
+      for (const [index, date] of datesToProcess.entries()) {
         const dayString = index === 0 ? "TODAY" : format(date, "EEE, MMM do").toUpperCase();
+        const dateKeyForGranular = format(date, "yyyy-MM-dd"); // Use yyyy-MM-dd for granular fetching
         const hourlyCounts: number[] = Array(24).fill(0);
+        const hourlyGranularMap = new Map<number, GranularDepartureData[]>();
 
+        // Filter raw data for the current day and populate hourlyCounts
         rawDepartureData.forEach(item => {
           const itemDate = new Date(item.departure_datetime);
           if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
             const hour = getHours(itemDate);
-            hourlyCounts[hour] = item.departure_count;
+            hourlyCounts[hour] = item.departure_count; // Assuming the raw data already has the latest count per hour
           }
         });
+
+        // Fetch granular data for each hour of this day
+        const fetchPromises = [];
+        for (let hour = 0; hour < 24; hour++) {
+          const targetTimestamp = `${dateKeyForGranular}T${String(hour).padStart(2, '0')}:00:00Z`;
+          fetchPromises.push(
+            supabase.functions.invoke('get-hourly-interval-departure-data', {
+              body: JSON.stringify({ terminalId, targetTimestamp }),
+            }).then(({ data, error: granularEdgeFunctionError }) => {
+              if (granularEdgeFunctionError) {
+                console.error(`Edge Function 'get-hourly-interval-departure-data' error for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, granularEdgeFunctionError);
+                hourlyGranularMap.set(hour, []);
+              } else {
+                hourlyGranularMap.set(hour, data as GranularDepartureData[]);
+              }
+            }).catch(err => {
+              console.error(`Error fetching granular departure data for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, err);
+              hourlyGranularMap.set(hour, []);
+            })
+          );
+        }
+        await Promise.all(fetchPromises);
+        newHourlyGranularDepartureData.set(dayString, hourlyGranularMap); // Store by display date string
 
         const hoursWithColors = hourlyCounts.map(count => {
           let colorClass = "bg-gray-200"; // Default for no data or 0
@@ -117,12 +151,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         });
 
         processedData.push({ date: dayString, hours: hoursWithColors });
-      });
+      }
 
       setDepartureData(processedData);
+      setHourlyGranularDepartureData(newHourlyGranularDepartureData);
     } catch (error) {
       console.error(`Error fetching departure data for Terminal ${terminalId}:`, error);
       setDepartureData([]);
+      setHourlyGranularDepartureData(new Map());
     }
   }, [terminalId]);
 
@@ -173,7 +209,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData);
 
       // Fetch granular data for each hour of the current day
-      const granularDataMap = new Map<number, GranularSecurityData[]>();
+      const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
       const fetchPromises = todayHourlyData.map(async (hourData) => {
           const targetTimestamp = `${format(new Date(), "yyyy-MM-dd")}T${String(hourData.hour).padStart(2, '0')}:00:00Z`;
           try {
@@ -182,17 +218,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               });
               if (granularEdgeFunctionError) {
                   console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hourData.hour}:`, granularEdgeFunctionError);
-                  granularDataMap.set(hourData.hour, []);
+                  granularSecurityDataMap.set(hourData.hour, []);
               } else {
-                  granularDataMap.set(hourData.hour, data as GranularSecurityData[]);
+                  granularSecurityDataMap.set(hourData.hour, data as GranularSecurityData[]);
               }
           } catch (err) {
               console.error(`Error fetching granular data for T${terminalId} hour ${hourData.hour}:`, err);
-              granularDataMap.set(hourData.hour, []);
+              granularSecurityDataMap.set(hourData.hour, []);
           }
       });
       await Promise.all(fetchPromises);
-      setHourlyGranularData(granularDataMap);
+      setHourlyGranularSecurityData(granularSecurityDataMap);
 
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
@@ -201,7 +237,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setLastUpdated(null);
       setHistoricalDailyAverages([]);
       setCurrentDayHourlyData([]);
-      setHourlyGranularData(new Map());
+      setHourlyGranularSecurityData(new Map());
     } finally {
       setLoading(false);
       setManualRefreshing(false); // Reset manual refreshing
@@ -209,13 +245,23 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   }, [terminalId]);
 
   useEffect(() => {
-    fetchSecurityData();
-    fetchDepartureData();
-  }, [terminalId, fetchSecurityData, fetchDepartureData]);
+    refreshAllData(); // Initial fetch on mount
+  }, [terminalId]); // Only re-run if terminalId changes
+
+  const refreshAllData = useCallback(async () => {
+    setLoading(true);
+    setManualRefreshing(true);
+    await Promise.all([
+      fetchSecurityData(),
+      fetchDepartureData(),
+    ]);
+    setLoading(false);
+    setManualRefreshing(false);
+  }, [fetchSecurityData, fetchDepartureData]);
+
 
   const handleRefresh = () => {
-    fetchSecurityData();
-    fetchDepartureData();
+    refreshAllData();
   };
 
   const timeSinceLastUpdate = lastUpdated
@@ -388,7 +434,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         currentHour={hourData.hour}
                         terminalId={terminalId}
                         dateString={format(new Date(), "yyyy-MM-dd")} // Pass today's date string
-                        granularDataForHour={hourlyGranularData.get(hourData.hour) || []} // Pass the cached data
+                        granularDataForHour={hourlyGranularSecurityData.get(hourData.hour) || []} // Pass the cached data
                         isLoadingGranularData={loading} // Pass parent's loading state for initial load
                       >
                         <div
@@ -432,15 +478,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
                             <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
                             {day.hours.slice(0, 12).map((hour, hourIndex) => (
-                              <div
-                                key={hourIndex}
-                                className={cn(
-                                  "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                                  hour.colorClass
-                                )}
+                              <DepartureDetailPopover
+                                key={`${day.date}-am-${hourIndex}`}
+                                dailyDepartureData={departureData}
+                                currentDateString={day.date}
+                                currentHour={hourIndex}
+                                terminalId={terminalId}
+                                granularDataForHour={hourlyGranularDepartureData.get(day.date)?.get(hourIndex) || []}
+                                isLoadingGranularData={loading}
                               >
-                                {hour.value}
-                              </div>
+                                <div
+                                  className={cn(
+                                    "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm cursor-pointer",
+                                    "hover:scale-105 hover:shadow-lg transition-all duration-200",
+                                    hour.colorClass
+                                  )}
+                                >
+                                  {hour.value}
+                                </div>
+                              </DepartureDetailPopover>
                             ))}
                           </div>
 
@@ -448,15 +504,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
                             <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
                             {day.hours.slice(12, 24).map((hour, hourIndex) => (
-                              <div
-                                key={hourIndex + 12}
-                                className={cn(
-                                  "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                                  hour.colorClass
-                                )}
+                              <DepartureDetailPopover
+                                key={`${day.date}-pm-${hourIndex + 12}`}
+                                dailyDepartureData={departureData}
+                                currentDateString={day.date}
+                                currentHour={hourIndex + 12}
+                                terminalId={terminalId}
+                                granularDataForHour={hourlyGranularDepartureData.get(day.date)?.get(hourIndex + 12) || []}
+                                isLoadingGranularData={loading}
                               >
-                                {hour.value}
-                              </div>
+                                <div
+                                  className={cn(
+                                    "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm cursor-pointer",
+                                    "hover:scale-105 hover:shadow-lg transition-all duration-200",
+                                    hour.colorClass
+                                  )}
+                                >
+                                  {hour.value}
+                                </div>
+                              </DepartureDetailPopover>
                             ))}
                           </div>
 
@@ -489,15 +555,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
                         <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
                         {day.hours.slice(0, 12).map((hour, hourIndex) => (
-                          <div
-                            key={hourIndex}
-                            className={cn(
-                              "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                              hour.colorClass
-                            )}
+                          <DepartureDetailPopover
+                            key={`${day.date}-am-${hourIndex}`}
+                            dailyDepartureData={departureData}
+                            currentDateString={day.date}
+                            currentHour={hourIndex}
+                            terminalId={terminalId}
+                            granularDataForHour={hourlyGranularDepartureData.get(day.date)?.get(hourIndex) || []}
+                            isLoadingGranularData={loading}
                           >
-                            {hour.value}
-                          </div>
+                            <div
+                              className={cn(
+                                "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm cursor-pointer",
+                                "hover:scale-105 hover:shadow-lg transition-all duration-200",
+                                hour.colorClass
+                              )}
+                            >
+                              {hour.value}
+                            </div>
+                          </DepartureDetailPopover>
                         ))}
                       </div>
 
@@ -505,15 +581,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
                         <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
                         {day.hours.slice(12, 24).map((hour, hourIndex) => (
-                          <div
-                            key={hourIndex + 12}
-                            className={cn(
-                              "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm",
-                              hour.colorClass
-                            )}
+                          <DepartureDetailPopover
+                            key={`${day.date}-pm-${hourIndex + 12}`}
+                            dailyDepartureData={departureData}
+                            currentDateString={day.date}
+                            currentHour={hourIndex + 12}
+                            terminalId={terminalId}
+                            granularDataForHour={hourlyGranularDepartureData.get(day.date)?.get(hourIndex + 12) || []}
+                            isLoadingGranularData={loading}
                           >
-                            {hour.value}
-                          </div>
+                            <div
+                              className={cn(
+                                "w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-sm cursor-pointer",
+                                "hover:scale-105 hover:shadow-lg transition-all duration-200",
+                                hour.colorClass
+                              )}
+                            >
+                              {hour.value}
+                            </div>
+                          </DepartureDetailPopover>
                         ))}
                       </div>
 
