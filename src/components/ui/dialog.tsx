@@ -104,13 +104,16 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 export {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogClose,
   DialogTrigger,
+  DialogClose,
+  DialogPortal,
+} from "@radix-ui/react-dialog"
+
+export {
+  DialogOverlay,
   DialogContent,
   DialogHeader,
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from "@radix-ui/react-dialog"
+}
