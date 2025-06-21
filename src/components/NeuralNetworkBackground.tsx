@@ -134,7 +134,7 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1] bg-gray-100 dark:bg-gray-900 opacity-30" // Changed opacity-50 to opacity-30
+      className="fixed inset-0 z-[-1] bg-gray-100 dark:bg-[#262626] opacity-30" // Changed dark:bg-gray-900 to dark:bg-[#262626]
     />
   );
 };
