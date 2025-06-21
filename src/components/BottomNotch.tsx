@@ -1,8 +1,9 @@
 import React from 'react';
+// import { cn } from "@/lib/utils"; // This import is not used and can be removed
 
 const BottomNotch: React.FC = () => {
   return (
-    <div className="relative left-1/2 -translate-x-1/2 z-50 w-fit"> {/* Removed 'mt-8' and changed 'w-full' to 'w-fit' */}
+    <div className="relative left-1/2 -translate-x-1/2 z-50 w-fit">
       <div className="bg-white border border-gray-700 rounded-t-3xl px-6 py-2 shadow-lg flex flex-col items-center justify-center dark:bg-gray-800 dark:border-gray-600 text-center">
         <div className="text-gray-600 dark:text-gray-400 text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4">
           <span>
