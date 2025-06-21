@@ -113,7 +113,7 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 pt-20"> {/* Removed pb-20 */}
+    <div className="min-h-screen flex flex-col items-center px-4 pt-20"> {/* Changed 'p-4' to 'px-4' to remove bottom padding */}
       <PhoneNotch />
       
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
