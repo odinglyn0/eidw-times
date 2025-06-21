@@ -56,20 +56,19 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const fetchDepartureData = useCallback(async () => {
     try {
-      console.log(`Fetching departure data for Terminal ${terminalId} from 'departures' table...`);
       const threeDaysAgo = subDays(new Date(), 3).toISOString();
-      const { data, error } = await supabase
-        .from("departures")
-        .select("departure_datetime, departure_count")
-        .eq("terminal_id", terminalId)
-        .gte("departure_datetime", threeDaysAgo)
-        .order("departure_datetime", { ascending: true });
+      console.log(`Invoking Edge Function 'get-departure-data' for Terminal ${terminalId}...`);
+      const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-departure-data', {
+        body: JSON.stringify({ terminalId, threeDaysAgo }),
+      });
 
-      if (error) {
-        console.error(`Supabase departure data error for T${terminalId}:`, error);
-        throw error;
+      if (edgeFunctionError) {
+        console.error(`Edge Function 'get-departure-data' error for T${terminalId}:`, edgeFunctionError);
+        throw edgeFunctionError;
       }
-      console.log(`Raw departure data for T${terminalId}:`, data);
+
+      const rawDepartureData = data as { departure_datetime: string; departure_count: number }[];
+      console.log(`Raw departure data for T${terminalId} from Edge Function:`, rawDepartureData);
 
       const processedData: HourlyDepartureDisplayData[] = [];
       const today = new Date();
@@ -79,7 +78,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         const dayString = index === 0 ? "TODAY" : format(date, "EEE, MMM do").toUpperCase();
         const hourlyCounts: number[] = Array(24).fill(0);
 
-        data.forEach(item => {
+        rawDepartureData.forEach(item => {
           const itemDate = new Date(item.departure_datetime);
           if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
             const hour = getHours(itemDate);
