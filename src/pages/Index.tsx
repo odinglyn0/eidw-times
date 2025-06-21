@@ -83,7 +83,7 @@ const Index = () => {
       console.error("Error fetching global security data:", error);
       setGlobalMaxSecurityTime(null);
     }
-  }, []); // Removed terminalId from dependency array
+  }, []);
 
   // Function to trigger all data fetches
   const refreshAllData = useCallback(async () => {
@@ -163,15 +163,19 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center px-4 pt-20">
       <PhoneNotch />
       
-      {/* Settings icon moved to top-left */}
-      <Link to="/settings" className="fixed top-4 left-4 z-50">
-        <Button variant="ghost" size="icon" className="text-blue-800 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800">
-          <SettingsIcon className="h-5 w-5" /> {/* Increased icon size slightly for better tap target */}
-          <span className="sr-only">Settings</span>
-        </Button>
-      </Link>
-
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
+        {/* Settings icon moved inside and positioned absolutely */}
+        <Link to="/settings" className="absolute top-2 left-2 z-10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
+          >
+            <SettingsIcon className="h-5 w-5" />
+            <span className="sr-only">Settings</span>
+          </Button>
+        </Link>
+
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
