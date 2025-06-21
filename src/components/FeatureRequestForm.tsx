@@ -32,6 +32,23 @@ const formSchema = z.object({
   details: z.string().min(10, "Details must be at least 10 characters.").max(1000, "Details must be 1000 characters or less."),
   isNameAnonymous: z.boolean().default(false),
   isEmailAnonymous: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  // If not anonymous, name is required
+  if (!data.isNameAnonymous && (!data.name || data.name.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Name is required if not anonymous.",
+      path: ["name"],
+    });
+  }
+  // If not anonymous, email is required
+  if (!data.isEmailAnonymous && (!data.email || data.email.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Email is required if not anonymous.",
+      path: ["email"],
+    });
+  }
 });
 
 const FeatureRequestForm: React.FC<FeatureRequestFormProps> = ({ isOpen, onClose }) => {
