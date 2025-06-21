@@ -25,6 +25,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion components
+import HourlyDetailPopover from "./HourlyDetailPopover"; // Import the new HourlyDetailPopover
 
 interface HourlySecurityData {
   hour: number;
@@ -352,16 +353,22 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     }
 
                     return (
-                      <div
+                      <HourlyDetailPopover
                         key={hourData.hour}
-                        className={cn(
-                          "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold",
-                          bgColorClass
-                        )}
+                        hourlyData={currentDayHourlyData}
+                        currentHour={hourData.hour}
+                        terminalId={terminalId}
                       >
-                        <span>{hourData.hour}h</span>
-                        <span>{hourData[`t${terminalId}`] !== null ? `${hourData[`t${terminalId}`]}m` : "N/A"}</span>
-                      </div>
+                        <div
+                          className={cn(
+                            "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold cursor-pointer",
+                            bgColorClass
+                          )}
+                        >
+                          <span>{hourData.hour}h</span>
+                          <span>{hourData[`t${terminalId}`] !== null ? `${hourData[`t${terminalId}`]}m` : "N/A"}</span>
+                        </div>
+                      </HourlyDetailPopover>
                     );
                   })}
                 </div>
