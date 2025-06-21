@@ -7,7 +7,7 @@ import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
 import SettingsPageLink from "@/components/SettingsPageLink";
-import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies';
+import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 
 // Define interfaces for historical data structure received from Edge Function
@@ -156,17 +156,31 @@ const Index = () => {
     return null;
   })();
 
+  const longestTerminal = (() => {
+    if (t1CurrentTime === null && t2CurrentTime === null) {
+      return null;
+    }
+    if (t1CurrentTime !== null && t2CurrentTime === null) {
+      return { id: 1, time: t1CurrentTime };
+    }
+    if (t1CurrentTime === null && t2CurrentTime !== null) {
+      return { id: 2, time: t2CurrentTime };
+    }
+    if (t1CurrentTime !== null && t2CurrentTime !== null) {
+      if (t1CurrentTime > t2CurrentTime) {
+        return { id: 1, time: t1CurrentTime };
+      } else if (t2CurrentTime > t1CurrentTime) {
+        return { id: 2, time: t2CurrentTime };
+      } else {
+        return null; // Both are equal, no single "longest"
+      }
+    }
+    return null;
+  })();
+
   const timeSinceRecommendationUpdate = recommendationLastUpdated
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
     : null;
-
-  // The handleTestEvent function is no longer needed as the button is removed.
-  // const handleTestEvent = () => {
-  //   trackEvent('test_button_click', {
-  //     button_name: 'Test GA Event Button',
-  //     page_location: window.location.pathname,
-  //   });
-  // };
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative">
@@ -230,12 +244,14 @@ const Index = () => {
           globalMaxTime={globalMaxSecurityTime} 
           isAutoRefreshing={isAutoRefreshing} 
           isRecommended={recommendedTerminal?.id === 1 || recommendedTerminal?.id === "either"}
+          isLongest={longestTerminal?.id === 1}
         />
         <TerminalSecurityCard 
           terminalId={2} 
           globalMaxTime={globalMaxSecurityTime} 
           isAutoRefreshing={isAutoRefreshing} 
           isRecommended={recommendedTerminal?.id === 2 || recommendedTerminal?.id === "either"}
+          isLongest={longestTerminal?.id === 2}
         />
       </div>
 

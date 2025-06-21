@@ -40,9 +40,10 @@ interface TerminalSecurityCardProps {
   globalMaxTime?: number | null; // New prop for consistent scaling
   isAutoRefreshing: boolean; // New prop to indicate if auto-refresh is active
   isRecommended: boolean; // New prop to indicate if this terminal is recommended
+  isLongest: boolean; // New prop to indicate if this terminal has the longest wait
 }
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, isRecommended }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, isRecommended, isLongest }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -208,7 +209,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   return (
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
       {isRecommended && (
-        <ChatBubble message="Pick me!" emoji="👋" />
+        <ChatBubble message="Pick me!" emoji="😝" />
+      )}
+      {isLongest && (
+        <ChatBubble message="Damn..." emoji="🥲" className="bg-red-600 before:border-t-red-600" />
       )}
       <CardHeader className={cn("p-4 text-white text-center relative", cardHeaderBgClass)}>
         <CardTitle className="text-lg font-semibold mb-1">Security queue wait</CardTitle>
