@@ -183,7 +183,7 @@ const Index = () => {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
+    <div className="min-h-screen flex flex-col items-center px-4 pt-12 relative">
       <PhoneNotch />
       
       <SettingsPageLink />
@@ -238,7 +238,7 @@ const Index = () => {
         </Button>
       </div>
 
-      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8">
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16">
         <TerminalSecurityCard 
           terminalId={1} 
           globalMaxTime={globalMaxSecurityTime} 
