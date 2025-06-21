@@ -9,6 +9,7 @@ import BottomNotch from "@/components/BottomNotch";
 import SettingsPageLink from "@/components/SettingsPageLink";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
 import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
+import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -172,6 +173,8 @@ const Index = () => {
       <PhoneNotch />
       
       <SettingsPageLink />
+
+      <AnnouncementBanner /> {/* Add the AnnouncementBanner here */}
 
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
