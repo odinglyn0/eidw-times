@@ -142,7 +142,7 @@ const NeuralNetworkBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1]" // No opacity here, it's handled by the fillStyle
+      className="fixed inset-0 z-[-1] opacity-30" // Re-added opacity-30
       style={{ backgroundColor: 'var(--background)' }} // Still use CSS variable for the element's background, which is read by JS
     />
   );
