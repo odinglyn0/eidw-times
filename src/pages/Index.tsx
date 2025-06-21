@@ -163,9 +163,9 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center px-4 pt-16">
       <PhoneNotch />
       
-      {/* The settings icon is now inside the main content div and will scroll with it */}
-      <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
-        <Link to="/settings" className="absolute top-4 right-4 z-10"> {/* Adjusted positioning */}
+      {/* Settings icon - now a separate, scrollable element at the top-right of the content flow */}
+      <div className="w-full max-w-5xl flex justify-end mb-4"> {/* This div will scroll */}
+        <Link to="/settings">
           <Button 
             variant="ghost" 
             size="icon" 
@@ -175,7 +175,9 @@ const Index = () => {
             <span className="sr-only">Settings</span>
           </Button>
         </Link>
+      </div>
 
+      <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
