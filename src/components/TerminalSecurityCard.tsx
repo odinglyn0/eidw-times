@@ -209,7 +209,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   return (
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
       {isRecommended && (
-        <ChatBubble message="Pick me!" emoji="😝" className="-top-12" />
+        <ChatBubble message="Pick me!" emoji="😝" className="-top-12 animate-bounce-twice" />
       )}
       {isLongest && (
         <ChatBubble message="Damn..." emoji="🥲" className="bg-red-600 before:border-t-red-600 -top-12" />

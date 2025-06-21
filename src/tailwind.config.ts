@@ -97,10 +97,22 @@ export default {
             height: "0",
           },
         },
+        "bounce-once": {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+            animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)',
+          },
+          '50%': {
+            transform: 'translateY(-10%)',
+            animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)',
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "bounce-once": "bounce-once 1s ease-in-out 1", // Play once
+        "bounce-twice": "bounce-once 1s ease-in-out 2", // Play twice
       },
     },
   },
