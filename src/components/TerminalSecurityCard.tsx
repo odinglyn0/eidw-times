@@ -39,11 +39,11 @@ interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
   globalMaxTime?: number | null; // New prop for consistent scaling
   isAutoRefreshing: boolean; // New prop to indicate if auto-refresh is active
-  isRecommended: boolean; // New prop to indicate if this terminal is recommended
-  isLongest: boolean; // New prop to indicate if this terminal has the longest wait
+  t1CurrentTime: number | null; // Current time for T1
+  t2CurrentTime: number | null; // Current time for T2
 }
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, isRecommended, isLongest }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -202,17 +202,60 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 
-  const cardBorderColorClass = isRecommended ? "border-custom-green" : "border-departure-orange";
-  const cardHeaderBgClass = isRecommended ? "bg-custom-green" : "bg-departure-orange";
-  const currentTimeColorClass = isRecommended ? "text-custom-green" : "text-departure-orange";
+  // Determine chat bubble message and styling based on current times
+  let chatBubbleMessage: string | null = null;
+  let chatBubbleEmoji: string | null = null;
+  let chatBubbleClassName: string = "-top-12"; // Base class for positioning
+
+  const areTimesValid = t1CurrentTime !== null && t2CurrentTime !== null;
+  const areTimesEqual = areTimesValid && t1CurrentTime === t2CurrentTime;
+  const isT1Quicker = areTimesValid && t1CurrentTime < t2CurrentTime;
+  const isT2Quicker = areTimesValid && t2CurrentTime < t1CurrentTime;
+
+  let isRecommendedTerminal = false;
+  let isLongestTerminal = false;
+
+  if (areTimesEqual) {
+    if (terminalId === 1) {
+      chatBubbleMessage = "Pick me!";
+      chatBubbleEmoji = "😝";
+      chatBubbleClassName += " animate-bounce-twice";
+      isRecommendedTerminal = true; // T1 is "recommended" when equal
+    } else if (terminalId === 2) {
+      chatBubbleMessage = "It doesn't even matter bro";
+      chatBubbleEmoji = "🤷‍♂️";
+      // No animation for T2 when times are equal
+    }
+  } else if (isT1Quicker && terminalId === 1) {
+    chatBubbleMessage = "Pick me!";
+    chatBubbleEmoji = "😝";
+    chatBubbleClassName += " animate-bounce-twice";
+    isRecommendedTerminal = true;
+  } else if (isT2Quicker && terminalId === 2) {
+    chatBubbleMessage = "Pick me!";
+    chatBubbleEmoji = "😝";
+    chatBubbleClassName += " animate-bounce-twice";
+    isRecommendedTerminal = true;
+  } else if (isT1Quicker && terminalId === 2) { // T2 is longest if T1 is quicker
+    chatBubbleMessage = "Damn...";
+    chatBubbleEmoji = "🥲";
+    chatBubbleClassName += " bg-red-600 before:border-t-red-600";
+    isLongestTerminal = true;
+  } else if (isT2Quicker && terminalId === 1) { // T1 is longest if T2 is quicker
+    chatBubbleMessage = "Damn...";
+    chatBubbleEmoji = "🥲";
+    chatBubbleClassName += " bg-red-600 before:border-t-red-600";
+    isLongestTerminal = true;
+  }
+
+  const cardBorderColorClass = isRecommendedTerminal ? "border-custom-green" : "border-departure-orange";
+  const cardHeaderBgClass = isRecommendedTerminal ? "bg-custom-green" : "bg-departure-orange";
+  const currentTimeColorClass = isRecommendedTerminal ? "text-custom-green" : "text-departure-orange";
 
   return (
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
-      {isRecommended && (
-        <ChatBubble message="Pick me!" emoji="😝" className="-top-12 animate-bounce-twice" />
-      )}
-      {isLongest && (
-        <ChatBubble message="Damn..." emoji="🥲" className="bg-red-600 before:border-t-red-600 -top-12" />
+      {chatBubbleMessage && (
+        <ChatBubble message={chatBubbleMessage} emoji={chatBubbleEmoji!} className={chatBubbleClassName} />
       )}
       <CardHeader className={cn("p-4 text-white text-center relative", cardHeaderBgClass)}>
         <CardTitle className="text-lg font-semibold mb-1">Security queue wait</CardTitle>
@@ -277,7 +320,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     <Line
                       type="monotone"
                       dataKey="t1Average" // Plot t1Average directly
-                      stroke={isRecommended ? "#4CAF50" : "#FF8000"} // Dynamic line color
+                      stroke={isRecommendedTerminal ? "#4CAF50" : "#FF8000"} // Dynamic line color
                       strokeWidth={2}
                       dot={false}
                     />

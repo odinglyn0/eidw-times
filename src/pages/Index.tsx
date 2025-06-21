@@ -156,28 +156,6 @@ const Index = () => {
     return null;
   })();
 
-  const longestTerminal = (() => {
-    if (t1CurrentTime === null && t2CurrentTime === null) {
-      return null;
-    }
-    if (t1CurrentTime !== null && t2CurrentTime === null) {
-      return { id: 1, time: t1CurrentTime };
-    }
-    if (t1CurrentTime === null && t2CurrentTime !== null) {
-      return { id: 2, time: t2CurrentTime };
-    }
-    if (t1CurrentTime !== null && t2CurrentTime !== null) {
-      if (t1CurrentTime > t2CurrentTime) {
-        return { id: 1, time: t1CurrentTime };
-      } else if (t2CurrentTime > t1CurrentTime) {
-        return { id: 2, time: t2CurrentTime };
-      } else {
-        return null; // Both are equal, no single "longest"
-      }
-    }
-    return null;
-  })();
-
   const timeSinceRecommendationUpdate = recommendationLastUpdated
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
     : null;
@@ -243,15 +221,15 @@ const Index = () => {
           terminalId={1} 
           globalMaxTime={globalMaxSecurityTime} 
           isAutoRefreshing={isAutoRefreshing} 
-          isRecommended={recommendedTerminal?.id === 1 || recommendedTerminal?.id === "either"}
-          isLongest={longestTerminal?.id === 1}
+          t1CurrentTime={t1CurrentTime}
+          t2CurrentTime={t2CurrentTime}
         />
         <TerminalSecurityCard 
           terminalId={2} 
           globalMaxTime={globalMaxSecurityTime} 
           isAutoRefreshing={isAutoRefreshing} 
-          isRecommended={recommendedTerminal?.id === 2 || recommendedTerminal?.id === "either"}
-          isLongest={longestTerminal?.id === 2}
+          t1CurrentTime={t1CurrentTime}
+          t2CurrentTime={t2CurrentTime}
         />
       </div>
 
