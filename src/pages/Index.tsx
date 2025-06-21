@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
-import SettingsPageLink from "@/components/SettingsPageLink"; // Import the new component
+import SettingsPageLink from "@/components/SettingsPageLink";
 import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies';
+import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -159,14 +160,19 @@ const Index = () => {
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
     : null;
 
+  const handleTestEvent = () => {
+    trackEvent('test_button_click', {
+      button_name: 'Test GA Event Button',
+      page_location: window.location.pathname,
+    });
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative"> {/* Added relative here */}
+    <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative">
       <PhoneNotch />
       
-      {/* Settings icon, now a separate component, positioned relative to the main scrolling div */}
       <SettingsPageLink />
 
-      {/* Main content starts here, with padding to clear the PhoneNotch */}
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
@@ -204,7 +210,7 @@ const Index = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={refreshAllData} // Use refreshAllData for manual refresh
+          onClick={refreshAllData}
           disabled={loadingRecommendation || isAutoRefreshing}
           className="absolute top-2 right-2 text-blue-800 hover:bg-blue-100 dark:text-blue-200 dark:hover:bg-blue-800"
         >
@@ -221,6 +227,14 @@ const Index = () => {
         <TerminalSecurityCard terminalId={1} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
         <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
       </div>
+
+      {/* Test button for custom GA event */}
+      <div className="mb-8">
+        <Button onClick={handleTestEvent}>
+          Send Test GA Event
+        </Button>
+      </div>
+
       <BottomNotch />
     </div>
   );
