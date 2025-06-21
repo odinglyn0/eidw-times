@@ -160,12 +160,13 @@ const Index = () => {
     ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
     : null;
 
-  const handleTestEvent = () => {
-    trackEvent('test_button_click', {
-      button_name: 'Test GA Event Button',
-      page_location: window.location.pathname,
-    });
-  };
+  // The handleTestEvent function is no longer needed as the button is removed.
+  // const handleTestEvent = () => {
+  //   trackEvent('test_button_click', {
+  //     button_name: 'Test GA Event Button',
+  //     page_location: window.location.pathname,
+  //   });
+  // };
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-16 relative">
@@ -228,12 +229,7 @@ const Index = () => {
         <TerminalSecurityCard terminalId={2} globalMaxTime={globalMaxSecurityTime} isAutoRefreshing={isAutoRefreshing} />
       </div>
 
-      {/* Test button for custom GA event */}
-      <div className="mb-8">
-        <Button onClick={handleTestEvent}>
-          Send Test GA Event
-        </Button>
-      </div>
+      {/* The test button for custom GA event has been removed */}
 
       <BottomNotch />
     </div>
