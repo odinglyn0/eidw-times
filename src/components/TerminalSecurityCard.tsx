@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ResponsiveContainer,
@@ -28,6 +28,7 @@ import {
 import HourlyDetailPopover from "./HourlyDetailPopover"; // Import the new HourlyDetailPopover
 import DepartureDetailPopover from "./DepartureDetailPopover"; // Import the new DepartureDetailPopover
 
+// Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
   hour: number;
   t1: number | null;
@@ -325,7 +326,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 
-  // Helper function to format time
+  // Helper function to format time (this one is for the popover's X-axis)
   const formatTime = (isoString: string) => {
     const date = parseISO(isoString);
     return getMinutes(date) === 0 ? format(date, 'h a') : format(date, 'h:mm a');
@@ -420,44 +421,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             </p>
 
             <div className="mb-8 w-full">
-              <h3 className="text-md font-semibold text-gray-700 mb-2">Last 7 Days (Daily Average)</h3>
-              {historicalDailyAverages.length > 0 ? (
-                <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={historicalDailyAverages} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={true} />
-                    <XAxis
-                      dataKey="date"
-                      type="category"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ angle: -45, textAnchor: 'end', fontSize: 10 }}
-                      tickFormatter={(value: string) => format(new Date(value), "dd/MM")}
-                      height={40}
-                    />
-                    <YAxis
-                      tickFormatter={(value) => `${value}m`}
-                      width={50}
-                      axisLine={false}
-                      tickLine={false}
-                      domain={[0, yAxisDomainMax]}
-                      ticks={Array.from({ length: Math.floor(yAxisDomainMax / 10) + 1 }, (_, i) => i * 10)}
-                    />
-                    <Tooltip formatter={(value: number) => [`${value}m`, `T${terminalId} Avg`]} />
-                    <Line
-                      type="monotone"
-                      dataKey="t1Average"
-                      stroke={shouldBeGreenStyled ? "#4CAF50" : "#FF8000"}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-center text-muted-foreground text-sm">No historical data for last 7 days.</p>
-              )}
-            </div>
-
-            <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 mb-4">Last 24 Hours Security Times</h3>
               {currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
@@ -492,7 +455,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             bgColorClass
                           )}
                         >
-                          <span>{formatTime(dataPoint.timestamp!)}</span> {/* Display formatted time */}
+                          <span>{format(parseISO(dataPoint.timestamp!), 'h a')}</span> {/* Display formatted hour (e.g., "2 AM") */}
                           <span>{dataPoint[`t${terminalId}`] !== null ? `${dataPoint[`t${terminalId}`]}m` : "N/A"}</span>
                         </div>
                       </HourlyDetailPopover>
