@@ -3,13 +3,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO, getMinutes } from 'date-fns';
+import { format, parseISO, getMinutes, getHours } from 'date-fns'; // Added getHours
 import { Loader2 } from 'lucide-react';
 
+// Re-using the HourlySecurityData interface from TerminalSecurityCard for consistency
 interface HourlySecurityData {
   hour: number;
   t1: number | null;
   t2: number | null;
+  timestamp: string | null;
 }
 
 interface GranularSecurityData {
@@ -19,58 +21,57 @@ interface GranularSecurityData {
 
 interface HourlyDetailPopoverProps {
   children: React.ReactNode;
-  hourlyData: HourlySecurityData[]; // All hourly data for the day (for percentage changes)
-  currentHour: number; // The hour this popover is for
+  all24HourData: HourlySecurityData[]; // Renamed from hourlyData to be clearer
+  currentDataPoint: HourlySecurityData; // The specific data point this popover is for
   terminalId: 1 | 2;
-  dateString: string; // The date for which to fetch granular data (e.g., "2024-07-26")
-  granularDataForHour: GranularSecurityData[]; // New prop for pre-fetched data
-  isLoadingGranularData: boolean; // New prop to indicate if parent is loading
+  granularDataForHour: GranularSecurityData[];
+  isLoadingGranularData: boolean;
 }
 
-const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hourlyData, currentHour, terminalId, dateString, granularDataForHour, isLoadingGranularData }) => {
+const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all24HourData, currentDataPoint, terminalId, granularDataForHour, isLoadingGranularData }) => {
   const dataKey = `t${terminalId}` as 't1' | 't2';
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  // No useEffect for fetching granular data needed here anymore, it comes from props
+  // Find the index of the current data point in the full 24-hour array
+  const currentIndex = all24HourData.findIndex(d => d.timestamp === currentDataPoint.timestamp);
 
-  // Calculate percentage changes using the hourlyData prop
-  const currentHourData = hourlyData.find(d => d.hour === currentHour);
-  const prevHourData = hourlyData.find(d => d.hour === currentHour - 1);
-  const nextHourData = hourlyData.find(d => d.hour === currentHour + 1);
+  // Get previous and next data points based on index
+  const prevDataPoint = currentIndex > 0 ? all24HourData[currentIndex - 1] : null;
+  const nextDataPoint = currentIndex < all24HourData.length - 1 ? all24HourData[currentIndex + 1] : null;
 
-  const currentTime = currentHourData ? currentHourData[dataKey] : null;
-  const prevTime = prevHourData ? prevHourData[dataKey] : null;
-  const nextTime = nextHourData ? nextHourData[dataKey] : null;
+  const currentTime = currentDataPoint[dataKey];
+  const prevTime = prevDataPoint ? prevDataPoint[dataKey] : null;
+  const nextTime = nextDataPoint ? nextDataPoint[dataKey] : null;
 
-  let changeFromLastHour: string | null = null;
+  let changeFromLastPoint: string | null = null;
   if (currentTime !== null && prevTime !== null) {
     if (prevTime === 0 && currentTime === 0) {
-      changeFromLastHour = `No change from last hour (0m)`;
+      changeFromLastPoint = `No change from previous point (0m)`;
     } else if (prevTime === 0) {
-      changeFromLastHour = `Increased from 0m to ${currentTime}m`;
+      changeFromLastPoint = `Increased from 0m to ${currentTime}m`;
     } else {
       const percentage = ((currentTime - prevTime) / prevTime) * 100;
-      changeFromLastHour = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% from last hour`;
+      changeFromLastPoint = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% from previous point`;
     }
   } else if (currentTime !== null && prevTime === null) {
-    changeFromLastHour = `No data for previous hour`;
+    changeFromLastPoint = `No data for previous point`;
   }
 
-  let changeToNextHour: string | null = null;
+  let changeToNextPoint: string | null = null;
   if (currentTime !== null && nextTime !== null) {
     if (currentTime === 0 && nextTime === 0) {
-      changeToNextHour = `No change to next hour (0m)`;
+      changeToNextPoint = `No change to next point (0m)`;
     } else if (currentTime === 0) {
-      changeToNextHour = `Increased from 0m to ${nextTime}m`;
+      changeToNextPoint = `Increased from 0m to ${nextTime}m`;
     } else {
       const percentage = ((nextTime - currentTime) / currentTime) * 100;
-      changeToNextHour = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% to next hour`;
+      changeToNextPoint = `${percentage > 0 ? 'Up' : 'Down'} ${Math.abs(percentage).toFixed(0)}% to next point`;
     }
   } else if (currentTime !== null && nextTime === null) {
-    changeToNextHour = `No data for next hour`;
+    changeToNextPoint = `No data for next point`;
   }
 
-  // Calculate fluctuation within the hour
+  // Calculate fluctuation within the hour (this logic remains the same as it uses granularDataForHour)
   let fluctuationMessage: string | null = null;
   if (granularDataForHour.length > 0 && granularDataForHour.some(d => d.time !== null)) {
     const validTimes = granularDataForHour.map(d => d.time).filter((t): t is number => t !== null);
@@ -113,7 +114,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
-        <h4 className="font-semibold mb-2 text-center">Hour {currentHour}:00 - {currentHour + 1}:00</h4>
+        <h4 className="font-semibold mb-2 text-center">Time: {format(parseISO(currentDataPoint.timestamp!), 'HH:mm')}</h4> {/* Display exact time */}
         <div className="h-24 w-full mb-2">
           {isLoadingGranularData ? ( // Use the prop for loading
             <div className="flex items-center justify-center h-full">
@@ -156,10 +157,10 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, hou
           )}
         </div>
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          {changeFromLastHour && <p>{changeFromLastHour}</p>}
-          {changeToNextHour && <p>{changeToNextHour}</p>}
+          {changeFromLastPoint && <p>{changeFromLastPoint}</p>}
+          {changeToNextPoint && <p>{changeToNextPoint}</p>}
           {fluctuationMessage && <p>{fluctuationMessage}</p>}
-          {(changeFromLastHour === null && changeToNextHour === null && fluctuationMessage === null) && (
+          {(changeFromLastPoint === null && changeToNextPoint === null && fluctuationMessage === null) && (
             <p>No comparative data available.</p>
           )}
         </div>
