@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO, getMinutes, getHours } from 'date-fns'; // Added getHours
+import { format, parseISO, getMinutes, getHours } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
 // Re-using the HourlySecurityData interface from TerminalSecurityCard for consistency
@@ -103,6 +103,12 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
   const maxY = allTimesInGraph.length > 0 ? Math.max(...allTimesInGraph) : 10; // Default max if no data
   const yAxisDomain = [minY > 0 ? minY - 5 : 0, maxY + 5]; // Add some padding
 
+  // Helper function to format time
+  const formatTime = (isoString: string) => {
+    const date = parseISO(isoString);
+    return getMinutes(date) === 0 ? format(date, 'h a') : format(date, 'h:mm a');
+  };
+
   return (
     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
       <PopoverTrigger asChild>
@@ -114,7 +120,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
-        <h4 className="font-semibold mb-2 text-center">Time: {format(parseISO(currentDataPoint.timestamp!), 'HH:mm')}</h4> {/* Display exact time */}
+        <h4 className="font-semibold mb-2 text-center">Time: {currentDataPoint.timestamp ? formatTime(currentDataPoint.timestamp) : 'N/A'}</h4>
         <div className="h-24 w-full mb-2">
           {isLoadingGranularData ? ( // Use the prop for loading
             <div className="flex items-center justify-center h-full">
@@ -140,8 +146,8 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
                   domain={yAxisDomain}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${format(parseISO(props.payload.timestamp), 'HH:mm')}`]}
-                  labelFormatter={(label) => `Time ${format(parseISO(label), 'HH:mm')}`}
+                  formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${formatTime(props.payload.timestamp)}`]}
+                  labelFormatter={(label) => `Time ${formatTime(label)}`}
                 />
                 <Line
                   type="monotone"

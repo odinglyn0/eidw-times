@@ -12,7 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO, subHours } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO, subHours, getMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -211,7 +211,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           // Only include data points that have a timestamp and a non-null time for the current terminal
           if (hourData.timestamp && hourData[`t${terminalId}`] !== null) {
             allActualDataPoints.push({
-              hour: getHours(parseISO(hourData.timestamp)), // Keep hour for popover's granular data map key
+              hour: hourData.hour, // Keep hour for popover's granular data map key
               t1: hourData.t1,
               t2: hourData.t2,
               timestamp: hourData.timestamp, // This is the local time ISO string from Edge Function
@@ -324,6 +324,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
+
+  // Helper function to format time
+  const formatTime = (isoString: string) => {
+    const date = parseISO(isoString);
+    return getMinutes(date) === 0 ? format(date, 'h a') : format(date, 'h:mm a');
+  };
 
   // Determine chat bubble message and styling based on current times
   let chatBubbleMessage: string | null = null;
@@ -486,7 +492,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             bgColorClass
                           )}
                         >
-                          <span>{format(parseISO(dataPoint.timestamp!), 'HH:mm')}</span> {/* Display exact time */}
+                          <span>{formatTime(dataPoint.timestamp!)}</span> {/* Display formatted time */}
                           <span>{dataPoint[`t${terminalId}`] !== null ? `${dataPoint[`t${terminalId}`]}m` : "N/A"}</span>
                         </div>
                       </HourlyDetailPopover>
