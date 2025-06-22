@@ -489,6 +489,22 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               {sevenDayHistoricalData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={sevenDayHistoricalData}>
+                    <defs>
+                      <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                        {/* Red (highest values): Starts at 0% (top, yAxisDomainMax) and goes down to the 30min mark. */}
+                        <stop offset="0%" stopColor="var(--departure-red)" />
+                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-red)" />
+                        {/* Orange (30 to 20 mins): */}
+                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-orange)" />
+                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-orange)" />
+                        {/* Yellow (20 to 10 mins): */}
+                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-yellow)" />
+                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-yellow)" />
+                        {/* Green (10 to 0 mins): */}
+                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-green-light)" />
+                        <stop offset={`${((yAxisDomainMax - 0) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-green-light)" />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="timestamp"
@@ -500,7 +516,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     />
                     <YAxis
                       tickFormatter={(value) => `${value}m`}
-                      domain={['auto', 'auto']} // Auto-scaling Y-axis
+                      domain={[0, yAxisDomainMax]} // Set domain explicitly for gradient calculation
                       axisLine={false}
                       tickLine={false}
                       fontSize={10}
@@ -512,7 +528,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     <Line
                       type="monotone"
                       dataKey={`t${terminalId}`}
-                      stroke="#4CAF50" // Vibrant green for the line
+                      stroke="url(#colorGradient)" // Apply the gradient
                       strokeWidth={2}
                       dot={false} // Do not show dots
                     />
