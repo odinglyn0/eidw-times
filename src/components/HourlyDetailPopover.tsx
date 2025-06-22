@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
@@ -156,7 +154,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
                   dataKey="time"
                   stroke="#4CAF50" // Consistent green for the graph line
                   strokeWidth={2}
-                  dot={false} {/* This line removes the dots */}
+                  dot={true}
                 />
               </LineChart>
             </ResponsiveContainer>
