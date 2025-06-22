@@ -492,17 +492,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     <defs>
                       <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                         {/* Red (highest values): Starts at 0% (top, yAxisDomainMax) and goes down to the 30min mark. */}
-                        <stop offset="0%" stopColor="var(--departure-red)" />
-                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-red)" />
+                        <stop offset="0%" stopColor="#FF0000" /> {/* departure-red */}
+                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="#FF0000" /> {/* departure-red */}
                         {/* Orange (30 to 20 mins): */}
-                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-orange)" />
-                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-orange)" />
+                        <stop offset={`${((yAxisDomainMax - 30) / yAxisDomainMax) * 100}%`} stopColor="#FF8000" /> {/* departure-orange */}
+                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="#FF8000" /> {/* departure-orange */}
                         {/* Yellow (20 to 10 mins): */}
-                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-yellow)" />
-                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-yellow)" />
+                        <stop offset={`${((yAxisDomainMax - 20) / yAxisDomainMax) * 100}%`} stopColor="#a6a605" /> {/* departure-yellow */}
+                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="#a6a605" /> {/* departure-yellow */}
                         {/* Green (10 to 0 mins): */}
-                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-green-light)" />
-                        <stop offset={`${((yAxisDomainMax - 0) / yAxisDomainMax) * 100}%`} stopColor="var(--departure-green-light)" />
+                        <stop offset={`${((yAxisDomainMax - 10) / yAxisDomainMax) * 100}%`} stopColor="#92D050" /> {/* departure-green-light */}
+                        <stop offset={`${((yAxisDomainMax - 0) / yAxisDomainMax) * 100}%`} stopColor="#92D050" /> {/* departure-green-light */}
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
