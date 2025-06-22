@@ -154,7 +154,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
                   dataKey="time"
                   stroke="#4CAF50" // Consistent green for the graph line
                   strokeWidth={2}
-                  dot={true}
+                  dot={false} // This will hide the individual data points
                 />
               </LineChart>
             </ResponsiveContainer>
