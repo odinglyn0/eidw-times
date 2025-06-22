@@ -112,68 +112,70 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
   };
 
   return (
-    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-      <PopoverTrigger asChild>
-        <div
-          onMouseEnter={() => setIsPopoverOpen(true)}
-          onMouseLeave={() => setIsPopoverOpen(false)}
-        >
-          {children}
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
-        <h4 className="font-semibold mb-2 text-center">Time: {currentDataPoint.timestamp ? formatTime(currentDataPoint.timestamp) : 'N/A'}</h4>
-        <div className="h-24 w-full mb-2">
-          {isLoadingGranularData ? ( // Use the prop for loading
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading graph...
-            </div>
-          ) : granularDataForHour.length > 0 && granularDataForHour.some(d => d.time !== null) ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={granularDataForHour} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="timestamp"
-                  tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
-                  axisLine={false}
-                  tickLine={false}
-                  fontSize={10}
-                />
-                <YAxis
-                  tickFormatter={(value) => `${value}m`}
-                  axisLine={false}
-                  tickLine={false}
-                  fontSize={10}
-                  domain={yAxisDomain}
-                />
-                <Tooltip
-                  formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${formatTime(props.payload.timestamp)}`]}
-                  labelFormatter={(label) => `Time ${formatTime(label)}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="time"
-                  stroke="#4CAF50" // Consistent green for the graph line
-                  strokeWidth={2}
-                  dot={false} {/* This line removes the dots */}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-muted-foreground text-xs mt-8">No granular data for graph.</p>
-          )}
-        </div>
-        <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          {changeFromLastPoint && <p>{changeFromLastPoint}</p>}
-          {changeToNextPoint && <p>{changeToNextPoint}</p>}
-          {fluctuationMessage && <p>{fluctuationMessage}</p>}
-          {(changeFromLastPoint === null && changeToNextPoint === null && fluctuationMessage === null) && (
-            <p>No comparative data available.</p>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <React.Fragment>
+      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+        <PopoverTrigger asChild>
+          <div
+            onMouseEnter={() => setIsPopoverOpen(true)}
+            onMouseLeave={() => setIsPopoverOpen(false)}
+          >
+            {children}
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
+          <h4 className="font-semibold mb-2 text-center">Time: {currentDataPoint.timestamp ? formatTime(currentDataPoint.timestamp) : 'N/A'}</h4>
+          <div className="h-24 w-full mb-2">
+            {isLoadingGranularData ? ( // Use the prop for loading
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Loading graph...
+              </div>
+            ) : granularDataForHour.length > 0 && granularDataForHour.some(d => d.time !== null) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={granularDataForHour} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="timestamp"
+                    tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
+                    axisLine={false}
+                    tickLine={false}
+                    fontSize={10}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `${value}m`}
+                    axisLine={false}
+                    tickLine={false}
+                    fontSize={10}
+                    domain={yAxisDomain}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${formatTime(props.payload.timestamp)}`]}
+                    labelFormatter={(label) => `Time ${formatTime(label)}`}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="time"
+                    stroke="#4CAF50" // Consistent green for the graph line
+                    strokeWidth={2}
+                    dot={false} {/* This line removes the dots */}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-muted-foreground text-xs mt-8">No granular data for graph.</p>
+            )}
+          </div>
+          <div className="space-y-1 text-gray-700 dark:text-gray-300">
+            {changeFromLastPoint && <p>{changeFromLastPoint}</p>}
+            {changeToNextPoint && <p>{changeToNextPoint}</p>}
+            {fluctuationMessage && <p>{fluctuationMessage}</p>}
+            {(changeFromLastPoint === null && changeToNextPoint === null && fluctuationMessage === null) && (
+              <p>No comparative data available.</p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </React.Fragment>
   );
 };
 
