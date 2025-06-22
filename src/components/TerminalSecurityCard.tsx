@@ -12,7 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
-import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO } from "date-fns";
+import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO, subHours } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -32,6 +32,7 @@ interface HourlySecurityData {
   hour: number;
   t1: number | null;
   t2: number | null;
+  timestamp: string | null; // Added timestamp
 }
 
 interface DailySecurityData {
@@ -68,7 +69,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
     { date: string; t1Average: number | null }[]
   >([]);
-  const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
+  const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]); // This will now hold the last 24 hours of *existing* data
   const [hourlyGranularSecurityData, setHourlyGranularSecurityData] = useState<Map<number, GranularSecurityData[]>>(new Map());
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map()); // Map<DateString, Map<Hour, Data[]>>
@@ -203,28 +204,66 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setHistoricalDailyAverages(dailyAverages);
       console.log("Client: Calculated daily averages for chart:", dailyAverages);
 
-      // Get current day's hourly data (last element in the array)
-      const todayHourlyData = allHistoricalData[allHistoricalData.length - 1]?.hourlyData || [];
-      setCurrentDayHourlyData(todayHourlyData);
-      console.log(`Hourly data for Terminal ${terminalId}:`, todayHourlyData);
+      // --- Logic for last 24 hours of *existing* hourly data ---
+      const allHourlyPointsWithTimestamps: (HourlySecurityData & { timestamp: string })[] = [];
+      allHistoricalData.forEach(dayData => {
+        dayData.hourlyData.forEach(hourData => {
+          if (hourData.timestamp) { // Only include if timestamp exists
+            allHourlyPointsWithTimestamps.push({
+              hour: hourData.hour,
+              t1: hourData.t1,
+              t2: hourData.t2,
+              timestamp: hourData.timestamp,
+            });
+          }
+        });
+      });
 
-      // Fetch granular data for each hour of the current day
+      // Filter for data points within the last 24 hours from the current time (UTC)
+      const nowUTC = new Date(); 
+      const twentyFourHoursAgoUTC = subHours(nowUTC, 24);
+
+      const relevantHourlyPoints = allHourlyPointsWithTimestamps.filter(item => {
+        const itemTimestamp = parseISO(item.timestamp);
+        return itemTimestamp.getTime() >= twentyFourHoursAgoUTC.getTime() && itemTimestamp.getTime() <= nowUTC.getTime();
+      });
+
+      // Sort by timestamp to ensure we pick the latest for each hour
+      relevantHourlyPoints.sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
+
+      // Group by hour and take the latest entry for each unique hour within the 24-hour window
+      const latestHourlyDataMap = new Map<number, HourlySecurityData & { timestamp: string }>();
+      relevantHourlyPoints.forEach(item => {
+        const hour = getHours(parseISO(item.timestamp)); // Get the hour from the timestamp
+        latestHourlyDataMap.set(hour, item); // Map will automatically overwrite with the latest due to sorting
+      });
+
+      // Convert map values back to an array and sort by hour for display
+      const last24HoursDisplayData = Array.from(latestHourlyDataMap.values()).sort((a, b) => a.hour - b.hour);
+
+      setCurrentDayHourlyData(last24HoursDisplayData); // This will now hold only the existing data points within the last 24 hours
+      // --- End of logic for last 24 hours ---
+
+      // Fetch granular data for each hour of the *relevant* data points
       const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
-      const fetchPromises = todayHourlyData.map(async (hourData) => {
-          const targetTimestamp = `${format(new Date(), "yyyy-MM-dd")}T${String(hourData.hour).padStart(2, '0')}:00:00Z`;
-          try {
-              const { data, error: granularEdgeFunctionError } = await supabase.functions.invoke('get-hourly-interval-security-data', {
-                  body: JSON.stringify({ terminalId, targetTimestamp }),
-              });
-              if (granularEdgeFunctionError) {
-                  console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hourData.hour}:`, granularEdgeFunctionError);
+      const fetchPromises = last24HoursDisplayData.map(async (hourData) => {
+          if (hourData.timestamp) { // Only fetch if a timestamp exists for this hour
+              try {
+                  const { data, error: granularEdgeFunctionError } = await supabase.functions.invoke('get-hourly-interval-security-data', {
+                      body: JSON.stringify({ terminalId, targetTimestamp: hourData.timestamp }), // Pass the actual timestamp
+                  });
+                  if (granularEdgeFunctionError) {
+                      console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hourData.hour}:`, granularEdgeFunctionError);
+                      granularSecurityDataMap.set(hourData.hour, []);
+                  } else {
+                      granularSecurityDataMap.set(hourData.hour, data as GranularSecurityData[]);
+                  }
+              } catch (err) {
+                  console.error(`Error fetching granular data for T${terminalId} hour ${hourData.hour}:`, err);
                   granularSecurityDataMap.set(hourData.hour, []);
-              } else {
-                  granularSecurityDataMap.set(hourData.hour, data as GranularSecurityData[]);
               }
-          } catch (err) {
-              console.error(`Error fetching granular data for T${terminalId} hour ${hourData.hour}:`, err);
-              granularSecurityDataMap.set(hourData.hour, []);
+          } else {
+              granularSecurityDataMap.set(hourData.hour, []); // No timestamp, no granular data
           }
       });
       await Promise.all(fetchPromises);
@@ -409,9 +448,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             </div>
 
             <div className="mb-8 w-full">
-              <h3 className="text-md font-semibold text-gray-700 mb-4">Today's Hourly Security Times</h3>
+              <h3 className="text-md font-semibold text-gray-700 mb-4">Last 24 Hours Security Times</h3>
               {currentDayHourlyData.length > 0 ? (
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-24 gap-1 text-xs">
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs"> {/* Changed to auto for dynamic columns */}
                   {currentDayHourlyData.map((hourData) => {
                     let bgColorClass = "bg-gray-200"; // Default for N/A
                     if (hourData[`t${terminalId}`] !== null) {
@@ -429,11 +468,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                     return (
                       <HourlyDetailPopover
-                        key={hourData.hour}
+                        key={hourData.timestamp || hourData.hour} // Use timestamp as key if available
                         hourlyData={currentDayHourlyData}
                         currentHour={hourData.hour}
                         terminalId={terminalId}
-                        dateString={format(new Date(), "yyyy-MM-dd")} // Pass today's date string
+                        dateString={hourData.timestamp || format(new Date(), "yyyy-MM-dd")} // Pass the actual timestamp or today's date
                         granularDataForHour={hourlyGranularSecurityData.get(hourData.hour) || []} // Pass the cached data
                         isLoadingGranularData={loading} // Pass parent's loading state for initial load
                       >
@@ -452,7 +491,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                   })}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground text-sm">No hourly data for today.</p>
+                <p className="text-center text-muted-foreground text-sm">No hourly data for the last 24 hours.</p>
               )}
             </div>
 

@@ -43,7 +43,7 @@ serve(async (req) => {
     console.log("Raw data from security_times:", data);
 
     // Organize data by day and hour, taking the latest entry for each hour
-    const dailyHourlyDataMap = new Map<string, Map<number, { t1: number | null; t2: number | null }>>();
+    const dailyHourlyDataMap = new Map<string, Map<number, { t1: number | null; t2: number | null; timestamp: string }>>();
 
     data.forEach((item) => {
       const itemDate = parseISO(item.timestamp);
@@ -53,8 +53,8 @@ serve(async (req) => {
       if (!dailyHourlyDataMap.has(dateKey)) {
         dailyHourlyDataMap.set(dateKey, new Map());
       }
-      // Always store the latest entry for that hour
-      dailyHourlyDataMap.get(dateKey)?.set(hour, { t1: item.t1, t2: item.t2 });
+      // Always store the latest entry for that hour (due to ascending order, later items overwrite earlier ones)
+      dailyHourlyDataMap.get(dateKey)?.set(hour, { t1: item.t1, t2: item.t2, timestamp: item.timestamp });
     });
 
     // Create a complete list of the last 7 days with 24 hourly slots
@@ -70,6 +70,7 @@ serve(async (req) => {
           hour,
           t1: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t1 : null,
           t2: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t2 : null,
+          timestamp: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.timestamp : null, // Include timestamp
         });
       }
       historicalData.push({ date: dateKey, hourlyData });
