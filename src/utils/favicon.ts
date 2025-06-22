@@ -9,11 +9,26 @@ export const updateFavicon = (t1Time: number | null, t2Time: number | null) => {
     return;
   }
 
-  // Clear canvas and set background (white for light mode, dark grey for dark mode)
-  // We'll try to match the current theme's background if possible, but a simple white is safer for favicons.
+  // Define a radius for the rounded corners
+  const cornerRadius = 8; // You can adjust this value
+
+  // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw rounded background
+  ctx.fillStyle = 'white'; // Background color for the favicon
+  ctx.beginPath();
+  ctx.moveTo(cornerRadius, 0);
+  ctx.lineTo(canvas.width - cornerRadius, 0);
+  ctx.quadraticCurveTo(canvas.width, 0, canvas.width, cornerRadius);
+  ctx.lineTo(canvas.width, canvas.height - cornerRadius);
+  ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - cornerRadius, canvas.height);
+  ctx.lineTo(cornerRadius, canvas.height);
+  ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - cornerRadius);
+  ctx.lineTo(0, cornerRadius);
+  ctx.quadraticCurveTo(0, 0, cornerRadius, 0);
+  ctx.closePath();
+  ctx.fill();
 
   // Draw T1 label
   ctx.fillStyle = '#333'; // Dark grey for labels
