@@ -13,12 +13,14 @@ serve(async (req) => {
   }
 
   try {
+    // Create a Supabase client with the service role key
+    // This bypasses RLS and allows fetching data regardless of user authentication
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key
       {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
+        auth: {
+          persistSession: false, // No session needed for service role
         },
       },
     );
