@@ -219,13 +219,13 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         });
       });
 
-      // Filter for data points within the last 24 hours from the current time (UTC)
-      const nowUTC = new Date(); 
-      const twentyFourHoursAgoUTC = subHours(nowUTC, 24);
+      // Filter for data points within the last 24 hours from the current local time
+      const nowLocal = new Date(); 
+      const twentyFourHoursAgoLocal = subHours(nowLocal, 24);
 
       const relevantHourlyPoints = allHourlyPointsWithTimestamps.filter(item => {
-        const itemTimestamp = parseISO(item.timestamp);
-        return itemTimestamp.getTime() >= twentyFourHoursAgoUTC.getTime() && itemTimestamp.getTime() <= nowUTC.getTime();
+        const itemTimestamp = parseISO(item.timestamp); // These timestamps are now already local time
+        return itemTimestamp.getTime() >= twentyFourHoursAgoLocal.getTime() && itemTimestamp.getTime() <= nowLocal.getTime();
       });
 
       // Sort by timestamp to ensure we pick the latest for each hour

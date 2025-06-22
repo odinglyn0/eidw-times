@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { format, subDays, startOfDay, getHours, parseISO } from "https://esm.sh/date-fns@3.6.0";
+import { format, subDays, startOfDay, getHours, parseISO, addHours } from "https://esm.sh/date-fns@3.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,19 +42,28 @@ serve(async (req) => {
 
     console.log("Raw data from security_times:", data);
 
-    // Organize data by day and hour, taking the latest entry for each hour
+    // Organize data by day and hour, taking the latest entry for each hour (with +1 hour timezone fix)
     const dailyHourlyDataMap = new Map<string, Map<number, { t1: number | null; t2: number | null; timestamp: string }>>();
 
     data.forEach((item) => {
-      const itemDate = parseISO(item.timestamp);
-      const dateKey = format(itemDate, "yyyy-MM-dd");
-      const hour = getHours(itemDate);
+      const itemDateUTC = parseISO(item.timestamp);
+      const itemDateLocal = addHours(itemDateUTC, 1); // Shift UTC to Ireland local time (UTC+1)
+      const dateKey = format(itemDateLocal, "yyyy-MM-dd");
+      const hour = getHours(itemDateLocal);
 
       if (!dailyHourlyDataMap.has(dateKey)) {
         dailyHourlyDataMap.set(dateKey, new Map());
       }
-      // Always store the latest entry for that hour (due to ascending order, later items overwrite earlier ones)
-      dailyHourlyDataMap.get(dateKey)?.set(hour, { t1: item.t1, t2: item.t2, timestamp: item.timestamp });
+      const hourlyMap = dailyHourlyDataMap.get(dateKey);
+      const existing = hourlyMap?.get(hour);
+      // Keep only the latest entry per hour based on the original UTC timestamp
+      if (!existing || itemDateUTC > parseISO(existing.timestamp)) { // Compare original UTC timestamps for "latest"
+        hourlyMap?.set(hour, {
+          t1: item.t1,
+          t2: item.t2,
+          timestamp: itemDateLocal.toISOString(), // Store the adjusted local time ISO string
+        });
+      }
     });
 
     // Create a complete list of the last 7 days with 24 hourly slots
@@ -66,11 +75,12 @@ serve(async (req) => {
       const currentDayHourlyMap = dailyHourlyDataMap.get(dateKey) || new Map();
 
       for (let hour = 0; hour < 24; hour++) {
+        const record = currentDayHourlyMap.get(hour);
         hourlyData.push({
           hour,
-          t1: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t1 : null,
-          t2: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.t2 : null,
-          timestamp: currentDayHourlyMap.has(hour) ? currentDayHourlyMap.get(hour)?.timestamp : null, // Include timestamp
+          t1: record ? record.t1 : null,
+          t2: record ? record.t2 : null,
+          timestamp: record ? record.timestamp : null, // Include the adjusted timestamp
         });
       }
       historicalData.push({ date: dateKey, hourlyData });
