@@ -170,6 +170,15 @@ const Index = () => {
     return null;
   })();
 
+  let additionalTip = "";
+  if (recommendedTerminal) {
+    if (recommendedTerminal.id === 1 || recommendedTerminal.id === "either") {
+      additionalTip = "and T1 has the best shops 🤫!";
+    } else if (recommendedTerminal.id === 2) {
+      additionalTip = "and T2 is usually less chaotic 🤫!";
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
       <PhoneNotch />
@@ -219,7 +228,7 @@ const Index = () => {
               </p>
             )}
             <p className="text-sm">
-              You can easily proceed to your preferred terminal after clearing security, and T1 has the best shops 🤫!
+              You can easily proceed to your preferred terminal after clearing security, {additionalTip}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               Recommendation last updated{" "}
