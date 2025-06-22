@@ -12,6 +12,7 @@ import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
 import { MessageSquarePlus } from 'lucide-react'; // Import icon for the button
 import { Link } from 'react-router-dom'; // Import Link
+import { updateFavicon } from '@/utils/favicon'; // New import for favicon utility
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -50,11 +51,16 @@ const Index = () => {
       setT2CurrentTime(currentSecurityData.t2);
       setRecommendationLastUpdated(currentSecurityData.last_updated);
       
+      // Update favicon after current times are set
+      updateFavicon(currentSecurityData.t1, currentSecurityData.t2);
+
     } catch (err) {
       console.error("Unexpected error fetching recommendation data:", err);
       setT1CurrentTime(null);
       setT2CurrentTime(null);
       setRecommendationLastUpdated(null);
+      // Update favicon to a default/error state if data fetch fails
+      updateFavicon(null, null);
     } finally {
       setLoadingRecommendation(false);
     }
