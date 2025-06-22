@@ -56,6 +56,12 @@ interface HourlyDepartureDisplayData {
   hours: { value: number; colorClass: string }[]; // 24 entries for each hour
 }
 
+interface SevenDaySecurityData {
+  timestamp: string;
+  t1: number | null;
+  t2: number | null;
+}
+
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
   globalMaxTime?: number | null; // New prop for consistent scaling
@@ -74,6 +80,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [hourlyGranularSecurityData, setHourlyGranularSecurityData] = useState<Map<number, GranularSecurityData[]>>(new Map());
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map()); // Map<DateString, Map<Hour, Data[]>>
+  const [sevenDayHistoricalData, setSevenDayHistoricalData] = useState<SevenDaySecurityData[]>([]); // New state for 7-day raw data
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
   const isMobile = useIsMobile(); // Use the hook to detect mobile
@@ -274,6 +281,15 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       await Promise.all(fetchPromises);
       setHourlyGranularSecurityData(granularSecurityDataMap);
 
+      // Fetch 7-day raw historical data for the new graph
+      console.log(`Invoking Edge Function 'get-7-day-security-data' for 7-day historical data...`);
+      const { data: sevenDayData, error: sevenDayError } = await supabase.functions.invoke('get-7-day-security-data');
+      if (sevenDayError) {
+        console.error(`Edge Function 'get-7-day-security-data' error:`, sevenDayError);
+        throw sevenDayError;
+      }
+      setSevenDayHistoricalData(sevenDayData as SevenDaySecurityData[]);
+
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
       showError(`Failed to load data for Terminal ${terminalId}. Please check console for details.`);
@@ -282,6 +298,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setHistoricalDailyAverages([]);
       setCurrentDayHourlyData([]);
       setHourlyGranularSecurityData(new Map());
+      setSevenDayHistoricalData([]); // Clear 7-day data on error
     } finally {
       setLoading(false);
       setManualRefreshing(false);
@@ -464,6 +481,45 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground text-sm">No hourly data for the last 24 hours.</p>
+              )}
+            </div>
+
+            <div className="mb-8 w-full">
+              <h3 className="text-md font-semibold text-gray-700 mb-4">Last 7 Days Security Times</h3>
+              {sevenDayHistoricalData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={sevenDayHistoricalData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="timestamp"
+                      tickFormatter={(value) => format(parseISO(value), 'EEE')} // Abbreviated day name
+                      minTickGap={20} // Adjust as needed to prevent overlap
+                      axisLine={false}
+                      tickLine={false}
+                      fontSize={10}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => `${value}m`}
+                      domain={['auto', 'auto']} // Auto-scaling Y-axis
+                      axisLine={false}
+                      tickLine={false}
+                      fontSize={10}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string, props: any) => [`${value}m`, `Time: ${format(parseISO(props.payload.timestamp), 'MMM dd, h:mm a')}`]}
+                      labelFormatter={(label) => `Date: ${format(parseISO(label), 'MMM dd, yyyy')}`}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={`t${terminalId}`}
+                      stroke="#4CAF50" // Vibrant green for the line
+                      strokeWidth={2}
+                      dot={false} // Do not show dots
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm">No 7-day historical data available.</p>
               )}
             </div>
 
