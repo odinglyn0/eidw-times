@@ -63,7 +63,7 @@ def store_security_data(data):
     except Exception as e:
         logger.error(f"Failed to store security data: {e}")
 
-def main():
+def main(request=None):
     data = fetch_security_data()
     store_security_data(data)
     return {"status": "success"}

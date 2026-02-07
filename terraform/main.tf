@@ -100,6 +100,20 @@ resource "google_cloud_run_v2_service" "backend" {
   depends_on = [google_sql_database_instance.postgres]
 }
 
+resource "google_service_account" "scheduler_sa" {
+  account_id   = "eidw-scheduler-sa"
+  display_name = "Cloud Scheduler Service Account for Poller"
+}
+
+resource "google_cloud_run_service_iam_binding" "poller_invoker" {
+  location = google_cloud_run_v2_service.poller.location
+  service  = google_cloud_run_v2_service.poller.name
+  role     = "roles/run.invoker"
+  members = [
+    "serviceAccount:${google_service_account.scheduler_sa.email}"
+  ]
+}
+
 resource "google_cloud_run_service_iam_binding" "backend_public" {
   location = google_cloud_run_v2_service.backend.location
   service  = google_cloud_run_v2_service.backend.name
@@ -119,6 +133,11 @@ resource "google_cloud_scheduler_job" "poller_frequent" {
   http_target {
     http_method = "POST"
     uri         = google_cloud_run_v2_service.poller.uri
+
+    oidc_token {
+      service_account_email = google_service_account.scheduler_sa.email
+      audience              = google_cloud_run_v2_service.poller.uri
+    }
   }
 }
 
@@ -132,6 +151,11 @@ resource "google_cloud_scheduler_job" "poller_off_peak" {
   http_target {
     http_method = "POST"
     uri         = google_cloud_run_v2_service.poller.uri
+
+    oidc_token {
+      service_account_email = google_service_account.scheduler_sa.email
+      audience              = google_cloud_run_v2_service.poller.uri
+    }
   }
 }
 
