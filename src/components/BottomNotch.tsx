@@ -13,7 +13,7 @@ const BottomNotch: React.FC = () => {
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline"
             >
-              Odin Glynn Photography
+              Odin
             </a>
           </span>
           <span>
