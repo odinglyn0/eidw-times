@@ -71,6 +71,8 @@ def store_departures(flights):
 
 class DeparturesSpider(scrapy.Spider):
     name = "departures_spider"
+    max_retries = 5
+    retry_delay = 0.75
     custom_settings = {
         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
         "USER_AGENT": None,
@@ -95,20 +97,34 @@ class DeparturesSpider(scrapy.Spider):
 
     def start_requests(self):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        url = f"{API_URL}?date={today}&limit=1000"
-        yield scrapy.Request(url, callback=self.parse)
+        self.request_url = f"{API_URL}?date={today}&limit=1000"
+        yield scrapy.Request(self.request_url, callback=self.parse, meta={"retry_count": 0}, dont_filter=True)
 
     def parse(self, response):
-        logger.info(f"Response status: {response.status}")
+        retry_count = response.meta.get("retry_count", 0)
+        logger.info(f"Response status: {response.status} (attempt {retry_count + 1})")
         logger.info(f"Response headers: {dict(response.headers)}")
         try:
             data = json.loads(response.text)
             logger.info(f"Raw API response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse API response: {e}, body={response.text[:500]}")
+            if retry_count < self.max_retries:
+                logger.warning(f"Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})")
+                import time
+                time.sleep(self.retry_delay)
+                yield scrapy.Request(self.request_url, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
             return
 
         flights = data.get("content", []) if isinstance(data, dict) else []
+
+        if not flights and retry_count < self.max_retries:
+            logger.warning(f"Empty flights list, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+            import time
+            time.sleep(self.retry_delay)
+            yield scrapy.Request(self.request_url, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
+            return
+
         logger.info(f"Got {len(flights)} flights from API")
         store_departures(flights)
 
