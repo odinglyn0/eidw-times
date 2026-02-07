@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from google.cloud import recaptchaenterprise_v1
+from google.cloud.recaptchaenterprise_v1 import Assessment
 
 app = Flask(__name__)
 CORS(app)
@@ -170,6 +172,41 @@ def get_hourly_interval_departure_data():
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": str(e)}), 500
 
+GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID')
+RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY')
+RECAPTCHA_ACTION = os.environ.get('RECAPTCHA_ACTION', 'submit_feature_request')
+
+def verify_recaptcha(token):
+    if not GCP_PROJECT_ID or not RECAPTCHA_SITE_KEY:
+        raise ValueError("GCP_PROJECT_ID or RECAPTCHA_SITE_KEY not configured")
+
+    client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
+
+    event = recaptchaenterprise_v1.Event()
+    event.site_key = RECAPTCHA_SITE_KEY
+    event.token = token
+
+    assessment = recaptchaenterprise_v1.Assessment()
+    assessment.event = event
+
+    req = recaptchaenterprise_v1.CreateAssessmentRequest()
+    req.assessment = assessment
+    req.parent = f"projects/{GCP_PROJECT_ID}"
+
+    response = client.create_assessment(req)
+
+    if not response.token_properties.valid:
+        logging.warning(f"reCAPTCHA token invalid: {response.token_properties.invalid_reason}")
+        return False
+
+    if response.token_properties.action != RECAPTCHA_ACTION:
+        logging.warning(f"reCAPTCHA action mismatch: expected {RECAPTCHA_ACTION}, got {response.token_properties.action}")
+        return False
+
+    score = response.risk_analysis.score
+    logging.info(f"reCAPTCHA Enterprise score: {score}")
+    return score >= 0.5
+
 @app.route('/api/feature-requests', methods=['POST'])
 def submit_feature_request():
     try:
@@ -177,9 +214,16 @@ def submit_feature_request():
         name = data.get('name')
         email = data.get('email')
         details = data.get('details')
+        recaptcha_token = data.get('recaptchaToken')
         
         if not details:
             return jsonify({"error": "Feature details are required"}), 400
+        
+        if not recaptcha_token:
+            return jsonify({"error": "reCAPTCHA token is required"}), 400
+        
+        if not verify_recaptcha(recaptcha_token):
+            return jsonify({"error": "reCAPTCHA verification failed. Please try again."}), 403
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:

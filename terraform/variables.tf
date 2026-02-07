@@ -14,3 +14,8 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "recaptcha_site_key" {
+  description = "Google reCAPTCHA Enterprise site key"
+  type        = string
+}

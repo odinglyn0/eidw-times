@@ -9,7 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/integrations/api/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError } from "@/utils/toast";
 import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO, subHours, getMinutes } from "date-fns";
@@ -81,16 +81,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const fetchDepartureData = useCallback(async () => {
     try {
       const threeDaysAgo = subDays(new Date(), 3).toISOString();
-      console.log(`Invoking Edge Function 'get-departure-data' for Terminal ${terminalId}...`);
-      const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-departure-data', {
-        body: JSON.stringify({ terminalId, threeDaysAgo }),
-      });
-
-      if (edgeFunctionError) {
-        console.error(`Edge Function 'get-departure-data' error for T${terminalId}:`, edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
+      const data = await apiClient.getDepartureData(terminalId.toString(), threeDaysAgo);
       const rawDepartureData = data as { departure_datetime: string; departure_count: number }[];
       console.log(`Raw departure data for T${terminalId} from Edge Function:`, rawDepartureData);
 
@@ -119,15 +110,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         for (let hour = 0; hour < 24; hour++) {
           const targetTimestamp = `${dateKeyForGranular}T${String(hour).padStart(2, '0')}:00:00Z`;
           fetchPromises.push(
-            supabase.functions.invoke('get-hourly-interval-departure-data', {
-              body: JSON.stringify({ terminalId, targetTimestamp }),
-            }).then(({ data, error: granularEdgeFunctionError }) => {
-              if (granularEdgeFunctionError) {
-                console.error(`Edge Function 'get-hourly-interval-departure-data' error for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, granularEdgeFunctionError);
-                hourlyGranularMap.set(hour, []);
-              } else {
-                hourlyGranularMap.set(hour, data as GranularDepartureData[]);
-              }
+            apiClient.getHourlyIntervalDepartureData(terminalId.toString()).then((data) => {
+              hourlyGranularMap.set(hour, data as GranularDepartureData[]);
             }).catch(err => {
               console.error(`Error fetching granular departure data for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, err);
               hourlyGranularMap.set(hour, []);
@@ -168,28 +152,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     setLoading(true);
     setManualRefreshing(true); // Set manual refreshing true for manual trigger
     try {
-      console.log(`Invoking Edge Function 'get-current-security-data' for current data...`);
-      const { data: currentSecurityData, error: currentError } = await supabase.functions.invoke('get-current-security-data');
-
-      if (currentError) {
-        console.error(`Edge Function 'get-current-security-data' error:`, currentError);
-        throw currentError;
-      }
-      console.log(`Current data from Edge Function for T${terminalId}:`, currentSecurityData);
-
-      // Use the data from the Edge Function
+      const currentSecurityData = await apiClient.getCurrentSecurityData();
       setCurrentTime(currentSecurityData[`t${terminalId}`]);
       setLastUpdated(currentSecurityData.last_updated);
 
-      console.log(`Invoking Edge Function 'get-security-data' for historical data...`);
-      const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
-
-      if (edgeFunctionError) {
-        console.error(`Edge Function 'get-security-data' error:`, edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
-      const allHistoricalData: DailySecurityData[] = historicalResponse as DailySecurityData[];
+      const allHistoricalData = await apiClient.getSecurityData();
       console.log("Client: Processed historical data received from Edge Function:", allHistoricalData);
       
       // Calculate daily averages for the 7-day chart
@@ -254,15 +221,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
           if (sampleTimestampForHour) {
               try {
-                  const { data, error: granularEdgeFunctionError } = await supabase.functions.invoke('get-hourly-interval-security-data', {
-                      body: JSON.stringify({ terminalId, targetTimestamp: sampleTimestampForHour }),
-                  });
-                  if (granularEdgeFunctionError) {
-                      console.error(`Edge Function 'get-hourly-interval-security-data' error for T${terminalId} hour ${hour}:`, granularEdgeFunctionError);
-                      granularSecurityDataMap.set(hour, []);
-                  } else {
-                      granularSecurityDataMap.set(hour, data as GranularSecurityData[]);
-                  }
+                  const data = await apiClient.getHourlyIntervalSecurityData();
+                  granularSecurityDataMap.set(hour, data as GranularSecurityData[]);
               } catch (err) {
                   console.error(`Error fetching granular data for T${terminalId} hour ${hour}:`, err);
                   granularSecurityDataMap.set(hour, []);

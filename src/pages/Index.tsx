@@ -1,6 +1,6 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/integrations/api/client";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { differenceInMinutes, parseISO } from "date-fns";
@@ -37,15 +37,7 @@ const Index = () => {
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
     try {
-      console.log(`Invoking Edge Function 'get-current-security-data' for current security times...`);
-      const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-current-security-data');
-
-      if (edgeFunctionError) {
-        console.error(`Edge Function 'get-current-security-data' error:`, edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
-      const currentSecurityData = data as { t1: number | null; t2: number | null; last_updated: string | null };
+      const currentSecurityData = await apiClient.getCurrentSecurityData();
       setT1CurrentTime(currentSecurityData.t1);
       setT2CurrentTime(currentSecurityData.t2);
       setRecommendationLastUpdated(currentSecurityData.last_updated);
@@ -62,15 +54,7 @@ const Index = () => {
 
   const fetchGlobalSecurityData = useCallback(async () => {
     try {
-      console.log(`Invoking Edge Function 'get-security-data' for global historical data...`);
-      const { data: historicalResponse, error: edgeFunctionError } = await supabase.functions.invoke('get-security-data');
-
-      if (edgeFunctionError) {
-        console.error(`Edge Function 'get-security-data' error:`, edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
-      const allHistoricalData: DailySecurityData[] = historicalResponse as DailySecurityData[];
+      const allHistoricalData = await apiClient.getSecurityData();
       let maxOverallTime = 0;
       allHistoricalData.forEach(dayData => {
         dayData.hourlyData.forEach(hourData => {

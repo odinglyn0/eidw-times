@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,10 +10,20 @@ import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from 'lucide-react';
-import ReCAPTCHA from 'react-google-recaptcha';
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; // Import Card components
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { apiClient } from "@/integrations/api/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from 'react-router-dom';
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      enterprise: {
+        ready: (cb: () => void) => void;
+        execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      };
+    };
+  }
+}
 
 const formSchema = z.object({
   name: z.string().max(100, "Name must be 100 characters or less").optional(),
@@ -50,11 +60,10 @@ const formSchema = z.object({
   }
 });
 
-const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
+const FeatureRequestForm: React.FC = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const recaptchaRef = useRef<ReCAPTCHA>(null); // Ref for reCAPTCHA component
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,15 +80,30 @@ const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
   const isNameAnonymous = watch("isNameAnonymous");
   const isEmailAnonymous = watch("isEmailAnonymous");
 
+  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "YOUR_RECAPTCHA_SITE_KEY";
+
+  const getRecaptchaToken = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!window.grecaptcha?.enterprise) {
+        reject(new Error("reCAPTCHA Enterprise not loaded"));
+        return;
+      }
+      window.grecaptcha.enterprise.ready(async () => {
+        try {
+          const token = await window.grecaptcha.enterprise.execute(recaptchaSiteKey, { action: 'submit_feature_request' });
+          resolve(token);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    let recaptchaToken: string | null = null;
 
     try {
-      // Execute reCAPTCHA to get the token
-      if (recaptchaRef.current) {
-        recaptchaToken = await recaptchaRef.current.executeAsync();
-      }
+      const recaptchaToken = await getRecaptchaToken();
 
       if (!recaptchaToken) {
         toast({
@@ -95,30 +119,16 @@ const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
         name: values.isNameAnonymous ? null : values.name || null,
         email: values.isEmailAnonymous ? null : values.email || null,
         details: values.details,
-        recaptchaToken: recaptchaToken, // Use the obtained token
       };
 
-      console.log("Invoking Edge Function 'submit-feature-request'...");
-      const { data, error: edgeFunctionError } = await supabase.functions.invoke('submit-feature-request', {
-        body: JSON.stringify(payload),
-      });
-
-      if (edgeFunctionError) {
-        console.error("Edge Function 'submit-feature-request' error:", edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
-      if (data && data.error) {
-        throw new Error(data.error);
-      }
+      await apiClient.submitFeatureRequest(payload.name || '', payload.email || '', payload.details, recaptchaToken);
 
       toast({
         title: "Success!",
         description: "Your feature request has been submitted. Thank you!",
       });
       form.reset();
-      recaptchaRef.current?.reset(); // Reset reCAPTCHA after successful submission
-      navigate('/'); // Navigate back to home page
+      navigate('/');
     } catch (error: any) {
       console.error("Error submitting feature request:", error);
       toast({
@@ -130,9 +140,6 @@ const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
       setIsSubmitting(false);
     }
   };
-
-  // Get reCAPTCHA site key from environment variable
-  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "YOUR_RECAPTCHA_SITE_KEY";
 
   return (
     <Card className="w-full border-2 border-gray-300 rounded-lg shadow-lg">
@@ -221,17 +228,7 @@ const FeatureRequestForm: React.FC = () => { // Removed isOpen and onClose props
               )}
             />
 
-            {/* Invisible reCAPTCHA */}
-            <div className="flex justify-center">
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey={recaptchaSiteKey}
-                size="invisible" // Key change: Use invisible size
-                // onChange and onExpired are less relevant for invisible, as executeAsync is used
-              />
-            </div>
-
-            <div className="flex justify-end"> {/* Use flex justify-end for button alignment */}
+            <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}> {/* Button disabled only when submitting */}
                 {isSubmitting ? (
                   <>

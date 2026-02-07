@@ -39,11 +39,11 @@ export const apiClient = {
     return response.json();
   },
 
-  async submitFeatureRequest(name: string, email: string, details: string) {
+  async submitFeatureRequest(name: string, email: string, details: string, recaptchaToken: string) {
     const response = await fetch(`${API_BASE_URL}/api/feature-requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, details })
+      body: JSON.stringify({ name, email, details, recaptchaToken })
     });
     if (!response.ok) throw new Error('Failed to submit feature request');
     return response.json();

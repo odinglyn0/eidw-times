@@ -12,22 +12,7 @@ provider "google" {
   region  = var.region
 }
 
-variable "project_id" {
-  description = "GCP Project ID"
-  type        = string
-}
 
-variable "region" {
-  description = "GCP Region"
-  type        = string
-  default     = "europe-west1"
-}
-
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-}
 
 resource "google_sql_database_instance" "postgres" {
   name             = "eidwtimes-db"
@@ -70,7 +55,7 @@ resource "google_cloud_run_v2_service" "poller" {
 
   template {
     containers {
-      image = "gcr.io/${var.project_id}/dublin-airport-poller:latest"
+      image = "gcr.io/${var.project_id}/eidw-poller:latest"
       
       env {
         name  = "DATABASE_URL"
@@ -88,11 +73,26 @@ resource "google_cloud_run_v2_service" "backend" {
 
   template {
     containers {
-      image = "gcr.io/${var.project_id}/dublin-airport-backend:latest"
+      image = "gcr.io/${var.project_id}/eidw-backend:latest"
       
       env {
         name  = "DATABASE_URL"
         value = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.public_ip_address}:5432/${google_sql_database.database.name}"
+      }
+
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "RECAPTCHA_SITE_KEY"
+        value = var.recaptcha_site_key
+      }
+
+      env {
+        name  = "RECAPTCHA_ACTION"
+        value = "submit_feature_request"
       }
     }
   }

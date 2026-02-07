@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/integrations/api/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,17 +21,8 @@ const AnnouncementBanner: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        console.log("Invoking Edge Function 'get-active-announcements'...");
-        const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-active-announcements');
-
-        if (edgeFunctionError) {
-          console.error("Edge Function 'get-active-announcements' error:", edgeFunctionError);
-          throw edgeFunctionError;
-        }
-
-        const announcements = data as Announcement[];
+        const announcements = await apiClient.getActiveAnnouncements();
         if (announcements && announcements.length > 0) {
-          // Display the newest active announcement
           setAnnouncement(announcements[0]);
         } else {
           setAnnouncement(null);

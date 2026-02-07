@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/integrations/api/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Loader2 } from 'lucide-react';
@@ -29,15 +29,7 @@ const AcknowledgedRequestsDisplay: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log("Invoking Edge Function 'get-acknowledged-feature-requests'...");
-      const { data, error: edgeFunctionError } = await supabase.functions.invoke('get-acknowledged-feature-requests');
-
-      if (edgeFunctionError) {
-        console.error("Edge Function 'get-acknowledged-feature-requests' error:", edgeFunctionError);
-        throw edgeFunctionError;
-      }
-
-      const fetchedRequests = data as FeatureRequest[];
+      const fetchedRequests = await apiClient.getAcknowledgedFeatureRequests();
       setRequests(fetchedRequests);
       // Reset index if requests change or become fewer than current index
       if (fetchedRequests.length <= currentIndex) {
