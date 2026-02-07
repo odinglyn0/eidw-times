@@ -42,8 +42,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for API calls
-  if (event.request.url.includes('/functions/v1/invoke/')) {
+  // Network-first for API calls (backend + edge functions)
+  if (event.request.url.includes('/api/') || event.request.url.includes('/functions/v1/invoke/')) {
     event.respondWith(
       fetch(event.request)
         .then(response => {

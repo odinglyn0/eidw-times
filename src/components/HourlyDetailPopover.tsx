@@ -121,6 +121,10 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
         <h4 className="font-semibold mb-2 text-center">Time: {currentDataPoint.timestamp ? formatTime(currentDataPoint.timestamp) : 'N/A'}</h4>
+        {currentTime === null ? (
+          <p className="text-center text-muted-foreground text-sm py-4">No data for this hour.</p>
+        ) : (
+        <>
         <div className="h-24 w-full mb-2">
           {isLoadingGranularData ? ( // Use the prop for loading
             <div className="flex items-center justify-center h-full">
@@ -129,7 +133,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
             </div>
           ) : granularDataForHour.length > 0 && granularDataForHour.some(d => d.time !== null) ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={granularDataForHour} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <LineChart data={granularDataForHour.filter(d => d.time !== null)} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
@@ -170,6 +174,8 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
             <p>No comparative data available.</p>
           )}
         </div>
+        </>
+        )}
       </PopoverContent>
     </Popover>
   );
