@@ -1,8 +1,12 @@
 import os
+import json
 import logging
-import requests
 import psycopg2
 from datetime import datetime, timezone
+
+import scrapy
+from scrapy.crawler import CrawlerProcess
+
 from google.cloud import logging as cloud_logging
 
 cloud_logging.Client().setup_logging()
@@ -11,8 +15,10 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 API_URL = "https://api.dublinairport.com/dap/get-security-times"
 
+
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
+
 
 def parse_security_value(value_str):
     if not value_str or value_str.strip() == "":
@@ -25,22 +31,12 @@ def parse_security_value(value_str):
         logger.warning(f"Could not parse security value: repr={repr(value_str)}")
         return None
 
-def main():
-    try:
-        response = requests.get(API_URL, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        logger.info(f"Raw API response: {data}")
-    except Exception as e:
-        logger.error(f"Failed to fetch security data: {e}")
-        return
 
-    t1 = parse_security_value(data.get("T1"))
-    t2 = parse_security_value(data.get("T2"))
+def store_security_data(t1, t2):
     now = datetime.now(timezone.utc)
 
     if t1 is None and t2 is None:
-        logger.warning(f"Both T1 and T2 are None, skipping DB write. Raw data: {data}")
+        logger.warning("Both T1 and T2 are None, skipping DB write.")
         return
 
     try:
@@ -74,5 +70,40 @@ def main():
     except Exception as e:
         logger.error(f"Failed to store security data: {e}")
 
+
+class SecuritySpider(scrapy.Spider):
+    name = "security_spider"
+    custom_settings = {
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "USER_AGENT": None,
+        "DOWNLOAD_HANDLERS": {
+            "http": "scrapy_impersonate.ImpersonateDownloadHandler",
+            "https": "scrapy_impersonate.ImpersonateDownloadHandler",
+        },
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy_impersonate.RandomBrowserMiddleware": 1000,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "LOG_LEVEL": "WARNING",
+    }
+
+    def start_requests(self):
+        yield scrapy.Request(API_URL, callback=self.parse)
+
+    def parse(self, response):
+        try:
+            data = json.loads(response.text)
+            logger.info(f"Raw API response: {data}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse API response: {e}, body={response.text[:500]}")
+            return
+
+        t1 = parse_security_value(data.get("T1"))
+        t2 = parse_security_value(data.get("T2"))
+        store_security_data(t1, t2)
+
+
 if __name__ == "__main__":
-    main()
+    process = CrawlerProcess()
+    process.crawl(SecuritySpider)
+    process.start()

@@ -1,8 +1,12 @@
 import os
+import json
 import logging
-import requests
 import psycopg2
 from datetime import datetime, timezone
+
+import scrapy
+from scrapy.crawler import CrawlerProcess
+
 from google.cloud import logging as cloud_logging
 
 cloud_logging.Client().setup_logging()
@@ -11,19 +15,12 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 API_URL = "https://api.dublinairport.com/dap/flight-listing/departures"
 
+
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def main():
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    try:
-        response = requests.get(API_URL, params={"date": today, "limit": 1000}, timeout=15)
-        response.raise_for_status()
-        flights = response.json().get("content", [])
-    except Exception as e:
-        logger.error(f"Failed to fetch departure data: {e}")
-        return
 
+def store_departures(flights):
     if not flights:
         logger.info("No departure data returned")
         return
@@ -71,5 +68,42 @@ def main():
     except Exception as e:
         logger.error(f"Failed to store departure data: {e}")
 
+
+class DeparturesSpider(scrapy.Spider):
+    name = "departures_spider"
+    custom_settings = {
+        "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
+        "USER_AGENT": None,
+        "DOWNLOAD_HANDLERS": {
+            "http": "scrapy_impersonate.ImpersonateDownloadHandler",
+            "https": "scrapy_impersonate.ImpersonateDownloadHandler",
+        },
+        "DOWNLOADER_MIDDLEWARES": {
+            "scrapy_impersonate.RandomBrowserMiddleware": 1000,
+        },
+        "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
+        "LOG_LEVEL": "WARNING",
+    }
+
+    def start_requests(self):
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        url = f"{API_URL}?date={today}&limit=1000"
+        yield scrapy.Request(url, callback=self.parse)
+
+    def parse(self, response):
+        try:
+            data = json.loads(response.text)
+            logger.info(f"Raw API response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse API response: {e}, body={response.text[:500]}")
+            return
+
+        flights = data.get("content", []) if isinstance(data, dict) else []
+        logger.info(f"Got {len(flights)} flights from API")
+        store_departures(flights)
+
+
 if __name__ == "__main__":
-    main()
+    process = CrawlerProcess()
+    process.crawl(DeparturesSpider)
+    process.start()
