@@ -139,7 +139,7 @@ def get_hourly_interval_security_data():
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 
-                        timestamp,
+                        timestamp as ts,
                         t1,
                         t2
                     FROM security_times 
@@ -152,8 +152,9 @@ def get_hourly_interval_security_data():
                 for row in results:
                     r = dict(row)
                     # Convert timestamp to ISO string for JSON serialization
-                    if r.get('timestamp'):
-                        r['timestamp'] = r['timestamp'].isoformat()
+                    if r.get('ts'):
+                        r['timestamp'] = r['ts'].isoformat()
+                        del r['ts']
                     rows.append(r)
                 return jsonify(rows)
     except Exception as e:
@@ -178,13 +179,21 @@ def get_hourly_interval_departure_data():
                         DATE_TRUNC('hour', scheduled_datetime) as hour_bucket,
                         COUNT(*) as total_departures
                     FROM departures 
-                    WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '24 hours'
+                    WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '3 days'
                     GROUP BY hour_bucket 
                     ORDER BY hour_bucket ASC
                 """, (terminal_name,))
                 
                 results = cur.fetchall()
-                return jsonify([dict(row) for row in results])
+                rows = []
+                for row in results:
+                    r = dict(row)
+                    if r.get('hour_bucket'):
+                        r['timestamp'] = r['hour_bucket'].isoformat()
+                        del r['hour_bucket']
+                    r['count'] = r.pop('total_departures', None)
+                    rows.append(r)
+                return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": str(e)}), 500

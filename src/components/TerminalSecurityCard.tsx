@@ -90,9 +90,17 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       const datesToProcess = [today, subDays(today, 1), subDays(today, 2)];
       const newHourlyGranularDepartureData = new Map<string, Map<number, GranularDepartureData[]>>();
 
+      // Fetch granular departure data once for all days
+      let allGranularDepartureData: GranularDepartureData[] = [];
+      try {
+        allGranularDepartureData = await apiClient.getHourlyIntervalDepartureData(terminalId.toString()) as GranularDepartureData[];
+      } catch (err) {
+        console.error(`Error fetching granular departure data for T${terminalId}:`, err);
+      }
+
       for (const [index, date] of datesToProcess.entries()) {
         const dayString = index === 0 ? "TODAY" : format(date, "EEE, MMM do").toUpperCase();
-        const dateKeyForGranular = format(date, "yyyy-MM-dd"); // Use yyyy-MM-dd for granular fetching
+        const dateKeyForGranular = format(date, "yyyy-MM-dd");
         const hourlyCounts: number[] = Array(24).fill(0);
         const hourlyGranularMap = new Map<number, GranularDepartureData[]>();
 
@@ -105,21 +113,21 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           }
         });
 
-        // Fetch granular data for each hour of this day
-        const fetchPromises = [];
-        for (let hour = 0; hour < 24; hour++) {
-          const targetTimestamp = `${dateKeyForGranular}T${String(hour).padStart(2, '0')}:00:00Z`;
-          fetchPromises.push(
-            apiClient.getHourlyIntervalDepartureData(terminalId.toString()).then((data) => {
-              hourlyGranularMap.set(hour, data as GranularDepartureData[]);
-            }).catch(err => {
-              console.error(`Error fetching granular departure data for T${terminalId} hour ${hour} on ${dateKeyForGranular}:`, err);
+        // Group granular data by hour for this specific day
+        allGranularDepartureData.forEach(record => {
+          if (!record.timestamp) return;
+          const recordDate = parseISO(record.timestamp);
+          if (isNaN(recordDate.getTime())) return;
+          if (format(recordDate, 'yyyy-MM-dd') === dateKeyForGranular) {
+            const hour = getHours(recordDate);
+            if (!hourlyGranularMap.has(hour)) {
               hourlyGranularMap.set(hour, []);
-            })
-          );
-        }
-        await Promise.all(fetchPromises);
-        newHourlyGranularDepartureData.set(dayString, hourlyGranularMap); // Store by display date string
+            }
+            hourlyGranularMap.get(hour)!.push(record);
+          }
+        });
+
+        newHourlyGranularDepartureData.set(dayString, hourlyGranularMap);
 
         const hoursWithColors = hourlyCounts.map(count => {
           let colorClass = "bg-gray-200"; // Default for no data or 0
@@ -210,7 +218,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         // rawGranularData is an array of { timestamp, t1, t2 } (raw poll records)
         // Group by calendar hour and map to { timestamp, time } for the current terminal
         (rawGranularData as { timestamp: string; t1: number | null; t2: number | null }[]).forEach(record => {
+          if (!record.timestamp) return; // Skip records with missing timestamps
           const recordDate = parseISO(record.timestamp);
+          if (isNaN(recordDate.getTime())) return; // Skip invalid dates
           const hour = getHours(recordDate);
           const timeValue = record[`t${terminalId}` as 't1' | 't2'];
           if (!granularSecurityDataMap.has(hour)) {
