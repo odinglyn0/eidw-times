@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eidwtimesv3';
+const CACHE_NAME = 'eidwtimesv4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -40,25 +41,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for API calls (backend + edge functions)
-  if (event.request.url.includes('/api/') || event.request.url.includes('/functions/v1/invoke/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
-          return response;
-        })
-        .catch(() => {
-          return caches.match(event.request);
-        })
-    );
+  const url = new URL(event.request.url);
+
+  // Network-only for API calls — never cache realtime data
+  if (url.pathname.startsWith('/api/') || url.hostname.includes('run.app') || url.pathname.includes('/functions/v1/')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
-  // Cache-first for static assets
+  // Cache-first for static assets only
   event.respondWith(
     caches.match(event.request).then(response => {
       return response || fetch(event.request).then(fetchResponse => {
