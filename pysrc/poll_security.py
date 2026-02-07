@@ -73,6 +73,8 @@ def store_security_data(t1, t2):
 
 class SecuritySpider(scrapy.Spider):
     name = "security_spider"
+    max_retries = 5
+    retry_delay = 0.75
     custom_settings = {
         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
         "USER_AGENT": None,
@@ -96,20 +98,34 @@ class SecuritySpider(scrapy.Spider):
     }
 
     def start_requests(self):
-        yield scrapy.Request(API_URL, callback=self.parse)
+        yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": 0}, dont_filter=True)
 
     def parse(self, response):
-        logger.info(f"Response status: {response.status}")
+        retry_count = response.meta.get("retry_count", 0)
+        logger.info(f"Response status: {response.status} (attempt {retry_count + 1})")
         logger.info(f"Response headers: {dict(response.headers)}")
         try:
             data = json.loads(response.text)
             logger.info(f"Raw API response: {data}")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse API response: {e}, body={response.text[:500]}")
+            if retry_count < self.max_retries:
+                logger.warning(f"Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})")
+                import time
+                time.sleep(self.retry_delay)
+                yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
             return
 
         t1 = parse_security_value(data.get("T1"))
         t2 = parse_security_value(data.get("T2"))
+
+        if t1 is None and t2 is None and retry_count < self.max_retries:
+            logger.warning(f"Both T1 and T2 are None, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data: {data}")
+            import time
+            time.sleep(self.retry_delay)
+            yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
+            return
+
         store_security_data(t1, t2)
 
 
