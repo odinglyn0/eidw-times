@@ -81,6 +81,14 @@ class DeparturesSpider(scrapy.Spider):
         "DOWNLOADER_MIDDLEWARES": {
             "scrapy_impersonate.RandomBrowserMiddleware": 1000,
         },
+        "DEFAULT_REQUEST_HEADERS": {
+            "Origin": "https://www.dublinairport.com",
+            "Referer": "https://www.dublinairport.com/",
+        },
+        "DOWNLOAD_TIMEOUT": 3,
+        "RETRY_TIMES": 5,
+        "RETRY_HTTP_CODES": [500, 502, 503, 504, 408, 429],
+        "DOWNLOAD_DELAY": 0.75,
         "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
         "LOG_LEVEL": "WARNING",
     }
