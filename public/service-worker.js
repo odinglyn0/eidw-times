@@ -1,9 +1,7 @@
-const CACHE_NAME = 'eidwtimesv2';
+const CACHE_NAME = 'eidwtimesv3';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/images/favicon.png',
-  '/images/Dublin_airport_logo.svg.png',
   '/manifest.json'
 ];
 

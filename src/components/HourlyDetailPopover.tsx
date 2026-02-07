@@ -150,8 +150,15 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
                   domain={yAxisDomain}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: any) => [`${value}m`, `Time ${formatTime(props.payload.timestamp)}`]}
-                  labelFormatter={(label) => `Time ${formatTime(label)}`}
+                  formatter={(value: number, name: string, props: any) => {
+                    const ts = props?.payload?.timestamp;
+                    if (!ts || isNaN(parseISO(ts).getTime())) return [`${value}m`, 'Unknown time'];
+                    return [`${value}m`, `Time ${formatTime(ts)}`];
+                  }}
+                  labelFormatter={(label) => {
+                    if (!label || isNaN(parseISO(label).getTime())) return 'Unknown time';
+                    return `Time ${formatTime(label)}`;
+                  }}
                 />
                 <Line
                   type="monotone"

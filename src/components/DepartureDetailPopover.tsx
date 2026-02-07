@@ -141,8 +141,15 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
                   domain={yAxisDomain}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: any) => [`${value} departures`, `Time ${format(parseISO(props.payload.timestamp), 'HH:mm')}`]}
-                  labelFormatter={(label) => `Time ${format(parseISO(label), 'HH:mm')}`}
+                  formatter={(value: number, name: string, props: any) => {
+                    const ts = props?.payload?.timestamp;
+                    if (!ts || isNaN(parseISO(ts).getTime())) return [`${value} departures`, 'Unknown time'];
+                    return [`${value} departures`, `Time ${format(parseISO(ts), 'HH:mm')}`];
+                  }}
+                  labelFormatter={(label) => {
+                    if (!label || isNaN(parseISO(label).getTime())) return 'Unknown time';
+                    return `Time ${format(parseISO(label), 'HH:mm')}`;
+                  }}
                 />
                 <Line
                   type="monotone"
