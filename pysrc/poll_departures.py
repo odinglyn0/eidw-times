@@ -91,6 +91,8 @@ class DeparturesSpider(scrapy.Spider):
         yield scrapy.Request(url, callback=self.parse)
 
     def parse(self, response):
+        logger.info(f"Response status: {response.status}")
+        logger.info(f"Response headers: {dict(response.headers)}")
         try:
             data = json.loads(response.text)
             logger.info(f"Raw API response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
