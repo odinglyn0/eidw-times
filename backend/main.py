@@ -30,7 +30,10 @@ def get_current_security_data():
                 if not result:
                     return jsonify({"error": "No current data found"}), 404
                 
-                return jsonify(dict(result))
+                row = dict(result)
+                if row.get('last_updated'):
+                    row['last_updated'] = row['last_updated'].isoformat()
+                return jsonify(row)
     except Exception as e:
         logging.error(f"Error fetching current security data: {e}")
         return jsonify({"error": str(e)}), 500
