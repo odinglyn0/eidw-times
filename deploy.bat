@@ -9,8 +9,11 @@ if "%REGION%"=="" set REGION=europe-west1
 
 echo Building and pushing Docker images...
 
-docker build -t gcr.io/%PROJECT_ID%/eidw-poller:latest ./pysrc
-docker push gcr.io/%PROJECT_ID%/eidw-poller:latest
+docker build -t gcr.io/%PROJECT_ID%/eidw-security-poller:latest -f pysrc/Dockerfile.security ./pysrc
+docker push gcr.io/%PROJECT_ID%/eidw-security-poller:latest
+
+docker build -t gcr.io/%PROJECT_ID%/eidw-departure-poller:latest -f pysrc/Dockerfile.departures ./pysrc
+docker push gcr.io/%PROJECT_ID%/eidw-departure-poller:latest
 
 docker build -t gcr.io/%PROJECT_ID%/eidw-backend:latest ./backend
 docker push gcr.io/%PROJECT_ID%/eidw-backend:latest
@@ -19,14 +22,11 @@ echo Deploying infrastructure with Terraform...
 cd terraform
 
 terraform init
-terraform plan -var="project_id=%PROJECT_ID%" -var="region=%REGION%"
 terraform apply -var="project_id=%PROJECT_ID%" -var="region=%REGION%" -auto-approve
 
 echo Getting database connection details...
 for /f "tokens=*" %%i in ('terraform output -raw database_connection_string') do set DB_CONNECTION=%%i
 
-echo Database connection: %DB_CONNECTION%
-echo.
 echo Setting up database schema...
 python ../setup-db.py "%DB_CONNECTION%"
 

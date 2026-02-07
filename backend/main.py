@@ -107,14 +107,19 @@ def get_departure_data():
         if not terminal_id or not three_days_ago:
             return jsonify({"error": "Missing terminalId or threeDaysAgo"}), 400
         
+        terminal_name = f"T{terminal_id}"
+        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT departure_datetime, departure_count 
-                    FROM departures 
-                    WHERE terminal_id = %s AND departure_datetime >= %s 
+                    SELECT
+                        DATE_TRUNC('hour', scheduled_datetime) as departure_datetime,
+                        COUNT(*) as departure_count
+                    FROM departures
+                    WHERE terminal_name = %s AND scheduled_datetime >= %s
+                    GROUP BY DATE_TRUNC('hour', scheduled_datetime)
                     ORDER BY departure_datetime ASC
-                """, (terminal_id, three_days_ago))
+                """, (terminal_name, three_days_ago))
                 
                 results = cur.fetchall()
                 return jsonify([dict(row) for row in results])
@@ -154,17 +159,19 @@ def get_hourly_interval_departure_data():
         if not terminal_id:
             return jsonify({"error": "Missing terminalId"}), 400
         
+        terminal_name = f"T{terminal_id}"
+        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 
-                        DATE_TRUNC('hour', departure_datetime) as hour_bucket,
-                        SUM(departure_count) as total_departures
+                        DATE_TRUNC('hour', scheduled_datetime) as hour_bucket,
+                        COUNT(*) as total_departures
                     FROM departures 
-                    WHERE terminal_id = %s AND departure_datetime >= NOW() - INTERVAL '24 hours'
+                    WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '24 hours'
                     GROUP BY hour_bucket 
                     ORDER BY hour_bucket ASC
-                """, (terminal_id,))
+                """, (terminal_name,))
                 
                 results = cur.fetchall()
                 return jsonify([dict(row) for row in results])
