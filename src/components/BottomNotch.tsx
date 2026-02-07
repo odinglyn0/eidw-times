@@ -29,9 +29,6 @@ const BottomNotch: React.FC = () => {
           </span>
         </div>
         <div className="mt-2 text-gray-500 dark:text-gray-400 text-xs">
-          <p className="mb-1">
-            Please note: Our server operates on UTC time. Due to Ireland being UTC+1, historical data and other non-live updates may appear with a 1-hour delay. We are actively working to improve this synchronization.
-          </p>
           <p>
             Disclaimer: This is a personal project and is in no way affiliated with the DAA or Dublin Airport.
           </p>

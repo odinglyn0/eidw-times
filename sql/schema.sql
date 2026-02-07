@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS security_times_current (
     CONSTRAINT single_row CHECK (id = 1)
 );
 
-DROP TABLE IF EXISTS departures;
-
 CREATE TABLE IF NOT EXISTS departures (
     internal_flight_id VARCHAR(64) NOT NULL,
     flight_identity VARCHAR(16) NOT NULL,

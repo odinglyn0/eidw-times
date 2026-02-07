@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
@@ -13,6 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
+DUBLIN_TZ = ZoneInfo("Europe/Dublin")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -55,7 +57,7 @@ def get_security_data():
                     if timestamp.tzinfo is None:
                         timestamp = timestamp.replace(tzinfo=timezone.utc)
                     
-                    local_time = timestamp + timedelta(hours=1)
+                    local_time = timestamp.astimezone(DUBLIN_TZ)
                     date_key = local_time.strftime('%Y-%m-%d')
                     hour = local_time.hour
                     
@@ -72,7 +74,7 @@ def get_security_data():
                 
                 historical_data = []
                 for i in range(6, -1, -1):
-                    date = datetime.now(timezone.utc) - timedelta(days=i)
+                    date = datetime.now(DUBLIN_TZ) - timedelta(days=i)
                     date_key = date.strftime('%Y-%m-%d')
                     
                     hourly_data = []
