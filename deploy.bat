@@ -27,8 +27,5 @@ terraform apply -var="project_id=%PROJECT_ID%" -var="region=%REGION%" -auto-appr
 echo Getting database connection details...
 for /f "tokens=*" %%i in ('terraform output -raw database_connection_string') do set DB_CONNECTION=%%i
 
-echo Setting up database schema...
-python ../setup-db.py "%DB_CONNECTION%"
-
 echo Deployment complete!
 for /f "tokens=*" %%i in ('terraform output -raw backend_url') do echo Backend URL: %%i
