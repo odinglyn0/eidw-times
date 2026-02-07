@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -12,6 +13,20 @@ from google.cloud.recaptchaenterprise_v1 import Assessment
 
 app = Flask(__name__)
 CORS(app)
+
+# Force all datetime/date/Decimal objects to serialize properly in JSON
+class ISOJSONProvider(app.json_provider_class):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, date):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+
+app.json_provider_class = ISOJSONProvider
+app.json = ISOJSONProvider(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
@@ -30,10 +45,7 @@ def get_current_security_data():
                 if not result:
                     return jsonify({"error": "No current data found"}), 404
                 
-                row = dict(result)
-                if row.get('last_updated'):
-                    row['last_updated'] = row['last_updated'].isoformat()
-                return jsonify(row)
+                return jsonify(dict(result))
     except Exception as e:
         logging.error(f"Error fetching current security data: {e}")
         return jsonify({"error": str(e)}), 500
@@ -139,7 +151,7 @@ def get_hourly_interval_security_data():
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 
-                        timestamp as ts,
+                        timestamp,
                         t1,
                         t2
                     FROM security_times 
@@ -148,15 +160,7 @@ def get_hourly_interval_security_data():
                 """)
                 
                 results = cur.fetchall()
-                rows = []
-                for row in results:
-                    r = dict(row)
-                    # Convert timestamp to ISO string for JSON serialization
-                    if r.get('ts'):
-                        r['timestamp'] = r['ts'].isoformat()
-                        del r['ts']
-                    rows.append(r)
-                return jsonify(rows)
+                return jsonify([dict(row) for row in results])
     except Exception as e:
         logging.error(f"Error fetching hourly interval security data: {e}")
         return jsonify({"error": str(e)}), 500
@@ -176,24 +180,15 @@ def get_hourly_interval_departure_data():
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 
-                        DATE_TRUNC('hour', scheduled_datetime) as hour_bucket,
-                        COUNT(*) as total_departures
+                        scheduled_datetime as timestamp,
+                        1 as count
                     FROM departures 
                     WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '3 days'
-                    GROUP BY hour_bucket 
-                    ORDER BY hour_bucket ASC
+                    ORDER BY scheduled_datetime ASC
                 """, (terminal_name,))
                 
                 results = cur.fetchall()
-                rows = []
-                for row in results:
-                    r = dict(row)
-                    if r.get('hour_bucket'):
-                        r['timestamp'] = r['hour_bucket'].isoformat()
-                        del r['hour_bucket']
-                    r['count'] = r.pop('total_departures', None)
-                    rows.append(r)
-                return jsonify(rows)
+                return jsonify([dict(row) for row in results])
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": str(e)}), 500
