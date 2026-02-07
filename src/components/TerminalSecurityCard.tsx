@@ -203,35 +203,27 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setCurrentDayHourlyData(relevant24HourData); // This now holds all relevant data points, not just one per calendar hour.
       // --- End of logic for rolling 24 hours ---
 
-      // Fetch granular data for each hour of the *relevant* data points
-      // This part needs to be careful: granular data is per *calendar hour*, not per exact timestamp.
-      // So, we still need to map granular data by calendar hour.
+      // Fetch granular (per-poll) data and group by calendar hour
       const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
-      const uniqueHoursInRelevantData = new Set<number>();
-      relevant24HourData.forEach(dataPoint => {
-        uniqueHoursInRelevantData.add(getHours(parseISO(dataPoint.timestamp!)));
-      });
-
-      const fetchPromises = Array.from(uniqueHoursInRelevantData).map(async (hour) => {
-          // For granular data, we need a timestamp that falls within that specific calendar hour.
-          // We can use the timestamp of the first data point found for that hour in relevant24HourData,
-          // or construct one using today's date and that hour.
-          // Let's use the timestamp from the `relevant24HourData` that corresponds to this hour.
-          const sampleTimestampForHour = relevant24HourData.find(dp => getHours(parseISO(dp.timestamp!)) === hour)?.timestamp;
-
-          if (sampleTimestampForHour) {
-              try {
-                  const data = await apiClient.getHourlyIntervalSecurityData();
-                  granularSecurityDataMap.set(hour, data as GranularSecurityData[]);
-              } catch (err) {
-                  console.error(`Error fetching granular data for T${terminalId} hour ${hour}:`, err);
-                  granularSecurityDataMap.set(hour, []);
-              }
-          } else {
-              granularSecurityDataMap.set(hour, []); // No timestamp, no granular data
+      try {
+        const rawGranularData = await apiClient.getHourlyIntervalSecurityData();
+        // rawGranularData is an array of { timestamp, t1, t2 } (raw poll records)
+        // Group by calendar hour and map to { timestamp, time } for the current terminal
+        (rawGranularData as { timestamp: string; t1: number | null; t2: number | null }[]).forEach(record => {
+          const recordDate = parseISO(record.timestamp);
+          const hour = getHours(recordDate);
+          const timeValue = record[`t${terminalId}` as 't1' | 't2'];
+          if (!granularSecurityDataMap.has(hour)) {
+            granularSecurityDataMap.set(hour, []);
           }
-      });
-      await Promise.all(fetchPromises);
+          granularSecurityDataMap.get(hour)!.push({
+            timestamp: record.timestamp,
+            time: timeValue,
+          });
+        });
+      } catch (err) {
+        console.error(`Error fetching granular security data for T${terminalId}:`, err);
+      }
       setHourlyGranularSecurityData(granularSecurityDataMap);
 
     } catch (error) {

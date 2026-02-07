@@ -139,18 +139,23 @@ def get_hourly_interval_security_data():
             with conn.cursor() as cur:
                 cur.execute("""
                     SELECT 
-                        DATE_TRUNC('hour', timestamp + INTERVAL '1 hour') as hour_bucket,
-                        AVG(t1) as avg_t1,
-                        AVG(t2) as avg_t2,
-                        COUNT(*) as count
+                        timestamp,
+                        t1,
+                        t2
                     FROM security_times 
                     WHERE timestamp >= NOW() - INTERVAL '24 hours'
-                    GROUP BY hour_bucket 
-                    ORDER BY hour_bucket ASC
+                    ORDER BY timestamp ASC
                 """)
                 
                 results = cur.fetchall()
-                return jsonify([dict(row) for row in results])
+                rows = []
+                for row in results:
+                    r = dict(row)
+                    # Convert timestamp to ISO string for JSON serialization
+                    if r.get('timestamp'):
+                        r['timestamp'] = r['timestamp'].isoformat()
+                    rows.append(r)
+                return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching hourly interval security data: {e}")
         return jsonify({"error": str(e)}), 500
