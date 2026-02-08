@@ -89,6 +89,36 @@ export const apiClient = {
     return response.json();
   },
 
+  async simulateGammaMethodB(terminalId: number, numSims: number = 15) {
+    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-b`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, numSims })
+    });
+    if (!response.ok) throw new Error('Failed to run simulation');
+    return response.json();
+  },
+
+  async simulateTangoMethodA(terminalId: number, hourTimestamp?: string, numSims: number = 200) {
+    const response = await fetch(`${API_BASE_URL}/api/simulate/tango/method-a`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, hourTimestamp, numSims })
+    });
+    if (!response.ok) throw new Error('Failed to run simulation');
+    return response.json();
+  },
+
+  async simulateGammaMethodA(terminalId: number, start: string, end: string, selectedTimeframe: number, numSims: number = 200) {
+    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-a`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, start, end, selectedTimeframe, numSims })
+    });
+    if (!response.ok) throw new Error('Failed to run simulation');
+    return response.json();
+  },
+
   async getRangeDepartureData(terminalId: string, start: string, end: string) {
     const response = await fetch(`${API_BASE_URL}/api/range-departure-data`, {
       method: 'POST',

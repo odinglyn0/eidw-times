@@ -6,8 +6,6 @@ import {
   ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts';
-import { monteCarloDepartureAware } from '@/utils/monteCarlo';
-import type { ObservedPair, DepartureSchedule } from '@/utils/monteCarlo';
 import { parseISO, format, addMinutes, differenceInMinutes } from 'date-fns';
 import { apiClient } from '@/integrations/api/client';
 import { Slider } from '@/components/ui/slider';
@@ -187,7 +185,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     setActivePreset(null);
   };
 
-  const chartData = useMemo(() => {
+  const baseChartData = useMemo(() => {
     const now = new Date();
     const tKey = `t${terminalId}` as 't1' | 't2';
 
@@ -201,61 +199,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
 
     const secBuckets = bucketize(secPoints, startDate, endDate, granularity);
     const depBuckets = bucketize(depPoints, startDate, endDate, granularity);
-
-    const pastSecPoints = secPoints
-      .filter(p => p.ts <= now)
-      .sort((a, b) => a.ts.getTime() - b.ts.getTime());
-    const observedSecurity = pastSecPoints.map(p => p.value);
-    const lastObserved = observedSecurity.length > 0
-      ? observedSecurity[observedSecurity.length - 1]
-      : null;
-
-    const observedPairs: ObservedPair[] = [];
-    for (const sec of pastSecPoints) {
-      let bestDep: { ts: Date; value: number } | null = null;
-      let bestDist = Infinity;
-      for (const dep of depPoints) {
-        if (dep.ts > now) continue;
-        const dist = Math.abs(dep.ts.getTime() - sec.ts.getTime());
-        if (dist < bestDist && dist <= 2 * 60 * 1000) {
-          bestDist = dist;
-          bestDep = dep;
-        }
-      }
-      observedPairs.push({
-        security: sec.value,
-        departures: bestDep ? bestDep.value : 0,
-      });
-    }
-
-    const futureDepartures: DepartureSchedule[] = [];
-    if (isFuture) {
-      const futureDepPoints = depPoints
-        .filter(p => p.ts > now)
-        .sort((a, b) => a.ts.getTime() - b.ts.getTime());
-
-      for (const dep of futureDepPoints) {
-        const minuteOffset = Math.round(differenceInMinutes(dep.ts, now));
-        if (minuteOffset > 0 && minuteOffset <= MAX_FUTURE_MINUTES) {
-          futureDepartures.push({ minuteOffset, count: dep.value });
-        }
-      }
-    }
-
-    let projectionByMinute = new Map<number, { p10: number; p25: number; median: number; p75: number; p90: number }>();
-    if (isFuture && lastObserved !== null && observedSecurity.length >= 2) {
-      const futureMinutes = Math.round(differenceInMinutes(endDate, now));
-      if (futureMinutes > 0 && futureMinutes <= MAX_FUTURE_MINUTES) {
-        projectionByMinute = monteCarloDepartureAware(
-          observedSecurity,
-          observedPairs,
-          lastObserved,
-          futureDepartures,
-          futureMinutes,
-          NUM_SIM_PATHS,
-        );
-      }
-    }
 
     const points: Record<string, any>[] = [];
     const depMap = new Map(depBuckets.map(b => [b.ts.getTime(), b.avg]));
@@ -273,20 +216,74 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
         point.security = null;
       }
 
-      if (bucket.ts > now && projectionByMinute.size > 0) {
-        const minutesFromNow = Math.round(differenceInMinutes(bucket.ts, now));
-        const band = projectionByMinute.get(minutesFromNow);
-        if (band) {
-          point.median = band.median;
-          point.bandOuter = [band.p10, band.p90];
-          point.bandInner = [band.p25, band.p75];
-        }
-      }
-
       points.push(point);
     }
 
-    if (isFuture && lastObserved !== null) {
+    return { points, secBuckets };
+  }, [rangeSecData, rangeDepData, startDate, endDate, granularity, terminalId, spanMinutes]);
+
+  const [projectionBands, setProjectionBands] = useState<Record<string, { p10: number; p25: number; median: number; p75: number; p90: number }>>({});
+  const [projectionLoading, setProjectionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isFuture) {
+      setProjectionBands({});
+      return;
+    }
+
+    let cancelled = false;
+    setProjectionLoading(true);
+
+    const now = new Date();
+    const futureMinutes = Math.round(differenceInMinutes(endDate, now));
+
+    if (futureMinutes <= 0) {
+      setProjectionBands({});
+      setProjectionLoading(false);
+      return;
+    }
+
+    apiClient.simulateGammaMethodA(
+      terminalId,
+      startDate.toISOString(),
+      endDate.toISOString(),
+      spanMinutes,
+      NUM_SIM_PATHS
+    )
+      .then(data => {
+        if (cancelled) return;
+        setProjectionBands(data.bands || {});
+      })
+      .catch(() => {
+        if (!cancelled) setProjectionBands({});
+      })
+      .finally(() => {
+        if (!cancelled) setProjectionLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isFuture, terminalId, startDate, endDate, spanMinutes]);
+
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const points = baseChartData.points.map(p => ({ ...p }));
+
+    const hasBands = Object.keys(projectionBands).length > 0;
+
+    if (hasBands) {
+      for (const point of points) {
+        const pointDate = new Date(point.ts);
+        if (pointDate > now) {
+          const minutesFromNow = Math.round(differenceInMinutes(pointDate, now));
+          const band = projectionBands[String(minutesFromNow)];
+          if (band) {
+            point.median = band.median;
+            point.bandOuter = [band.p10, band.p90];
+            point.bandInner = [band.p25, band.p75];
+          }
+        }
+      }
+
       const lastActual = [...points].reverse().find(p => p.security !== null);
       const firstProjection = points.find(p => p.median !== undefined && p.median !== null);
       if (lastActual && firstProjection && lastActual !== firstProjection) {
@@ -298,13 +295,12 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
 
     return {
       points,
-      hasProjection: projectionByMinute.size > 0,
-      pairCount: observedPairs.length,
-      futureDepCount: futureDepartures.length,
+      hasProjection: hasBands,
+      futureDepCount: 0,
     };
-  }, [rangeSecData, rangeDepData, startDate, endDate, granularity, terminalId, isFuture, spanMinutes]);
+  }, [baseChartData, projectionBands]);
 
-  const { points, hasProjection, pairCount, futureDepCount } = chartData;
+  const { points, hasProjection, futureDepCount } = chartData;
 
   const allSecValues = points.map(p => p.security).filter((v): v is number => v !== null);
   const allMedianValues = points.map(p => p.median).filter((v): v is number => v !== null);

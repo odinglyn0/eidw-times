@@ -380,7 +380,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             </p>
             <div className="mb-4">
               <ProjectedHourlyPopover
-                granularDataForCurrentHour={hourlyGranularSecurityData.get(new Date().getHours()) || []}
+                terminalId={terminalId}
                 currentTime={currentTime}
               />
             </div>

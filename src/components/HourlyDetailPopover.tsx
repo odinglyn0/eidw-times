@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format, parseISO, getMinutes, getHours } from 'date-fns';
 import { Loader2 } from 'lucide-react';
-import { monteCarloProject } from '@/utils/monteCarlo';
+import { apiClient } from '@/integrations/api/client';
 
 interface HourlySecurityData {
   hour: number;
@@ -101,9 +101,11 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
 
   const currentMinuteNow = new Date().getMinutes();
 
-  const chartData: ChartDataPoint[] = useMemo(() => {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+
+  const staticChartData = useMemo(() => {
     const validGranular = granularDataForHour.filter(d => d.time !== null);
-    if (validGranular.length === 0) return [];
+    if (validGranular.length === 0) return { points: [] as ChartDataPoint[], needsProjection: false, observedValues: [] as number[], lastObserved: null as [number, number] | null };
 
     const observedByMinute = new Map<number, number>();
     validGranular.forEach(d => {
@@ -117,7 +119,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
       sortedMinutes.forEach(m => {
         points.push({ minute: m, actual: observedByMinute.get(m)!, projected: null });
       });
-      return points;
+      return { points, needsProjection: false, observedValues: [], lastObserved: null };
     }
 
     const observedValues = Array.from(observedByMinute.entries())
@@ -127,29 +129,46 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
     const allObservedTimes = observedValues.map(([, v]) => v);
     const lastObserved = observedValues.length > 0 ? observedValues[observedValues.length - 1] : null;
 
-    const projected = lastObserved
-      ? monteCarloProject(allObservedTimes, lastObserved[1], lastObserved[0])
-      : [];
-
     const points: ChartDataPoint[] = [];
-
     observedValues.forEach(([m, v]) => {
       points.push({ minute: m, actual: v, projected: null });
     });
 
-    if (lastObserved) {
-      const lastIdx = points.length - 1;
-      if (lastIdx >= 0) {
-        points[lastIdx].projected = points[lastIdx].actual;
-      }
+    return { points, needsProjection: true, observedValues: allObservedTimes, lastObserved };
+  }, [granularDataForHour, isCurrentHour, currentMinuteNow]);
+
+  useEffect(() => {
+    if (!staticChartData.needsProjection || !staticChartData.lastObserved) {
+      setChartData(staticChartData.points);
+      return;
     }
 
-    projected.forEach(p => {
-      points.push({ minute: p.minute, actual: null, projected: p.value });
-    });
+    let cancelled = false;
 
-    return points;
-  }, [granularDataForHour, isCurrentHour, currentMinuteNow]);
+    const hourTimestamp = currentDataPoint.timestamp || undefined;
+
+    apiClient.simulateTangoMethodA(terminalId, hourTimestamp)
+      .then(data => {
+        if (cancelled) return;
+        const projected = data.projected as { minute: number; value: number }[];
+        const points = [...staticChartData.points];
+
+        if (points.length > 0) {
+          points[points.length - 1].projected = points[points.length - 1].actual;
+        }
+
+        projected.forEach(p => {
+          points.push({ minute: p.minute, actual: null, projected: p.value });
+        });
+
+        setChartData(points);
+      })
+      .catch(() => {
+        if (!cancelled) setChartData(staticChartData.points);
+      });
+
+    return () => { cancelled = true; };
+  }, [staticChartData]);
 
   const allChartValues = chartData
     .flatMap(d => [d.actual, d.projected])

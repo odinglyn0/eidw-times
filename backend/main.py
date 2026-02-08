@@ -8,8 +8,7 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from google.cloud import recaptchaenterprise_v1
-from google.cloud.recaptchaenterprise_v1 import Assessment
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -225,90 +224,6 @@ def get_hourly_interval_departure_data():
                 return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
-        return jsonify({"error": str(e)}), 500
-
-GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID')
-RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY')
-RECAPTCHA_ACTION = os.environ.get('RECAPTCHA_ACTION', 'submit_feature_request')
-
-def verify_recaptcha(token):
-    if not GCP_PROJECT_ID or not RECAPTCHA_SITE_KEY:
-        raise ValueError("GCP_PROJECT_ID or RECAPTCHA_SITE_KEY not configured")
-
-    client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
-
-    event = recaptchaenterprise_v1.Event()
-    event.site_key = RECAPTCHA_SITE_KEY
-    event.token = token
-
-    assessment = recaptchaenterprise_v1.Assessment()
-    assessment.event = event
-
-    req = recaptchaenterprise_v1.CreateAssessmentRequest()
-    req.assessment = assessment
-    req.parent = f"projects/{GCP_PROJECT_ID}"
-
-    response = client.create_assessment(req)
-
-    if not response.token_properties.valid:
-        logging.warning(f"reCAPTCHA token invalid: {response.token_properties.invalid_reason}")
-        return False
-
-    if response.token_properties.action != RECAPTCHA_ACTION:
-        logging.warning(f"reCAPTCHA action mismatch: expected {RECAPTCHA_ACTION}, got {response.token_properties.action}")
-        return False
-
-    score = response.risk_analysis.score
-    logging.info(f"reCAPTCHA Enterprise score: {score}")
-    return score >= 0.5
-
-@app.route('/api/feature-requests', methods=['POST'])
-def submit_feature_request():
-    try:
-        data = request.get_json()
-        name = data.get('name')
-        email = data.get('email')
-        details = data.get('details')
-        recaptcha_token = data.get('recaptchaToken')
-        
-        if not details:
-            return jsonify({"error": "Feature details are required"}), 400
-        
-        if not recaptcha_token:
-            return jsonify({"error": "reCAPTCHA token is required"}), 400
-        
-        if not verify_recaptcha(recaptcha_token):
-            return jsonify({"error": "reCAPTCHA verification failed. Please try again."}), 403
-        
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO feature_requests (name, email, details, created_at) 
-                    VALUES (%s, %s, %s, %s)
-                """, (name, email, details, datetime.now(timezone.utc)))
-                
-                conn.commit()
-                return jsonify({"message": "Feature request submitted successfully"})
-    except Exception as e:
-        logging.error(f"Error submitting feature request: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/acknowledged-feature-requests', methods=['GET'])
-def get_acknowledged_feature_requests():
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT id, name, email, details, created_at, acknowledged_at 
-                    FROM feature_requests 
-                    WHERE acknowledged_at IS NOT NULL 
-                    ORDER BY acknowledged_at DESC
-                """)
-                
-                results = cur.fetchall()
-                return jsonify([dict(row) for row in results])
-    except Exception as e:
-        logging.error(f"Error fetching acknowledged feature requests: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/active-announcements', methods=['GET'])
@@ -958,6 +873,355 @@ def get_last_departures():
                 return jsonify(response)
     except Exception as e:
         logging.error(f"Error fetching last departures: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+def _linear_regression(xs, ys):
+    n = len(xs)
+    if n < 2:
+        return 0.0, 0.0, 0.0
+    xs = np.array(xs, dtype=float)
+    ys = np.array(ys, dtype=float)
+    mx, my = xs.mean(), ys.mean()
+    dx = xs - mx
+    dy = ys - my
+    ssxx = (dx * dx).sum()
+    ssyy = (dy * dy).sum()
+    ssxy = (dx * dy).sum()
+    beta = ssxy / ssxx if ssxx > 0 else 0.0
+    alpha = my - beta * mx
+    r = ssxy / np.sqrt(ssxx * ssyy) if ssxx > 0 and ssyy > 0 else 0.0
+    return alpha, beta, r
+
+
+def _run_multi_path(observed_values, last_value, last_minute, num_sims=15):
+    if not observed_values:
+        return []
+    obs = np.array(observed_values, dtype=float)
+    mean = obs.mean()
+    std = obs.std(ddof=1) if len(obs) > 1 else 0.5
+    if std == 0:
+        std = 0.5
+
+    future_minutes = list(range(last_minute + 1, 60))
+    if not future_minutes:
+        return []
+
+    n_future = len(future_minutes)
+    all_paths = []
+    for _ in range(num_sims):
+        path = []
+        current = float(last_value)
+        noise = np.random.randn(n_future)
+        for i in range(n_future):
+            drift = 0.3 * (mean - current)
+            current = current + drift + std * 0.3 * noise[i]
+            path.append({"minute": future_minutes[i], "value": max(0, round(current))})
+        all_paths.append(path)
+    return all_paths
+
+
+def _run_project(observed_values, last_value, last_minute, num_sims=200):
+    paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
+    if not paths:
+        return []
+    n_future = len(paths[0])
+    result = []
+    for i in range(n_future):
+        vals = sorted(p[i]["value"] for p in paths)
+        result.append({"minute": paths[0][i]["minute"], "value": vals[len(vals) // 2]})
+    return result
+
+
+def _run_departure_aware(observed_security, observed_pairs, last_value,
+                          future_departures, future_steps, num_sims=200):
+    result = {}
+    if not observed_security or future_steps <= 0:
+        return result
+
+    obs = np.array(observed_security, dtype=float)
+    mean = obs.mean()
+    base_std = obs.std(ddof=1) if len(obs) > 1 else 0.5
+    if base_std == 0:
+        base_std = 0.5
+
+    recent_n = min(len(observed_security), 10)
+    recent_slice = observed_security[-recent_n:]
+    momentum = 0.0
+    if len(recent_slice) >= 3:
+        xs = list(range(len(recent_slice)))
+        _, beta, _ = _linear_regression(xs, recent_slice)
+        momentum = beta
+
+    dep_beta = 0.0
+    dep_correlation = 0.0
+    baseline_dep = 0.0
+
+    if len(observed_pairs) >= 3:
+        dep_vals = [p["departures"] for p in observed_pairs]
+        sec_vals = [p["security"] for p in observed_pairs]
+        _, dep_beta, dep_correlation = _linear_regression(dep_vals, sec_vals)
+        dep_correlation = abs(dep_correlation)
+        baseline_dep = sum(dep_vals) / len(dep_vals)
+    elif observed_pairs:
+        baseline_dep = sum(p["departures"] for p in observed_pairs) / len(observed_pairs)
+        dep_beta = 0.15
+        dep_correlation = 0.3
+
+    dep_by_minute = {}
+    for d in future_departures:
+        dep_by_minute[d["minuteOffset"]] = d["count"]
+
+    future_dep_values = [d["count"] for d in future_departures]
+    avg_future_dep = sum(future_dep_values) / len(future_dep_values) if future_dep_values else baseline_dep
+    reference_dep = max(baseline_dep, 0.5)
+
+    corr_scale = 0.3 + 0.7 * dep_correlation
+
+    all_paths = np.empty((num_sims, future_steps))
+    noise_matrix = np.random.randn(num_sims, future_steps)
+
+    for sim in range(num_sims):
+        current = float(last_value)
+        cur_momentum = momentum
+        for i in range(future_steps):
+            minute_offset = i + 1
+            dep_count = dep_by_minute.get(minute_offset, avg_future_dep)
+            dep_ratio = min(dep_count / reference_dep, 3.0)
+            dep_pressure = (dep_ratio - 1.0) * corr_scale
+            mean_rev_drift = 0.20 * (mean - current)
+            dep_drift = 0.6 * dep_beta * (dep_count - reference_dep) * corr_scale
+            momentum_drift = 0.15 * cur_momentum
+            cur_momentum *= 0.97
+            total_drift = mean_rev_drift + dep_drift + momentum_drift
+            vol_mult = 1.0 + 0.4 * max(dep_pressure, -0.5)
+            noise = 0.30 * base_std * vol_mult * noise_matrix[sim, i]
+            current = max(0.0, current + total_drift + noise)
+            all_paths[sim, i] = round(current)
+
+    for i in range(future_steps):
+        col = np.sort(all_paths[:, i])
+        result[i + 1] = {
+            "p10": int(np.percentile(col, 10)),
+            "p25": int(np.percentile(col, 25)),
+            "median": int(np.percentile(col, 50)),
+            "p75": int(np.percentile(col, 75)),
+            "p90": int(np.percentile(col, 90)),
+        }
+
+    return result
+
+
+def _fetch_security_for_hour(terminal_id, hour_start_utc, hour_end_utc):
+    t_key = f"t{terminal_id}"
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT timestamp, """ + t_key + """ as sec_time
+                FROM security_times
+                WHERE timestamp >= %s AND timestamp < %s
+                  AND """ + t_key + """ IS NOT NULL
+                ORDER BY timestamp ASC
+            """, (hour_start_utc, hour_end_utc))
+            return cur.fetchall()
+
+
+def _fetch_security_range(terminal_id, start_utc, end_utc):
+    t_key = f"t{terminal_id}"
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT timestamp, """ + t_key + """ as sec_time
+                FROM security_times
+                WHERE timestamp >= %s AND timestamp <= %s
+                  AND """ + t_key + """ IS NOT NULL
+                ORDER BY timestamp ASC
+            """, (start_utc, end_utc))
+            return cur.fetchall()
+
+
+def _fetch_departures_range(terminal_id, start_utc, end_utc):
+    terminal_name = f"T{terminal_id}"
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT scheduled_datetime
+                FROM departures
+                WHERE terminal_name = %s
+                  AND scheduled_datetime >= %s AND scheduled_datetime <= %s
+                ORDER BY scheduled_datetime ASC
+            """, (terminal_name, start_utc, end_utc))
+            return cur.fetchall()
+
+
+@app.route('/api/simulate/gamma/method-b', methods=['POST'])
+def simulate_gamma_method_b():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        num_sims = data.get('numSims', 15)
+
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        now = datetime.now(DUBLIN_TZ)
+        hour_start = now.replace(minute=0, second=0, microsecond=0)
+        hour_end = hour_start + timedelta(hours=1)
+
+        rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+        if not rows:
+            return jsonify({"paths": []})
+
+        observed_values = [r['sec_time'] for r in rows]
+        last_row = rows[-1]
+        last_ts = last_row['timestamp']
+        if last_ts.tzinfo is None:
+            last_ts = last_ts.replace(tzinfo=timezone.utc)
+        last_minute = last_ts.astimezone(DUBLIN_TZ).minute
+        last_value = last_row['sec_time']
+
+        paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
+        return jsonify({"paths": paths, "dataPoints": len(observed_values)})
+    except Exception as e:
+        logging.error(f"Error in gamma/method-b: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/simulate/tango/method-a', methods=['POST'])
+def simulate_tango_method_a():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        hour_timestamp = data.get('hourTimestamp')
+        num_sims = data.get('numSims', 200)
+
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        if hour_timestamp:
+            ref_time = datetime.fromisoformat(hour_timestamp)
+            if ref_time.tzinfo is None:
+                ref_time = ref_time.replace(tzinfo=DUBLIN_TZ)
+        else:
+            ref_time = datetime.now(DUBLIN_TZ)
+
+        hour_start = ref_time.replace(minute=0, second=0, microsecond=0)
+        hour_end = hour_start + timedelta(hours=1)
+        current_minute = ref_time.minute
+
+        rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+        if not rows:
+            return jsonify({"projected": []})
+
+        observed = []
+        for r in rows:
+            ts = r['timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            m = ts.astimezone(DUBLIN_TZ).minute
+            if m <= current_minute:
+                observed.append((m, r['sec_time']))
+
+        if not observed:
+            return jsonify({"projected": []})
+
+        observed.sort(key=lambda x: x[0])
+        observed_values = [v for _, v in observed]
+        last_minute = observed[-1][0]
+        last_value = observed[-1][1]
+
+        projected = _run_project(observed_values, last_value, last_minute, num_sims)
+        return jsonify({"projected": projected})
+    except Exception as e:
+        logging.error(f"Error in tango/method-a: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/simulate/gamma/method-a', methods=['POST'])
+def simulate_gamma_method_a():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        start_iso = data.get('start')
+        end_iso = data.get('end')
+        selected_timeframe = data.get('selectedTimeframe', 1440)
+        num_sims = data.get('numSims', 200)
+
+        if not terminal_id or not start_iso or not end_iso:
+            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+
+        start_dt = datetime.fromisoformat(start_iso)
+        end_dt = datetime.fromisoformat(end_iso)
+        now = datetime.now(timezone.utc)
+
+        sec_rows = _fetch_security_range(terminal_id, start_dt, min(end_dt, now))
+        dep_rows = _fetch_departures_range(terminal_id, start_dt, end_dt)
+
+        past_sec = []
+        for r in sec_rows:
+            ts = r['timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts <= now:
+                past_sec.append({"ts": ts, "value": r['sec_time']})
+
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        observed_security = [p["value"] for p in past_sec]
+        last_value = observed_security[-1] if observed_security else None
+
+        if last_value is None or len(observed_security) < 2:
+            return jsonify({"bands": {}})
+
+        observed_pairs = []
+        for sec_point in past_sec:
+            best_dep_count = 0
+            best_dist = float('inf')
+            for dep_ts in dep_times:
+                if dep_ts > now:
+                    continue
+                dist = abs((dep_ts - sec_point["ts"]).total_seconds())
+                if dist < best_dist and dist <= 120:
+                    best_dist = dist
+                    dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
+                    dep_hour_end = dep_hour_start + timedelta(hours=1)
+                    best_dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+            observed_pairs.append({
+                "security": sec_point["value"],
+                "departures": best_dep_count,
+            })
+
+        future_departures = []
+        future_dep_times = [d for d in dep_times if d > now]
+        for dep_ts in future_dep_times:
+            minute_offset = int((dep_ts - now).total_seconds() / 60)
+            if 0 < minute_offset <= 1440:
+                dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
+                dep_hour_end = dep_hour_start + timedelta(hours=1)
+                count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+                future_departures.append({"minuteOffset": minute_offset, "count": count})
+
+        future_minutes = int((end_dt - now).total_seconds() / 60)
+        future_minutes = max(0, min(future_minutes, 1440))
+        effective_steps = min(future_minutes, selected_timeframe)
+
+        if effective_steps <= 0:
+            return jsonify({"bands": {}})
+
+        bands = _run_departure_aware(
+            observed_security, observed_pairs, last_value,
+            future_departures, effective_steps, num_sims
+        )
+
+        bands_str_keys = {str(k): v for k, v in bands.items()}
+        return jsonify({"bands": bands_str_keys})
+    except Exception as e:
+        logging.error(f"Error in gamma/method-a: {e}")
         return jsonify({"error": str(e)}), 500
 
 
