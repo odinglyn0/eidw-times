@@ -246,7 +246,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                 stroke="#22c55e"
                 strokeWidth={2.5}
                 dot={false}
-                connectNulls={false}
+                connectNulls={true}
                 activeDot={{ r: 3, fill: '#22c55e', stroke: '#fff', strokeWidth: 1.5 }}
               />
             </ComposedChart>
