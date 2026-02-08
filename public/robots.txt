@@ -1,14 +1,10 @@
 User-agent: *
 Allow: /
 Disallow: /settings
-
-# Sitemaps
 Sitemap: https://eidwtimes.xyz/sitemap.xml
-
-# Crawl-delay (be nice to the server)
 Crawl-delay: 5
 
-# AI / LLM Crawlers — welcome
+# AI / LLM Crawlers
 User-agent: GPTBot
 Allow: /
 
