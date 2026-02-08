@@ -1,10 +1,6 @@
 <!doctype html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
-    <!--
-      Ketch Smart Tag — MUST be the first script in <head>.
-      The semaphore queue buffers ketch() API calls until boot.js is ready.
-    -->
     <script>
       (function() {
         var ketchPatterns = /^\[Ketch\]|^showConsentExperience|^App\.tsx|^useFireExperienceEvents|^fullConfig|^payload|^consents|^showConsentOptions|^purposeTCFInfo|^options|^theme|^appStateProviderPayload|^showPreferenceOptions|^mutableConfig|^error|^isThemeMapMounted|^experience|^store|^host/;
@@ -44,8 +40,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-
-    <!-- Primary Meta Tags -->
+    <link rel="preconnect" href="https://romeo-api-b.eidwtimes.xyz" crossorigin />
+    <link rel="dns-prefetch" href="https://romeo-api-b.eidwtimes.xyz" />
+    <link rel="preconnect" href="https://global.ketchcdn.com" crossorigin />
+    <link rel="dns-prefetch" href="https://global.ketchcdn.com" />
     <title>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times</title>
     <meta name="title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times" />
     <meta name="description" content="Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2. Real-time updates, historical trends, departure info, and AI-projected wait times. Plan your journey through Dublin Airport (DUB/EIDW) with confidence." />
@@ -58,20 +56,14 @@
     <link rel="icon" type="image/png" href="/images/favicon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/images/favicon.png" />
-
-    <!-- Geo Meta Tags -->
     <meta name="geo.region" content="IE-D" />
     <meta name="geo.placename" content="Dublin, Ireland" />
     <meta name="geo.position" content="53.4264;-6.2499" />
     <meta name="ICBM" content="53.4264, -6.2499" />
-
-    <!-- Language / Locale -->
     <meta name="language" content="English" />
     <meta name="content-language" content="en-IE" />
     <link rel="alternate" hreflang="en" href="https://eidwtimes.xyz/" />
     <link rel="alternate" hreflang="x-default" href="https://eidwtimes.xyz/" />
-
-    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#4CAF50" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -80,8 +72,6 @@
     <meta name="apple-mobile-web-app-title" content="EIDW Times" />
     <meta name="application-name" content="EIDW Times" />
     <meta name="msapplication-TileColor" content="#4CAF50" />
-
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://eidwtimes.xyz/" />
     <meta property="og:title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times" />
@@ -92,8 +82,6 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="EIDW Times" />
     <meta property="og:locale" content="en_IE" />
-
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://eidwtimes.xyz/" />
     <meta name="twitter:title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times" />
@@ -101,7 +89,6 @@
     <meta name="twitter:image" content="https://eidwtimes.xyz/images/og-image.png" />
     <meta name="twitter:image:alt" content="EIDW Times — Dublin Airport Security Queue Dashboard" />
 
-    <!-- Structured Data: WebSite (enables sitelinks search box) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -119,7 +106,6 @@
     }
     </script>
 
-    <!-- Structured Data: WebPage with Speakable (Google Assistant / voice search) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -142,7 +128,6 @@
     }
     </script>
 
-    <!-- Structured Data: WebApplication -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -171,7 +156,6 @@
     }
     </script>
 
-    <!-- Structured Data: Airport -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -196,7 +180,6 @@
     }
     </script>
 
-    <!-- Structured Data: FAQPage (rich snippets) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -542,7 +525,6 @@
     }
     </script>
 
-    <!-- Structured Data: BreadcrumbList -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -564,7 +546,6 @@
     }
     </script>
 
-    <!-- Structured Data: Organization -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -580,12 +561,8 @@
     }
     </script>
 
-
-
-    <!-- Google reCAPTCHA Enterprise script -->
     <script src="https://www.google.com/recaptcha/enterprise.js?render=explicit" async defer></script>
 
-    <!-- Dynamic structured data injection: fetches live security times and injects JSON-LD -->
     <script>
       (function() {
         var API_BASE = 'https://romeo-api-b.eidwtimes.xyz';
@@ -637,8 +614,6 @@
 
   <body>
     <div id="root"></div>
-
-    <!-- SEO fallback for crawlers that don't execute JavaScript -->
     <noscript>
       <div style="max-width:800px;margin:40px auto;padding:20px;font-family:system-ui,sans-serif;">
         <h1>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times</h1>
@@ -731,7 +706,5 @@
     </noscript>
 
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Cloudflare Web Analytics — loaded dynamically by AnalyticsGate after Ketch analytics consent -->
   </body>
 </html>

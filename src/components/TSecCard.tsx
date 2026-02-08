@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Crd";
 import { apiClient } from "@/integrations/api/client";
 import { Skeleton } from "@/components/ui/Skel";
@@ -18,7 +18,7 @@ import {
 import HourlyDetailPopover from "./HDPopO";
 import DepartureDetailPopover from "./DDPopO";
 import ProjectedHourlyPopover from "./PHPopO";
-import HourGraphDialog from "./HgDi";
+const HourGraphDialog = lazy(() => import("./HgDi"));
 import LaserPulseBorder from "./LPB";
 
 interface HourlySecurityData {
@@ -227,12 +227,16 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               <ProjectedHourlyPopover terminalId={terminalId} currentTime={currentTime} />
             </div>
 
-            <HourGraphDialog
-              open={hourGraphOpen}
-              onOpenChange={setHourGraphOpen}
-              terminalId={terminalId}
-              currentTime={currentTime}
-            />
+            {hourGraphOpen && (
+              <Suspense fallback={null}>
+                <HourGraphDialog
+                  open={hourGraphOpen}
+                  onOpenChange={setHourGraphOpen}
+                  terminalId={terminalId}
+                  currentTime={currentTime}
+                />
+              </Suspense>
+            )}
 
             <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>

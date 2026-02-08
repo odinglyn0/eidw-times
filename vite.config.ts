@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import Sitemap from "vite-plugin-sitemap";
-import obfuscatorPlugin from "rollup-plugin-obfuscator";
+import viteCompression from "vite-plugin-compression";
 
 function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; priority: number }[]): Plugin {
   return {
@@ -20,7 +20,6 @@ function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; prio
 
         let xml = fs.readFileSync(sitemapPath, "utf-8");
         const lastmod = new Date().toISOString();
-        const locRegex = /<url><loc>(.*?)<\/loc>/g;
         const seen = new Set<string>();
         xml = xml.replace(/<url>.*?<\/url>/g, (match) => {
           const locMatch = /<loc>(.*?)<\/loc>/.exec(match);
@@ -49,25 +48,40 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   build: {
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        passes: 2,
-      },
-      mangle: {
-        toplevel: true,
-      },
-      format: {
-        comments: false,
+    minify: "esbuild",
+    target: "es2020",
+    sourcemap: false,
+    cssCodeSplit: false,
+    modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react-dom")) return "react-dom";
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-router")) return "react-core";
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "recharts";
+          if (id.includes("node_modules/@radix-ui")) return "radix";
+          if (id.includes("node_modules/posthog-js") || id.includes("node_modules/react-ga4")) return "analytics";
+          if (id.includes("node_modules/date-fns")) return "date-fns";
+          if (id.includes("node_modules")) return "vendor";
+        },
       },
     },
-    sourcemap: false,
+    chunkSizeWarningLimit: 200,
   },
   plugins: [
     dyadComponentTagger(),
     react(),
+    viteCompression({
+      algorithm: "brotliCompress",
+      ext: ".br",
+      threshold: 1024,
+    }),
+
+    viteCompression({
+      algorithm: "gzip",
+      ext: ".gz",
+      threshold: 1024,
+    }),
     Sitemap({
       hostname: "https://eidwtimes.xyz",
       dynamicRoutes: ["/", "/settings"],
@@ -75,73 +89,17 @@ export default defineConfig(({ mode }) => ({
       changefreq: "hourly",
       priority: 1.0,
       lastmod: new Date(),
-      robots: [
-        {
-          userAgent: "*",
-          allow: "/",
-        },
-      ],
+      robots: [{ userAgent: "*", allow: "/" }],
     }),
     appendExternalSitemapUrls([
-      {
-        loc: "https://romeo-api-b.eidwtimes.xyz/api/seo-security-data",
-        changefreq: "always",
-        priority: 0.9,
-      },
-      {
-        loc: "https://eidwtimes.xyz/legal/privacy.docx",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
-      {
-        loc: "https://eidwtimes.xyz/legal/terms.docx",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
-      {
-        loc: "https://eidwtimes.xyz/legal/cookies.docx",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
-      {
-        loc: "https://eidwtimes.xyz/terms",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
-      {
-        loc: "https://eidwtimes.xyz/privacy",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
-      {
-        loc: "https://eidwtimes.xyz/cookies",
-        changefreq: "monthly",
-        priority: 0.5,
-      },
+      { loc: "https://romeo-api-b.eidwtimes.xyz/api/seo-security-data", changefreq: "always", priority: 0.9 },
+      { loc: "https://eidwtimes.xyz/legal/privacy.docx", changefreq: "monthly", priority: 0.5 },
+      { loc: "https://eidwtimes.xyz/legal/terms.docx", changefreq: "monthly", priority: 0.5 },
+      { loc: "https://eidwtimes.xyz/legal/cookies.docx", changefreq: "monthly", priority: 0.5 },
+      { loc: "https://eidwtimes.xyz/terms", changefreq: "monthly", priority: 0.5 },
+      { loc: "https://eidwtimes.xyz/privacy", changefreq: "monthly", priority: 0.5 },
+      { loc: "https://eidwtimes.xyz/cookies", changefreq: "monthly", priority: 0.5 },
     ]),
-    ...(mode === "production"
-      ? [
-          obfuscatorPlugin({
-            options: {
-              compact: true,
-              controlFlowFlattening: true,
-              controlFlowFlatteningThreshold: 0.5,
-              deadCodeInjection: true,
-              deadCodeInjectionThreshold: 0.2,
-              identifierNamesGenerator: "hexadecimal",
-              renameGlobals: false,
-              selfDefending: true,
-              stringArray: true,
-              stringArrayEncoding: ["base64"],
-              stringArrayThreshold: 0.75,
-              splitStrings: true,
-              splitStringsChunkLength: 10,
-              transformObjectKeys: true,
-              unicodeEscapeSequence: false,
-            },
-          }),
-        ]
-      : []),
   ],
   resolve: {
     alias: {

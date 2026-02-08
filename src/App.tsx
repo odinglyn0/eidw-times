@@ -3,20 +3,31 @@ import { Toaster as Sonner } from "@/components/ui/Sonn";
 import { TooltipProvider } from "@/components/ui/TlTp";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import NeuralNetworkBackground from "@/components/BackG";
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
-import Settings from "./pages/Settings";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import CookiePolicy from "./pages/CookiePolicy";
-import Legal from "./pages/Legal";
 import { ThemeProvider } from "@/components/TP";
-import ReactGA from 'react-ga4';
-import posthog from 'posthog-js';
-import { useEffect, useRef } from "react";
 import { getDarkMode } from '@/lib/cookies';
+
+const NeuralNetworkBackground = lazy(() => import("@/components/BackG"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
+const Legal = lazy(() => import("./pages/Legal"));
+let _ReactGA: typeof import('react-ga4').default | null = null;
+let _posthog: typeof import('posthog-js').default | null = null;
+
+const loadAnalytics = async () => {
+  const [ga, ph] = await Promise.all([
+    import('react-ga4'),
+    import('posthog-js'),
+  ]);
+  _ReactGA = ga.default;
+  _posthog = ph.default;
+  return { ReactGA: _ReactGA, posthog: _posthog };
+};
 
 const cookieDark = getDarkMode();
 if (cookieDark !== null) {
@@ -40,23 +51,25 @@ const AnalyticsGate = () => {
     if (!hasAnalyticsConsent || initialized.current) return;
     initialized.current = true;
 
-    if (GA_TRACKING_ID) {
-      ReactGA.initialize(GA_TRACKING_ID);
-    }
+    loadAnalytics().then(({ ReactGA, posthog }) => {
+      if (GA_TRACKING_ID) {
+        ReactGA.initialize(GA_TRACKING_ID);
+      }
 
-    if (POSTHOG_KEY) {
-      posthog.init(POSTHOG_KEY, {
-        api_host: POSTHOG_HOST,
-        person_profiles: 'identified_only',
-        capture_pageview: false,
-        capture_pageleave: true,
-        autocapture: true,
-        session_recording: {
-          maskAllInputs: true,
-          recordCrossOriginIframes: false,
-        },
-      });
-    }
+      if (POSTHOG_KEY) {
+        posthog.init(POSTHOG_KEY, {
+          api_host: POSTHOG_HOST,
+          person_profiles: 'identified_only',
+          capture_pageview: false,
+          capture_pageleave: true,
+          autocapture: true,
+          session_recording: {
+            maskAllInputs: true,
+            recordCrossOriginIframes: false,
+          },
+        });
+      }
+    });
 
     const cfScript = document.createElement('script');
     cfScript.defer = true;
@@ -76,11 +89,11 @@ const PageTracker = () => {
     if (!hasAnalyticsConsent) return;
 
     const path = location.pathname + location.search;
-    if (GA_TRACKING_ID) {
-      ReactGA.send({ hitType: "pageview", page: path });
+    if (GA_TRACKING_ID && _ReactGA) {
+      _ReactGA.send({ hitType: "pageview", page: path });
     }
-    if (POSTHOG_KEY) {
-      posthog.capture('$pageview', { $current_url: window.location.href });
+    if (POSTHOG_KEY && _posthog) {
+      _posthog.capture('$pageview', { $current_url: window.location.href });
     }
   }, [location, hasAnalyticsConsent]);
 
@@ -93,20 +106,24 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <NeuralNetworkBackground />
+        <Suspense fallback={null}>
+          <NeuralNetworkBackground />
+        </Suspense>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <CookieConsentProvider>
             <AnalyticsGate />
             <PageTracker />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/cookies" element={<CookiePolicy />} />
-              <Route path="/legal" element={<Legal />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/cookies" element={<CookiePolicy />} />
+                <Route path="/legal" element={<Legal />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </CookieConsentProvider>
         </BrowserRouter>
       </TooltipProvider>
