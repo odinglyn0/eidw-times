@@ -14,9 +14,14 @@ import { useEffect } from "react";
 import { getDarkMode } from '@/lib/cookies';
 
 // Sync cookie-based dark mode preference into localStorage before React renders
+// Default to dark unless: cookie explicitly says light, OR no cookie and system prefers light
 const cookieDark = getDarkMode();
 if (cookieDark !== null) {
   localStorage.setItem('vite-ui-theme', cookieDark ? 'dark' : 'light');
+} else {
+  // No cookie set yet — default to dark unless system explicitly prefers light
+  const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  localStorage.setItem('vite-ui-theme', systemPrefersLight ? 'light' : 'dark');
 }
 
 const GA_TRACKING_ID = "G-8Z6TY20KPY"; // Your Google Analytics 4 Measurement ID
@@ -38,7 +43,7 @@ const PageTracker = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <TooltipProvider>
         <Toaster />
         <Sonner />

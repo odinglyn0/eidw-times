@@ -29,7 +29,11 @@ const Settings: React.FC = () => {
       setIsDarkMode(cookieDark);
       setTheme(cookieDark ? 'dark' : 'light');
     } else {
-      setIsDarkMode(theme === 'dark');
+      // No cookie — match the app default: dark unless system prefers light
+      const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+      const defaultDark = !systemPrefersLight;
+      setIsDarkMode(defaultDark);
+      setTheme(defaultDark ? 'dark' : 'light');
     }
   }, []);
 
