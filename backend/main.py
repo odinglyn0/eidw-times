@@ -59,10 +59,11 @@ def _verify_recaptcha_enterprise(token, expected_action=None):
     return True, response.risk_analysis.score
 
 
-def _mint_bounce_token(client_ip, fingerprint):
+def _mint_bounce_token(client_ip, fingerprint, country):
     payload = {
         "ip": client_ip,
         "fp": fingerprint,
+        "co": country,
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + timedelta(days=1),
         "type": "elasticBounceTokenScreen",
@@ -71,10 +72,17 @@ def _mint_bounce_token(client_ip, fingerprint):
 
 
 def _get_client_ip():
+    cf_ip = request.headers.get("CF-Connecting-IP", "")
+    if cf_ip:
+        return cf_ip.strip()
     forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.remote_addr or "unknown"
+
+
+def _get_client_country():
+    return request.headers.get("CF-IPCountry", "XX")
 
 
 UNPROTECTED_PATHS = {
@@ -125,7 +133,7 @@ def bouncetoken_verify():
         client_ip = _get_client_ip()
 
         if score >= RECAPTCHA_SCORE_THRESHOLD:
-            token = _mint_bounce_token(client_ip, fingerprint)
+            token = _mint_bounce_token(client_ip, fingerprint, _get_client_country())
             return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
 
         return jsonify({"status": "checkbox_required"})
@@ -150,7 +158,7 @@ def bouncetoken_checkbox_verify():
             return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
 
         client_ip = _get_client_ip()
-        token = _mint_bounce_token(client_ip, fingerprint)
+        token = _mint_bounce_token(client_ip, fingerprint, _get_client_country())
         return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
     except Exception as e:
         logging.error(f"Error in bouncetoken checkbox verify: {e}")
