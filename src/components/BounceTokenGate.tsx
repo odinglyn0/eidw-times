@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
@@ -23,7 +23,8 @@ interface BounceTokenGateProps {
 }
 
 function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp("(?:^|; )" + escaped + "=([^;]*)"));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -65,10 +66,66 @@ function waitForRecaptcha(timeoutMs = 10000): Promise<void> {
   });
 }
 
+function StretchLoader() {
+  return (
+    <>
+      <div className="sk-stretch">
+        <div className="sk-r sk-r1" />
+        <div className="sk-r sk-r2" />
+        <div className="sk-r sk-r3" />
+        <div className="sk-r sk-r4" />
+        <div className="sk-r sk-r5" />
+      </div>
+      <style>{`
+        .sk-stretch{width:50px;height:40px;text-align:center;font-size:10px}
+        .sk-stretch .sk-r{background:#fff;height:100%;width:6px;display:inline-block;animation:sk-sd 1.2s infinite ease-in-out}
+        .sk-r2{animation-delay:-1.1s!important}
+        .sk-r3{animation-delay:-1.0s!important}
+        .sk-r4{animation-delay:-0.9s!important}
+        .sk-r5{animation-delay:-0.8s!important}
+        @keyframes sk-sd{0%,40%,100%{transform:scaleY(0.4)}20%{transform:scaleY(1.0)}}
+      `}</style>
+    </>
+  );
+}
+
+function RotatePlaneLoader() {
+  return (
+    <>
+      <div className="sk-plane" />
+      <style>{`
+        .sk-plane{width:40px;height:40px;background:#fff;animation:sk-rp 1.2s infinite ease-in-out}
+        @keyframes sk-rp{0%{transform:perspective(120px) rotateX(0deg) rotateY(0deg)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0deg)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}
+      `}</style>
+    </>
+  );
+}
+
+function CubeGridLoader() {
+  return (
+    <>
+      <div className="sk-cg">
+        {[1,2,3,4,5,6,7,8,9].map(n => <div key={n} className={`sk-c sk-c${n}`} />)}
+      </div>
+      <style>{`
+        .sk-cg{width:40px;height:40px}
+        .sk-c{width:33%;height:33%;background:#fff;float:left;animation:sk-cgd 1.3s infinite ease-in-out}
+        .sk-c1{animation-delay:0.2s}.sk-c2{animation-delay:0.3s}.sk-c3{animation-delay:0.4s}
+        .sk-c4{animation-delay:0.1s}.sk-c5{animation-delay:0.2s}.sk-c6{animation-delay:0.3s}
+        .sk-c7{animation-delay:0s}.sk-c8{animation-delay:0.1s}.sk-c9{animation-delay:0.2s}
+        @keyframes sk-cgd{0%,70%,100%{transform:scale3D(1,1,1)}35%{transform:scale3D(0,0,1)}}
+      `}</style>
+    </>
+  );
+}
+
+const LOADERS = [StretchLoader, RotatePlaneLoader, CubeGridLoader];
+
 const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   const [state, setState] = useState<"loading" | "granted" | "failed">("loading");
   const navigate = useNavigate();
   const attemptedRef = useRef(false);
+  const Loader = useMemo(() => LOADERS[Math.floor(Math.random() * LOADERS.length)], []);
 
   const hasValidToken = useCallback(() => {
     const token = getCookie(COOKIE_NAME);
@@ -153,25 +210,10 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       gap: "1.5rem",
     }}>
       <img src={Logo} alt="EIDW Times" style={{ height: 140, marginBottom: "2rem" }} />
-      <div className="sk-spinner">
-        <div className="sk-rect1" />
-        <div className="sk-rect2" />
-        <div className="sk-rect3" />
-        <div className="sk-rect4" />
-        <div className="sk-rect5" />
-      </div>
+      <Loader />
       <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
         Verifying you are not an evil hacker
       </p>
-      <style>{`
-        .sk-spinner{margin:0 auto;width:50px;height:40px;text-align:center;font-size:10px}
-        .sk-spinner>div{background-color:#fff;height:100%;width:6px;display:inline-block;animation:sk-stretchdelay 1.2s infinite ease-in-out}
-        .sk-rect2{animation-delay:-1.1s!important}
-        .sk-rect3{animation-delay:-1.0s!important}
-        .sk-rect4{animation-delay:-0.9s!important}
-        .sk-rect5{animation-delay:-0.8s!important}
-        @keyframes sk-stretchdelay{0%,40%,100%{transform:scaleY(0.4)}20%{transform:scaleY(1.0)}}
-      `}</style>
     </div>
   );
 };
