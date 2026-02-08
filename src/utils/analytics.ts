@@ -1,10 +1,14 @@
 import ReactGA from 'react-ga4';
+import posthog from 'posthog-js';
 
 export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
-  if (process.env.NODE_ENV === 'production') {
+  // Google Analytics
+  if (import.meta.env.VITE_GA_TRACKING_ID) {
     ReactGA.event(eventName, eventParams);
-    console.log(`GA Event: ${eventName}`, eventParams);
-  } else {
-    console.log(`GA Event (Dev Mode): ${eventName}`, eventParams);
+  }
+
+  // PostHog
+  if (import.meta.env.VITE_POSTHOG_KEY) {
+    posthog.capture(eventName, eventParams);
   }
 };
