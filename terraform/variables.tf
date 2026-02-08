@@ -19,3 +19,9 @@ variable "recaptcha_site_key" {
   description = "Google reCAPTCHA Enterprise site key"
   type        = string
 }
+
+variable "google_maps_api_key" {
+  description = "Google Maps API key for Routes API travel time polling"
+  type        = string
+  sensitive   = true
+}
