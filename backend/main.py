@@ -713,5 +713,99 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
         logging.error(f"Error generating SEO page: {e}")
         return make_response("Internal Server Error", 500)
 
+@app.route('/api/range-security-data', methods=['POST'])
+def get_range_security_data():
+    """Return minute-level security data for an arbitrary time range (max 8 days span, up to 7 days in the past)."""
+    try:
+        data = request.get_json()
+        start_iso = data.get('start')
+        end_iso = data.get('end')
+        if not start_iso or not end_iso:
+            return jsonify({"error": "Missing start or end"}), 400
+
+        start_dt = datetime.fromisoformat(start_iso)
+        end_dt = datetime.fromisoformat(end_iso)
+
+        # Clamp: no more than 7 days in the past
+        earliest_allowed = datetime.now(timezone.utc) - timedelta(days=7)
+        if start_dt < earliest_allowed:
+            start_dt = earliest_allowed
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT timestamp, t1, t2
+                    FROM security_times
+                    WHERE timestamp >= %s AND timestamp <= %s
+                    ORDER BY timestamp ASC
+                """, (start_dt, end_dt))
+                results = cur.fetchall()
+                rows = []
+                for row in results:
+                    r = dict(row)
+                    ts = r.get('timestamp')
+                    if ts:
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        r['timestamp'] = ts.astimezone(DUBLIN_TZ).isoformat()
+                    rows.append(r)
+                return jsonify(rows)
+    except Exception as e:
+        logging.error(f"Error fetching range security data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/range-departure-data', methods=['POST'])
+def get_range_departure_data():
+    """Return minute-level departure counts for an arbitrary time range."""
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        start_iso = data.get('start')
+        end_iso = data.get('end')
+        if not terminal_id or not start_iso or not end_iso:
+            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+
+        terminal_name = f"T{terminal_id}"
+        start_dt = datetime.fromisoformat(start_iso)
+        end_dt = datetime.fromisoformat(end_iso)
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT scheduled_datetime
+                    FROM departures
+                    WHERE terminal_name = %s AND scheduled_datetime >= %s AND scheduled_datetime <= %s
+                    ORDER BY scheduled_datetime ASC
+                """, (terminal_name, start_dt, end_dt))
+                departures = cur.fetchall()
+
+                dep_times = [row['scheduled_datetime'] for row in departures]
+                hours_with_deps = set()
+                for dt in dep_times:
+                    hours_with_deps.add(dt.replace(minute=0, second=0, microsecond=0))
+
+                results = []
+                for hour_start in sorted(hours_with_deps):
+                    for minute in range(60):
+                        minute_ts = hour_start + timedelta(minutes=minute)
+                        if minute_ts < start_dt or minute_ts > end_dt:
+                            continue
+                        count = 0
+                        for dep_dt in dep_times:
+                            diff = abs((dep_dt - minute_ts).total_seconds())
+                            if diff <= 300:
+                                count += 1
+                        results.append({
+                            'timestamp': minute_ts.isoformat(),
+                            'count': count
+                        })
+
+                return jsonify(results)
+    except Exception as e:
+        logging.error(f"Error fetching range departure data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
