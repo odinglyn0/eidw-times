@@ -9,9 +9,6 @@ const DARK_MODE_KEY = 'dark_mode_enabled';
 const SHOW_RECOMMENDATION_KEY = 'show_recommendation';
 
 // ── Ketch consent ──
-// Ketch stores consent in a first-party cookie: _ketch_consent_v1_
-// Value is URL-encoded JSON mapping purpose codes → { status: "granted"|"denied" }
-const KETCH_CONSENT_COOKIE = '_ketch_consent_v1_';
 
 /** Read a cookie value by name from document.cookie */
 const readCookie = (key: string): string | undefined => {
@@ -24,9 +21,11 @@ const readCookie = (key: string): string | undefined => {
   return match;
 };
 
-/** True when the Ketch consent cookie exists (user has interacted with banner). */
+/** True when any Ketch consent cookie exists (user has interacted with banner). */
 export const getKetchConsent = (): boolean => {
-  return !!readCookie(KETCH_CONSENT_COOKIE);
+  return document.cookie.split('; ').some(c =>
+    c.startsWith('_ketch_consent_') || c.startsWith('_swb_consent_')
+  );
 };
 
 /** True only when Ketch has explicitly granted the "analytics" purpose. */
@@ -35,22 +34,43 @@ export const getKetchAnalyticsConsent = (): boolean => {
   if ((window as any).__ketchAnalyticsConsent === true) return true;
 
   // 2. Parse the consent cookie
-  const raw = readCookie(KETCH_CONSENT_COOKIE);
-  if (!raw) return false;
+  // Try multiple known Ketch cookie names
+  const cookieNames = ['_ketch_consent_v1_', '_swb_consent_'];
+  for (const name of cookieNames) {
+    const raw = readCookie(name);
+    if (!raw) continue;
 
-  try {
-    const parsed = JSON.parse(raw);
-    // The cookie value is { purposeCode: { status: "granted" } }
-    // or possibly { purposeCode: "granted" } depending on Ketch version
-    for (const [key, val] of Object.entries(parsed)) {
-      if (key === 'analytics') {
-        if (typeof val === 'object' && val !== null && (val as any).status === 'granted') return true;
-        if (val === 'granted' || val === true) return true;
+    try {
+      const parsed = JSON.parse(raw);
+      // Could be { purposes: { analytics: { status: "granted" } } }
+      // or { analytics: { status: "granted" } }
+      // or { purposes: { analytics: true } }
+      const purposes = parsed?.purposes || parsed;
+      const val = purposes?.analytics;
+      if (val === true || val === 'granted') return true;
+      if (typeof val === 'object' && val !== null && val.status === 'granted') return true;
+    } catch {
+      // Cookie parse failed
+    }
+  }
+
+  // 3. Also check all cookies for any ketch consent cookie we might have missed
+  const allCookies = document.cookie.split('; ');
+  for (const c of allCookies) {
+    if (c.startsWith('_ketch_consent_') || c.startsWith('_swb_consent_')) {
+      try {
+        const raw = decodeURIComponent(c.split('=').slice(1).join('='));
+        const parsed = JSON.parse(raw);
+        const purposes = parsed?.purposes || parsed;
+        const val = purposes?.analytics;
+        if (val === true || val === 'granted') return true;
+        if (typeof val === 'object' && val !== null && val.status === 'granted') return true;
+      } catch {
+        // skip
       }
     }
-  } catch {
-    // Cookie parse failed — treat as no consent
   }
+
   return false;
 };
 

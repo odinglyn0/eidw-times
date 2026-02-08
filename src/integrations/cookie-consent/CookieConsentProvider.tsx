@@ -39,18 +39,17 @@ export const CookieConsentProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const ketch = (window as any).ketch;
     if (typeof ketch === 'function') {
-      // 'on' + 'consent' fires every time consent is resolved (load from
-      // storage, remote, or user prompt). The callback receives the consent
-      // object { purposeCode: boolean }.
-      ketch('on', 'consent', (consent: Record<string, boolean>) => {
+      // Ketch consent event payload shape: { purposes: { analytics: true, ... }, vendorConsents?: {...} }
+      ketch('on', 'consent', (consent: any) => {
         setHasConsent(true);
-        const granted = !!consent?.analytics;
+
+        // Extract analytics from the purposes map
+        const purposes = consent?.purposes || consent;
+        const granted = !!purposes?.analytics;
         setHasAnalyticsConsent(granted);
         (window as any).__ketchAnalyticsConsent = granted;
       });
 
-      // 'once' + 'userConsentUpdated' fires once when the user actively
-      // interacts with the banner (not on cached consent load).
       ketch('once', 'userConsentUpdated', syncConsent);
     }
 
