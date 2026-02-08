@@ -48,7 +48,8 @@ const PhoneNotch: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
     >
-      <div className="bg-white border border-gray-700 rounded-b-3xl p-2 shadow-lg flex items-center justify-center dark:bg-gray-800 dark:border-gray-600 w-fit max-w-[180px]">
+      <div className="relative bg-white border border-gray-700 rounded-b-3xl p-2 shadow-lg flex items-center justify-center dark:bg-gray-800 dark:border-gray-600 w-fit max-w-[180px]">
+        <div className="absolute bottom-full left-[-1px] right-[-1px] h-[1000px] bg-white dark:bg-gray-800 border-x border-gray-700 dark:border-gray-600 md:hidden" />
         <img
           src={DublinAirportLogo}
           alt="Dublin Airport Logo"
