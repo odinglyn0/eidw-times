@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -6,8 +6,13 @@ import {
   ResponsiveContainer, ComposedChart, Line, Bar, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts';
-import { monteCarloMultiPath } from '@/utils/monteCarlo';
-import { parseISO, getMinutes } from 'date-fns';
+import { monteCarloFlexible } from '@/utils/monteCarlo';
+import { parseISO, format, addMinutes, differenceInMinutes } from 'date-fns';
+import { apiClient } from '@/integrations/api/client';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { RotateCcw, Loader2, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface GranularSecurityData {
   timestamp: string;
@@ -30,98 +35,270 @@ interface HourGraphDialogProps {
 
 const NUM_SIM_PATHS = 200;
 
+const GRANULARITY_OPTIONS = [
+  { label: '1m', value: 1 },
+  { label: '5m', value: 5 },
+  { label: '15m', value: 15 },
+  { label: '30m', value: 30 },
+  { label: '1h', value: 60 },
+];
+
+const PRESETS = [
+  { label: '5m', minutes: 5 },
+  { label: '15m', minutes: 15 },
+  { label: '30m', minutes: 30 },
+  { label: '1h', minutes: 60 },
+  { label: '3h', minutes: 180 },
+  { label: '6h', minutes: 360 },
+  { label: '12h', minutes: 720 },
+  { label: '1d', minutes: 1440 },
+  { label: '3d', minutes: 4320 },
+  { label: '7d', minutes: 10080 },
+];
+
+const MAX_PAST_MINUTES = 7 * 24 * 60;
+const MAX_FUTURE_MINUTES = 1 * 24 * 60;
+
+/** Convert a slider value (0 = 7 days ago, MAX_PAST_MINUTES = now, MAX_PAST+MAX_FUTURE = +1 day) to a Date */
+function sliderToDate(val: number): Date {
+  const now = new Date();
+  const offsetFromNow = val - MAX_PAST_MINUTES; // negative = past, positive = future
+  return addMinutes(now, offsetFromNow);
+}
+
+/** Convert a Date to slider value */
+function dateToSlider(d: Date): number {
+  const now = new Date();
+  const diffMins = differenceInMinutes(d, now);
+  return Math.round(MAX_PAST_MINUTES + diffMins);
+}
+
+/** Format a date for display */
+function formatRangeDate(d: Date): string {
+  const now = new Date();
+  const diffMins = differenceInMinutes(d, now);
+  const absMins = Math.abs(diffMins);
+
+  if (absMins < 2) return 'Now';
+  if (absMins < 60) return `${diffMins > 0 ? '+' : ''}${diffMins}m`;
+  if (absMins < 1440) {
+    const h = Math.round(absMins / 60);
+    return `${diffMins > 0 ? '+' : '-'}${h}h`;
+  }
+  const days = Math.round(absMins / 1440);
+  return `${diffMins > 0 ? '+' : '-'}${days}d`;
+}
+
+/** Format a date for the axis */
+function formatAxisDate(d: Date, spanMinutes: number): string {
+  if (spanMinutes <= 60) return format(d, 'h:mm a');
+  if (spanMinutes <= 1440) return format(d, 'h a');
+  return format(d, 'MMM d, ha');
+}
+
+/** Aggregate data into buckets of given granularity */
+function bucketize(
+  data: { ts: Date; value: number }[],
+  startDate: Date,
+  endDate: Date,
+  granularityMinutes: number
+): { ts: Date; avg: number | null }[] {
+  const buckets: { ts: Date; avg: number | null }[] = [];
+  let cursor = new Date(startDate);
+  while (cursor < endDate) {
+    const bucketEnd = addMinutes(cursor, granularityMinutes);
+    const inBucket = data.filter(d => d.ts >= cursor && d.ts < bucketEnd);
+    buckets.push({
+      ts: new Date(cursor),
+      avg: inBucket.length > 0
+        ? Math.round(inBucket.reduce((s, d) => s + d.value, 0) / inBucket.length)
+        : null,
+    });
+    cursor = bucketEnd;
+  }
+  return buckets;
+}
+
 const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
-  open, onOpenChange, terminalId, securityData, departureData, currentTime,
+  open, onOpenChange, terminalId, securityData: _securityData, departureData: _departureData, currentTime: _currentTime,
 }) => {
+  // Range state: slider values [start, end] where MAX_PAST_MINUTES = now
+  const defaultStart = MAX_PAST_MINUTES - 60; // 1 hour ago
+  const defaultEnd = MAX_PAST_MINUTES; // now
+  const [range, setRange] = useState<[number, number]>([defaultStart, defaultEnd]);
+  const [granularity, setGranularity] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [rangeSecData, setRangeSecData] = useState<{ timestamp: string; t1: number | null; t2: number | null }[]>([]);
+  const [rangeDepData, setRangeDepData] = useState<{ timestamp: string; count: number }[]>([]);
+  const [activePreset, setActivePreset] = useState<number | null>(60);
+
+  const startDate = useMemo(() => sliderToDate(range[0]), [range]);
+  const endDate = useMemo(() => sliderToDate(range[1]), [range]);
+  const spanMinutes = range[1] - range[0];
+  const isFuture = range[1] > MAX_PAST_MINUTES;
+
+  // Auto-adjust granularity based on span
+  useEffect(() => {
+    if (spanMinutes <= 30) setGranularity(1);
+    else if (spanMinutes <= 180) setGranularity(1);
+    else if (spanMinutes <= 720) setGranularity(5);
+    else if (spanMinutes <= 2880) setGranularity(15);
+    else if (spanMinutes <= 7200) setGranularity(30);
+    else setGranularity(60);
+  }, [spanMinutes]);
+
+  // Fetch data when range changes
+  const fetchRangeData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const s = sliderToDate(range[0]);
+      const e = sliderToDate(range[1]);
+      // Only fetch past data (API won't have future)
+      const fetchEnd = e > new Date() ? new Date() : e;
+      if (s < fetchEnd) {
+        const [secRes, depRes] = await Promise.all([
+          apiClient.getRangeSecurityData(s.toISOString(), fetchEnd.toISOString()),
+          apiClient.getRangeDepartureData(terminalId.toString(), s.toISOString(), fetchEnd.toISOString()),
+        ]);
+        setRangeSecData(secRes);
+        setRangeDepData(depRes);
+      } else {
+        setRangeSecData([]);
+        setRangeDepData([]);
+      }
+    } catch (err) {
+      console.error('Error fetching range data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [range, terminalId]);
+
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(fetchRangeData, 300); // debounce
+      return () => clearTimeout(timer);
+    }
+  }, [open, fetchRangeData]);
+
+  // Reset to default
+  const handleReset = () => {
+    setRange([defaultStart, defaultEnd]);
+    setActivePreset(60);
+  };
+
+  // Apply a preset centered on now
+  const applyPreset = (minutes: number) => {
+    const halfBack = Math.min(minutes, MAX_PAST_MINUTES);
+    // For presets, show the past N minutes up to now (no future unless they drag)
+    const newStart = Math.max(0, MAX_PAST_MINUTES - halfBack);
+    setRange([newStart, MAX_PAST_MINUTES]);
+    setActivePreset(minutes);
+  };
+
+  // Nudge left/right
+  const nudge = (direction: -1 | 1) => {
+    const step = Math.max(1, Math.round(spanMinutes * 0.25));
+    const newStart = Math.max(0, Math.min(range[0] + direction * step, MAX_PAST_MINUTES + MAX_FUTURE_MINUTES - spanMinutes));
+    const newEnd = newStart + spanMinutes;
+    setRange([newStart, Math.min(newEnd, MAX_PAST_MINUTES + MAX_FUTURE_MINUTES)]);
+    setActivePreset(null);
+  };
+
+  // Zoom in/out
+  const zoom = (direction: -1 | 1) => {
+    const center = (range[0] + range[1]) / 2;
+    const currentSpan = spanMinutes;
+    const newSpan = direction === -1
+      ? Math.max(5, Math.round(currentSpan * 0.5))
+      : Math.min(MAX_PAST_MINUTES + MAX_FUTURE_MINUTES, Math.round(currentSpan * 2));
+    const newStart = Math.max(0, Math.round(center - newSpan / 2));
+    const newEnd = Math.min(MAX_PAST_MINUTES + MAX_FUTURE_MINUTES, newStart + newSpan);
+    setRange([newStart, newEnd]);
+    setActivePreset(null);
+  };
+
+  // Build chart data
   const chartData = useMemo(() => {
-    const currentMinute = new Date().getMinutes();
+    const now = new Date();
+    const tKey = `t${terminalId}` as 't1' | 't2';
 
-    const secByMinute = new Map<number, number>();
-    securityData.filter(d => d.time !== null).forEach(d => {
-      secByMinute.set(getMinutes(parseISO(d.timestamp)), d.time!);
-    });
+    // Parse security data into typed points
+    const secPoints = rangeSecData
+      .filter(d => d[tKey] !== null)
+      .map(d => ({ ts: parseISO(d.timestamp), value: d[tKey]! }));
 
-    const depByMinute = new Map<number, number>();
-    departureData.filter(d => d.count !== null).forEach(d => {
-      const m = getMinutes(parseISO(d.timestamp));
-      depByMinute.set(m, (depByMinute.get(m) || 0) + d.count!);
-    });
+    // Parse departure data
+    const depPoints = rangeDepData
+      .filter(d => d.count !== null && d.count > 0)
+      .map(d => ({ ts: parseISO(d.timestamp), value: d.count }));
 
-    const observedValues = Array.from(secByMinute.entries())
-      .filter(([m]) => m <= currentMinute)
-      .sort(([a], [b]) => a - b)
-      .map(([, v]) => v);
+    // Bucketize
+    const secBuckets = bucketize(secPoints, startDate, endDate, granularity);
+    const depBuckets = bucketize(depPoints, startDate, endDate, granularity);
+
+    // Monte Carlo projection for future portion
+    const observedValues = secPoints
+      .filter(p => p.ts <= now)
+      .sort((a, b) => a.ts.getTime() - b.ts.getTime())
+      .map(p => p.value);
 
     const lastObserved = observedValues.length > 0 ? observedValues[observedValues.length - 1] : null;
-    const lastMinute = observedValues.length > 0
-      ? Array.from(secByMinute.entries())
-          .filter(([m]) => m <= currentMinute)
-          .sort(([a], [b]) => a - b)
-          .pop()![0]
-      : 0;
 
-    let simPaths: { minute: number; value: number }[][] = [];
-    if (lastObserved !== null && observedValues.length > 0) {
-      simPaths = monteCarloMultiPath(observedValues, lastObserved, lastMinute, NUM_SIM_PATHS);
-    }
-
-    // Compute percentile bands from sim paths
-    const bandByMinute = new Map<number, { p10: number; p25: number; median: number; p75: number; p90: number }>();
-    if (simPaths.length > 0) {
-      const numFuture = simPaths[0].length;
-      for (let i = 0; i < numFuture; i++) {
-        const vals = simPaths.map(p => p[i].value).sort((a, b) => a - b);
-        const pct = (p: number) => vals[Math.floor(vals.length * p)] ?? 0;
-        bandByMinute.set(simPaths[0][i].minute, {
-          p10: pct(0.1),
-          p25: pct(0.25),
-          median: pct(0.5),
-          p75: pct(0.75),
-          p90: pct(0.9),
-        });
+    // Build projection if range extends into the future
+    let projectionByMinute = new Map<number, { p10: number; p25: number; median: number; p75: number; p90: number }>();
+    if (isFuture && lastObserved !== null && observedValues.length >= 2) {
+      const futureMinutes = differenceInMinutes(endDate, now);
+      if (futureMinutes > 0 && futureMinutes <= MAX_FUTURE_MINUTES) {
+        projectionByMinute = monteCarloFlexible(observedValues, lastObserved, futureMinutes, NUM_SIM_PATHS);
       }
     }
 
-    // Build the full 0-59 minute dataset
+    // Merge into chart points
     const points: Record<string, any>[] = [];
-    for (let m = 0; m <= 59; m++) {
-      const point: Record<string, any> = { minute: m };
-      point.departures = depByMinute.get(m) || 0;
+    const depMap = new Map(depBuckets.map(b => [b.ts.getTime(), b.avg]));
 
-      if (m <= currentMinute && secByMinute.has(m)) {
-        point.security = secByMinute.get(m)!;
+    for (const bucket of secBuckets) {
+      const point: Record<string, any> = {
+        ts: bucket.ts.getTime(),
+        label: formatAxisDate(bucket.ts, spanMinutes),
+        departures: depMap.get(bucket.ts.getTime()) || 0,
+      };
+
+      if (bucket.ts <= now) {
+        point.security = bucket.avg;
       } else {
         point.security = null;
       }
 
-      const band = bandByMinute.get(m);
-      if (band) {
-        point.median = band.median;
-        point.bandOuter = [band.p10, band.p90];
-        point.bandInner = [band.p25, band.p75];
-      } else {
-        point.median = null;
-        point.bandOuter = null;
-        point.bandInner = null;
+      // Add projection data for future buckets
+      if (bucket.ts > now && projectionByMinute.size > 0) {
+        const minutesFromNow = Math.round(differenceInMinutes(bucket.ts, now));
+        const band = projectionByMinute.get(minutesFromNow);
+        if (band) {
+          point.median = band.median;
+          point.bandOuter = [band.p10, band.p90];
+          point.bandInner = [band.p25, band.p75];
+        }
       }
 
       points.push(point);
     }
 
-    // Bridge: connect last actual point to the projection
-    if (lastObserved !== null) {
-      const bridgePoint = points.find(p => p.minute === lastMinute);
-      if (bridgePoint) {
-        bridgePoint.median = bridgePoint.security;
-        bridgePoint.bandOuter = [bridgePoint.security, bridgePoint.security];
-        bridgePoint.bandInner = [bridgePoint.security, bridgePoint.security];
+    // Bridge: connect last actual to first projection
+    if (isFuture && lastObserved !== null) {
+      const lastActual = [...points].reverse().find(p => p.security !== null);
+      const firstProjection = points.find(p => p.median !== undefined && p.median !== null);
+      if (lastActual && firstProjection && lastActual !== firstProjection) {
+        lastActual.median = lastActual.security;
+        lastActual.bandOuter = [lastActual.security, lastActual.security];
+        lastActual.bandInner = [lastActual.security, lastActual.security];
       }
     }
 
-    return { points, currentMinute, hasProjection: simPaths.length > 0 };
-  }, [securityData, departureData, currentTime]);
+    return { points, hasProjection: projectionByMinute.size > 0 };
+  }, [rangeSecData, rangeDepData, startDate, endDate, granularity, terminalId, isFuture, spanMinutes]);
 
-  const { points, currentMinute, hasProjection } = chartData;
+  const { points, hasProjection } = chartData;
 
   const allSecValues = points.map(p => p.security).filter((v): v is number => v !== null);
   const allMedianValues = points.map(p => p.median).filter((v): v is number => v !== null);
@@ -133,124 +310,248 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
   const maxSec = Math.max(...allSecValues, ...allMedianValues, ...allBandValues, 1);
   const maxDep = Math.max(...allDepValues, 1);
 
-  const currentHour = new Date().getHours();
-  const formatHour = (h: number) => `${h % 12 || 12}:00 ${h >= 12 ? 'PM' : 'AM'}`;
+  // Format the range for display
+  const rangeLabel = useMemo(() => {
+    const s = sliderToDate(range[0]);
+    const e = sliderToDate(range[1]);
+    const sameDay = format(s, 'yyyy-MM-dd') === format(e, 'yyyy-MM-dd');
+    if (sameDay) {
+      return `${format(s, 'MMM d')} · ${format(s, 'h:mm a')} – ${format(e, 'h:mm a')}`;
+    }
+    return `${format(s, 'MMM d, h:mm a')} – ${format(e, 'MMM d, h:mm a')}`;
+  }, [range]);
 
-  const observedCount = securityData.filter(d => d.time !== null).length;
+  // Compute "now" position for reference line
+  const nowTs = new Date().getTime();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg">
-            Hour Graph — T{terminalId} ({formatHour(currentHour)})
+      <DialogContent className="max-w-4xl w-[97vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-lg flex items-center gap-2">
+            T{terminalId} Explorer
+            {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Minute-by-minute security wait times and departures with Monte Carlo projection
+            {rangeLabel} · {spanMinutes < 60 ? `${spanMinutes}m` : spanMinutes < 1440 ? `${Math.round(spanMinutes / 60)}h` : `${(spanMinutes / 1440).toFixed(1)}d`} span
+            {isFuture && ' · includes forecast'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="h-[350px] w-full mt-1">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={points} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.15} />
-              <XAxis
-                dataKey="minute"
-                tickFormatter={(v) => `${v}m`}
-                fontSize={10}
-                axisLine={false}
-                tickLine={false}
-                interval={4}
-              />
-              <YAxis
-                yAxisId="security"
-                tickFormatter={(v) => `${v}m`}
-                fontSize={10}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, Math.ceil(maxSec * 1.15)]}
-                width={35}
-              />
-              <YAxis
-                yAxisId="departures"
-                orientation="right"
-                fontSize={10}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, Math.ceil(maxDep * 1.3)]}
-                width={30}
-              />
+        {/* Preset buttons */}
+        <div className="flex flex-wrap gap-1 mt-1">
+          {PRESETS.map(p => (
+            <Button
+              key={p.label}
+              variant={activePreset === p.minutes ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-7 px-2.5 text-xs font-medium rounded-full transition-all",
+                activePreset === p.minutes && "bg-green-600 hover:bg-green-700 text-white border-green-600"
+              )}
+              onClick={() => applyPreset(p.minutes)}
+            >
+              {p.label}
+            </Button>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs ml-auto"
+            onClick={handleReset}
+            title="Reset to default (last hour)"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1" />
+            Reset
+          </Button>
+        </div>
 
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1 }}
-              />
+        {/* Range slider */}
+        <div className="mt-2 px-1">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+            <span>-7 days</span>
+            <span className="font-medium text-foreground">Now</span>
+            <span>+1 day</span>
+          </div>
+          <div className="relative">
+            {/* Now marker */}
+            <div
+              className="absolute top-0 bottom-0 w-px bg-green-500/40 z-10 pointer-events-none"
+              style={{ left: `${(MAX_PAST_MINUTES / (MAX_PAST_MINUTES + MAX_FUTURE_MINUTES)) * 100}%` }}
+            />
+            <Slider
+              value={range}
+              onValueChange={(v) => { setRange(v as [number, number]); setActivePreset(null); }}
+              min={0}
+              max={MAX_PAST_MINUTES + MAX_FUTURE_MINUTES}
+              step={1}
+              className="py-2"
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
+            <span>{format(startDate, 'MMM d, h:mm a')}</span>
+            <span>{format(endDate, 'MMM d, h:mm a')}</span>
+          </div>
+        </div>
 
-              {/* Current minute marker */}
-              <ReferenceLine
-                x={currentMinute}
-                yAxisId="security"
-                stroke="rgba(255,255,255,0.25)"
-                strokeDasharray="3 3"
-                strokeWidth={1}
-              />
+        {/* Controls row: nudge, zoom, granularity */}
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {/* Nudge */}
+          <div className="flex items-center gap-0.5">
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => nudge(-1)} title="Pan left">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => nudge(1)} title="Pan right">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
 
-              {/* Departure bars */}
-              <Bar
-                yAxisId="departures"
-                dataKey="departures"
-                fill="rgba(239, 68, 68, 0.25)"
-                radius={[2, 2, 0, 0]}
-              />
+          {/* Zoom */}
+          <div className="flex items-center gap-0.5">
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => zoom(-1)} title="Zoom in">
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => zoom(1)} title="Zoom out">
+              <Minus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
 
-              {/* Outer confidence band (10th-90th percentile) */}
-              <Area
-                yAxisId="security"
-                type="natural"
-                dataKey="bandOuter"
-                fill="rgba(74, 222, 128, 0.08)"
-                stroke="none"
-                connectNulls={false}
-                isAnimationActive={false}
-              />
+          {/* Granularity */}
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="text-[10px] text-muted-foreground">Granularity:</span>
+            {GRANULARITY_OPTIONS.map(g => (
+              <Button
+                key={g.value}
+                variant={granularity === g.value ? "default" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-6 px-2 text-[10px] rounded-md",
+                  granularity === g.value && "bg-green-600 hover:bg-green-700 text-white"
+                )}
+                onClick={() => setGranularity(g.value)}
+              >
+                {g.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-              {/* Inner confidence band (25th-75th percentile) */}
-              <Area
-                yAxisId="security"
-                type="natural"
-                dataKey="bandInner"
-                fill="rgba(74, 222, 128, 0.15)"
-                stroke="none"
-                connectNulls={false}
-                isAnimationActive={false}
-              />
+        {/* Chart */}
+        <div className="h-[320px] w-full mt-1">
+          {loading && points.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading data...
+            </div>
+          ) : points.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+              No data available for this range
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={points} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.15} />
+                <XAxis
+                  dataKey="ts"
+                  tickFormatter={(v) => formatAxisDate(new Date(v), spanMinutes)}
+                  fontSize={10}
+                  axisLine={false}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={50}
+                />
+                <YAxis
+                  yAxisId="security"
+                  tickFormatter={(v) => `${v}m`}
+                  fontSize={10}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[0, Math.ceil(maxSec * 1.15)]}
+                  width={35}
+                />
+                <YAxis
+                  yAxisId="departures"
+                  orientation="right"
+                  fontSize={10}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[0, Math.ceil(maxDep * 1.3)]}
+                  width={30}
+                />
 
-              {/* Median projection line */}
-              <Line
-                yAxisId="security"
-                type="natural"
-                dataKey="median"
-                stroke="rgba(74, 222, 128, 0.6)"
-                strokeWidth={2}
-                strokeDasharray="6 3"
-                dot={false}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
+                <Tooltip
+                  content={<CustomTooltip spanMinutes={spanMinutes} />}
+                  cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1 }}
+                />
 
-              {/* Actual security time */}
-              <Line
-                yAxisId="security"
-                type="natural"
-                dataKey="security"
-                stroke="#22c55e"
-                strokeWidth={2.5}
-                dot={false}
-                connectNulls={true}
-                activeDot={{ r: 3, fill: '#22c55e', stroke: '#fff', strokeWidth: 1.5 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+                {/* Now marker */}
+                {points.some(p => p.ts <= nowTs) && points.some(p => p.ts >= nowTs) && (
+                  <ReferenceLine
+                    x={nowTs}
+                    yAxisId="security"
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeDasharray="3 3"
+                    strokeWidth={1}
+                    label={{ value: 'Now', position: 'top', fontSize: 9, fill: 'rgba(255,255,255,0.5)' }}
+                  />
+                )}
+
+                {/* Departure bars */}
+                <Bar
+                  yAxisId="departures"
+                  dataKey="departures"
+                  fill="rgba(239, 68, 68, 0.25)"
+                  radius={[2, 2, 0, 0]}
+                />
+
+                {/* Outer confidence band */}
+                <Area
+                  yAxisId="security"
+                  type="monotone"
+                  dataKey="bandOuter"
+                  fill="rgba(74, 222, 128, 0.08)"
+                  stroke="none"
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+
+                {/* Inner confidence band */}
+                <Area
+                  yAxisId="security"
+                  type="monotone"
+                  dataKey="bandInner"
+                  fill="rgba(74, 222, 128, 0.15)"
+                  stroke="none"
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+
+                {/* Median projection line */}
+                <Line
+                  yAxisId="security"
+                  type="monotone"
+                  dataKey="median"
+                  stroke="rgba(74, 222, 128, 0.6)"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+
+                {/* Actual security time */}
+                <Line
+                  yAxisId="security"
+                  type="monotone"
+                  dataKey="security"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                  dot={false}
+                  connectNulls={true}
+                  activeDot={{ r: 3, fill: '#22c55e', stroke: '#fff', strokeWidth: 1.5 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Legend */}
@@ -282,7 +583,11 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
         </div>
 
         <p className="text-[10px] text-muted-foreground text-center italic mt-1">
-          {NUM_SIM_PATHS} simulations · {observedCount} observed data points
+          {allSecValues.length} data points · {granularity}m granularity
+          {isFuture && ` · ${NUM_SIM_PATHS} simulations`}
+          {range[1] > MAX_PAST_MINUTES && (
+            <span className="text-yellow-500/70 ml-1">⚠ Future data is projected</span>
+          )}
         </p>
       </DialogContent>
     </Dialog>
@@ -290,13 +595,13 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
 };
 
 /* ── Custom Tooltip ── */
-const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
+const CustomTooltip: React.FC<any> = ({ active, payload, spanMinutes }) => {
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0]?.payload;
   if (!data) return null;
 
-  const minute = data.minute;
+  const ts = new Date(data.ts);
   const security = data.security;
   const median = data.median;
   const departures = data.departures;
@@ -304,8 +609,10 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
   const bandOuter = data.bandOuter;
 
   return (
-    <div className="bg-gray-900/95 border border-gray-700 rounded-lg px-3 py-2 shadow-xl text-xs max-w-[180px]">
-      <p className="text-gray-400 font-medium mb-1.5">Minute {minute}</p>
+    <div className="bg-gray-900/95 border border-gray-700 rounded-lg px-3 py-2 shadow-xl text-xs max-w-[200px]">
+      <p className="text-gray-400 font-medium mb-1.5">
+        {format(ts, spanMinutes <= 1440 ? 'h:mm a' : 'MMM d, h:mm a')}
+      </p>
 
       {security !== null && (
         <div className="flex justify-between items-center gap-3 mb-0.5">
@@ -314,7 +621,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
         </div>
       )}
 
-      {median !== null && security === null && (
+      {median !== null && median !== undefined && security === null && (
         <>
           <div className="flex justify-between items-center gap-3 mb-0.5">
             <span className="text-green-400/70">Projected</span>

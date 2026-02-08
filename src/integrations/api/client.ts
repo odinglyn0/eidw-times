@@ -59,5 +59,25 @@ export const apiClient = {
     const response = await fetch(`${API_BASE_URL}/api/active-announcements`);
     if (!response.ok) throw new Error('Failed to fetch active announcements');
     return response.json();
+  },
+
+  async getRangeSecurityData(start: string, end: string) {
+    const response = await fetch(`${API_BASE_URL}/api/range-security-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start, end })
+    });
+    if (!response.ok) throw new Error('Failed to fetch range security data');
+    return response.json();
+  },
+
+  async getRangeDepartureData(terminalId: string, start: string, end: string) {
+    const response = await fetch(`${API_BASE_URL}/api/range-departure-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, start, end })
+    });
+    if (!response.ok) throw new Error('Failed to fetch range departure data');
+    return response.json();
   }
 };
