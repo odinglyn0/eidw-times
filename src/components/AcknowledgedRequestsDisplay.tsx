@@ -15,8 +15,8 @@ interface FeatureRequest {
   done: boolean;
 }
 
-const SCROLL_INTERVAL_MS = 8000; // Scroll every 8 seconds
-const DISPLAY_COUNT = 3; // Show 3 requests at a time
+const SCROLL_INTERVAL_MS = 8000;
+const DISPLAY_COUNT = 3;
 
 const AcknowledgedRequestsDisplay: React.FC = () => {
   const [requests, setRequests] = useState<FeatureRequest[]>([]);
@@ -31,7 +31,7 @@ const AcknowledgedRequestsDisplay: React.FC = () => {
     try {
       const fetchedRequests = await apiClient.getAcknowledgedFeatureRequests();
       setRequests(fetchedRequests);
-      // Reset index if requests change or become fewer than current index
+
       if (fetchedRequests.length <= currentIndex) {
         setCurrentIndex(0);
       }
@@ -47,8 +47,7 @@ const AcknowledgedRequestsDisplay: React.FC = () => {
   useEffect(() => {
     fetchAcknowledgedRequests();
 
-    // Set up auto-refresh for the data itself
-    const dataRefreshInterval = setInterval(fetchAcknowledgedRequests, 5 * 60 * 1000); // Refresh data every 5 minutes
+    const dataRefreshInterval = setInterval(fetchAcknowledgedRequests, 5 * 60 * 1000);
 
     return () => {
       clearInterval(dataRefreshInterval);
@@ -60,20 +59,19 @@ const AcknowledgedRequestsDisplay: React.FC = () => {
 
   useEffect(() => {
     if (requests.length > DISPLAY_COUNT) {
-      // Clear any existing interval before setting a new one
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
       }
       scrollIntervalRef.current = setInterval(() => {
         setCurrentIndex(prevIndex => (prevIndex + 1) % requests.length);
-      }, SCROLL_INTERVAL_MS) as unknown as number; // Cast to number for clearInterval
+      }, SCROLL_INTERVAL_MS) as unknown as number;
     } else {
-      // If not enough requests to scroll, clear interval
+
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
         scrollIntervalRef.current = null;
       }
-      setCurrentIndex(0); // Ensure index is reset if requests become fewer
+      setCurrentIndex(0);
     }
 
     return () => {
@@ -81,10 +79,9 @@ const AcknowledgedRequestsDisplay: React.FC = () => {
         clearInterval(scrollIntervalRef.current);
       }
     };
-  }, [requests.length, currentIndex]); // Re-run if requests length changes
+  }, [requests.length, currentIndex]);
 
   const displayedRequests = requests.slice(currentIndex, currentIndex + DISPLAY_COUNT);
-  // If we slice past the end, wrap around to the beginning
   if (displayedRequests.length < DISPLAY_COUNT && requests.length > 0) {
     const remaining = DISPLAY_COUNT - displayedRequests.length;
     displayedRequests.push(...requests.slice(0, remaining));

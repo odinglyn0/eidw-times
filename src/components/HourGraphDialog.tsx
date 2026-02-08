@@ -60,21 +60,18 @@ const PRESETS = [
 const MAX_PAST_MINUTES = 7 * 24 * 60;
 const MAX_FUTURE_MINUTES = 1 * 24 * 60;
 
-/** Convert a slider value (0 = 7 days ago, MAX_PAST_MINUTES = now, MAX_PAST+MAX_FUTURE = +1 day) to a Date */
 function sliderToDate(val: number): Date {
   const now = new Date();
-  const offsetFromNow = val - MAX_PAST_MINUTES; // negative = past, positive = future
+  const offsetFromNow = val - MAX_PAST_MINUTES;
   return addMinutes(now, offsetFromNow);
 }
 
-/** Format a date for the axis */
 function formatAxisDate(d: Date, spanMinutes: number): string {
   if (spanMinutes <= 60) return format(d, 'h:mm a');
   if (spanMinutes <= 1440) return format(d, 'h a');
   return format(d, 'MMM d, ha');
 }
 
-/** Aggregate data into buckets of given granularity */
 function bucketize(
   data: { ts: Date; value: number }[],
   startDate: Date,
@@ -100,9 +97,8 @@ function bucketize(
 const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
   open, onOpenChange, terminalId, securityData: _securityData, departureData: _departureData, currentTime: _currentTime,
 }) => {
-  // Range state: slider values [start, end] where MAX_PAST_MINUTES = now
-  const defaultStart = MAX_PAST_MINUTES - 60; // 1 hour ago
-  const defaultEnd = MAX_PAST_MINUTES; // now
+  const defaultStart = MAX_PAST_MINUTES - 60;
+  const defaultEnd = MAX_PAST_MINUTES;
   const [range, setRange] = useState<[number, number]>([defaultStart, defaultEnd]);
   const [granularity, setGranularity] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -115,7 +111,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
   const spanMinutes = range[1] - range[0];
   const isFuture = range[1] > MAX_PAST_MINUTES;
 
-  // Auto-adjust granularity based on span
   useEffect(() => {
     if (spanMinutes <= 30) setGranularity(1);
     else if (spanMinutes <= 180) setGranularity(1);
@@ -125,27 +120,22 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     else setGranularity(60);
   }, [spanMinutes]);
 
-  // Fetch data when range changes
   const fetchRangeData = useCallback(async () => {
     setLoading(true);
     try {
       const s = sliderToDate(range[0]);
       const e = sliderToDate(range[1]);
       const now = new Date();
-      // For security: only fetch past (API won't have future security data)
       const secFetchEnd = e > now ? now : e;
-      // For departures: fetch the full range including future scheduled flights
       const depFetchStart = s;
       const depFetchEnd = e;
 
       const promises: Promise<any>[] = [];
-      // Security data (past only)
       if (s < secFetchEnd) {
         promises.push(apiClient.getRangeSecurityData(s.toISOString(), secFetchEnd.toISOString()));
       } else {
         promises.push(Promise.resolve([]));
       }
-      // Departure data (full range including future)
       promises.push(apiClient.getRangeDepartureData(terminalId.toString(), depFetchStart.toISOString(), depFetchEnd.toISOString()));
 
       const [secRes, depRes] = await Promise.all(promises);
@@ -160,27 +150,23 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      const timer = setTimeout(fetchRangeData, 300); // debounce
+      const timer = setTimeout(fetchRangeData, 300);
       return () => clearTimeout(timer);
     }
   }, [open, fetchRangeData]);
 
-  // Reset to default
   const handleReset = () => {
     setRange([defaultStart, defaultEnd]);
     setActivePreset(60);
   };
 
-  // Apply a preset centered on now
   const applyPreset = (minutes: number) => {
     const halfBack = Math.min(minutes, MAX_PAST_MINUTES);
-    // For presets, show the past N minutes up to now (no future unless they drag)
     const newStart = Math.max(0, MAX_PAST_MINUTES - halfBack);
     setRange([newStart, MAX_PAST_MINUTES]);
     setActivePreset(minutes);
   };
 
-  // Nudge left/right
   const nudge = (direction: -1 | 1) => {
     const step = Math.max(1, Math.round(spanMinutes * 0.25));
     const newStart = Math.max(0, Math.min(range[0] + direction * step, MAX_PAST_MINUTES + MAX_FUTURE_MINUTES - spanMinutes));
@@ -189,7 +175,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     setActivePreset(null);
   };
 
-  // Zoom in/out
   const zoom = (direction: -1 | 1) => {
     const center = (range[0] + range[1]) / 2;
     const currentSpan = spanMinutes;
@@ -202,28 +187,21 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     setActivePreset(null);
   };
 
-  // Build chart data
   const chartData = useMemo(() => {
     const now = new Date();
     const tKey = `t${terminalId}` as 't1' | 't2';
 
-    // Parse security data into typed points
     const secPoints = rangeSecData
       .filter(d => d[tKey] !== null)
       .map(d => ({ ts: parseISO(d.timestamp), value: d[tKey]! }));
 
-    // Parse departure data (includes both past and future scheduled)
     const depPoints = rangeDepData
       .filter(d => d.count !== null && d.count > 0)
       .map(d => ({ ts: parseISO(d.timestamp), value: d.count }));
 
-    // Bucketize for chart display
     const secBuckets = bucketize(secPoints, startDate, endDate, granularity);
     const depBuckets = bucketize(depPoints, startDate, endDate, granularity);
 
-    // ── Build inputs for departure-aware Monte Carlo ──
-
-    // Observed security values (past only, chronological)
     const pastSecPoints = secPoints
       .filter(p => p.ts <= now)
       .sort((a, b) => a.ts.getTime() - b.ts.getTime());
@@ -232,17 +210,14 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       ? observedSecurity[observedSecurity.length - 1]
       : null;
 
-    // Build observed pairs: match each security reading with the departure
-    // count at the same timestamp (±2 min window) for correlation learning
     const observedPairs: ObservedPair[] = [];
     for (const sec of pastSecPoints) {
-      // Find the closest departure reading within ±2 minutes
       let bestDep: { ts: Date; value: number } | null = null;
       let bestDist = Infinity;
       for (const dep of depPoints) {
-        if (dep.ts > now) continue; // only past departures for correlation
+        if (dep.ts > now) continue;
         const dist = Math.abs(dep.ts.getTime() - sec.ts.getTime());
-        if (dist < bestDist && dist <= 2 * 60 * 1000) { // 2 min window
+        if (dist < bestDist && dist <= 2 * 60 * 1000) {
           bestDist = dist;
           bestDep = dep;
         }
@@ -253,7 +228,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       });
     }
 
-    // Build future departure schedule: per-minute counts from now to endDate
     const futureDepartures: DepartureSchedule[] = [];
     if (isFuture) {
       const futureDepPoints = depPoints
@@ -268,7 +242,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       }
     }
 
-    // ── Run projection ──
     let projectionByMinute = new Map<number, { p10: number; p25: number; median: number; p75: number; p90: number }>();
     if (isFuture && lastObserved !== null && observedSecurity.length >= 2) {
       const futureMinutes = Math.round(differenceInMinutes(endDate, now));
@@ -284,7 +257,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       }
     }
 
-    // Merge into chart points
     const points: Record<string, any>[] = [];
     const depMap = new Map(depBuckets.map(b => [b.ts.getTime(), b.avg]));
 
@@ -301,7 +273,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
         point.security = null;
       }
 
-      // Add projection data for future buckets
       if (bucket.ts > now && projectionByMinute.size > 0) {
         const minutesFromNow = Math.round(differenceInMinutes(bucket.ts, now));
         const band = projectionByMinute.get(minutesFromNow);
@@ -315,7 +286,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       points.push(point);
     }
 
-    // Bridge: connect last actual to first projection
     if (isFuture && lastObserved !== null) {
       const lastActual = [...points].reverse().find(p => p.security !== null);
       const firstProjection = points.find(p => p.median !== undefined && p.median !== null);
@@ -346,7 +316,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
   const maxSec = Math.max(...allSecValues, ...allMedianValues, ...allBandValues, 1);
   const maxDep = Math.max(...allDepValues, 1);
 
-  // Format the range for display
   const rangeLabel = useMemo(() => {
     const s = sliderToDate(range[0]);
     const e = sliderToDate(range[1]);
@@ -357,7 +326,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     return `${format(s, 'MMM d, h:mm a')} – ${format(e, 'MMM d, h:mm a')}`;
   }, [range]);
 
-  // Compute "now" position for reference line
   const nowTs = new Date().getTime();
 
   return (
@@ -374,7 +342,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Preset buttons */}
         <div className="flex flex-wrap gap-1 mt-1">
           {PRESETS.map(p => (
             <Button
@@ -402,7 +369,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
           </Button>
         </div>
 
-        {/* Range slider */}
         <div className="mt-2 px-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
             <span>-7 days</span>
@@ -410,7 +376,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
             <span>+1 day</span>
           </div>
           <div className="relative">
-            {/* Now marker */}
             <div
               className="absolute top-0 bottom-0 w-px bg-green-500/40 z-10 pointer-events-none"
               style={{ left: `${(MAX_PAST_MINUTES / (MAX_PAST_MINUTES + MAX_FUTURE_MINUTES)) * 100}%` }}
@@ -430,9 +395,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
           </div>
         </div>
 
-        {/* Controls row: nudge, zoom, granularity */}
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {/* Nudge */}
           <div className="flex items-center gap-0.5">
             <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => nudge(-1)} title="Pan left">
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -442,7 +405,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
             </Button>
           </div>
 
-          {/* Zoom */}
           <div className="flex items-center gap-0.5">
             <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => zoom(-1)} title="Zoom in">
               <Plus className="h-3.5 w-3.5" />
@@ -452,7 +414,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
             </Button>
           </div>
 
-          {/* Granularity */}
           <div className="flex items-center gap-1 ml-auto">
             <span className="text-[10px] text-muted-foreground">Granularity:</span>
             {GRANULARITY_OPTIONS.map(g => (
@@ -472,7 +433,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
           </div>
         </div>
 
-        {/* Chart */}
         <div className="h-[320px] w-full mt-1">
           {loading && points.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -519,7 +479,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1 }}
                 />
 
-                {/* Now marker */}
                 {points.some(p => p.ts <= nowTs) && points.some(p => p.ts >= nowTs) && (
                   <ReferenceLine
                     x={nowTs}
@@ -531,7 +490,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   />
                 )}
 
-                {/* Departure line — same style as departure popovers */}
                 <Line
                   yAxisId="departures"
                   type="natural"
@@ -543,7 +501,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   isAnimationActive={false}
                 />
 
-                {/* Outer confidence band */}
                 <Area
                   yAxisId="security"
                   type="monotone"
@@ -554,7 +511,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   isAnimationActive={false}
                 />
 
-                {/* Inner confidence band */}
                 <Area
                   yAxisId="security"
                   type="monotone"
@@ -565,7 +521,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   isAnimationActive={false}
                 />
 
-                {/* Median projection line */}
                 <Line
                   yAxisId="security"
                   type="monotone"
@@ -578,7 +533,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   isAnimationActive={false}
                 />
 
-                {/* Actual security time */}
                 <Line
                   yAxisId="security"
                   type="monotone"
@@ -594,7 +548,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
           )}
         </div>
 
-        {/* Legend */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground justify-center">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-5 h-[2.5px] bg-green-500 rounded-full" />
@@ -634,7 +587,6 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
   );
 };
 
-/* ── Custom Tooltip ── */
 const CustomTooltip: React.FC<any> = ({ active, payload, spanMinutes }) => {
   if (!active || !payload || payload.length === 0) return null;
 

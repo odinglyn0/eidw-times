@@ -35,7 +35,6 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
     const paths = monteCarloMultiPath(observedValues, lastValue, lastMinute, 500);
     if (paths.length === 0) return null;
 
-    // Compute median path
     const numFuture = paths[0].length;
     const medians: number[] = [];
     for (let i = 0; i < numFuture; i++) {
@@ -47,7 +46,6 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
     const maxTime = Math.max(...medians);
     const avgTime = Math.round(allValues.reduce((s, v) => s + v, 0) / allValues.length);
 
-    // Find biggest jump
     let peakMinute = paths[0]?.[0]?.minute ?? 0;
     let biggestIncrease = 0;
     for (let i = 1; i < medians.length; i++) {

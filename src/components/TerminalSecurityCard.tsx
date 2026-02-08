@@ -16,31 +16,30 @@ import { format, subDays, differenceInMinutes, getHours, startOfDay, parseISO, s
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
-import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
-import ChatBubble from "./ChatBubble"; // Import the new ChatBubble component
-import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile hook
+import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies';
+import ChatBubble from "./ChatBubble";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"; // Import Accordion components
+} from "@/components/ui/accordion";
 import HourlyDetailPopover from "./HourlyDetailPopover";
 import DepartureDetailPopover from "./DepartureDetailPopover";
 import ProjectedHourlyPopover from "./ProjectedHourlyPopover";
 import HourGraphDialog from "./HourGraphDialog";
 import LaserPulseBorder from "./LaserPulseBorder";
 
-// Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
   hour: number;
   t1: number | null;
   t2: number | null;
-  timestamp: string | null; // Added timestamp
+  timestamp: string | null;
 }
 
 interface DailySecurityData {
-  date: string; // yyyy-MM-dd
+  date: string;
   hourlyData: HourlySecurityData[];
 }
 
@@ -55,16 +54,16 @@ interface GranularDepartureData {
 }
 
 interface HourlyDepartureDisplayData {
-  date: string; // e.g., "TODAY", "MON, JUL 1"
-  hours: { value: number; colorClass: string }[]; // 24 entries for each hour
+  date: string;
+  hours: { value: number; colorClass: string }[];
 }
 
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
-  globalMaxTime?: number | null; // New prop for consistent scaling
-  isAutoRefreshing: boolean; // New prop to indicate if auto-refresh is active
-  t1CurrentTime: number | null; // Current time for T1
-  t2CurrentTime: number | null; // Current time for T2
+  globalMaxTime?: number | null;
+  isAutoRefreshing: boolean;
+  t1CurrentTime: number | null;
+  t2CurrentTime: number | null;
 }
 
 const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime }) => {
@@ -73,10 +72,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
     { date: string; t1Average: number | null }[]
   >([]);
-  const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]); // This will now hold the last 24 hours of *existing* data
+  const [currentDayHourlyData, setCurrentDayHourlyData] = useState<HourlySecurityData[]>([]);
   const [hourlyGranularSecurityData, setHourlyGranularSecurityData] = useState<Map<number, GranularSecurityData[]>>(new Map());
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
-  const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map()); // Map<DateString, Map<Hour, Data[]>>
+  const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map());
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [hourGraphOpen, setHourGraphOpen] = useState(false);
@@ -94,7 +93,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       const datesToProcess = [today, subDays(today, 1), subDays(today, 2)];
       const newHourlyGranularDepartureData = new Map<string, Map<number, GranularDepartureData[]>>();
 
-      // Fetch granular departure data once for all days
       let allGranularDepartureData: GranularDepartureData[] = [];
       try {
         allGranularDepartureData = await apiClient.getHourlyIntervalDepartureData(terminalId.toString()) as GranularDepartureData[];
@@ -108,16 +106,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         const hourlyCounts: number[] = Array(24).fill(0);
         const hourlyGranularMap = new Map<number, GranularDepartureData[]>();
 
-        // Filter raw data for the current day and populate hourlyCounts
         rawDepartureData.forEach(item => {
           const itemDate = new Date(item.departure_datetime);
           if (format(itemDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
             const hour = getHours(itemDate);
-            hourlyCounts[hour] = item.departure_count; // Assuming the raw data already has the latest count per hour
+            hourlyCounts[hour] = item.departure_count;
           }
         });
 
-        // Group granular data by hour for this specific day
         allGranularDepartureData.forEach(record => {
           if (!record.timestamp) return;
           const recordDate = parseISO(record.timestamp);
@@ -134,7 +130,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         newHourlyGranularDepartureData.set(dayString, hourlyGranularMap);
 
         const hoursWithColors = hourlyCounts.map(count => {
-          let colorClass = "bg-gray-200"; // Default for no data or 0
+          let colorClass = "bg-gray-200";
           if (count === 0) colorClass = "bg-departure-green-dark";
           else if (count === 1) colorClass = "bg-departure-green-light";
           else if (count >= 2 && count <= 3) colorClass = "bg-departure-yellow";
@@ -143,7 +139,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           else if (count >= 11 && count <= 20) colorClass = "bg-departure-red-light";
           else if (count >= 21 && count <= 40) colorClass = "bg-departure-red";
           else if (count >= 41 && count <= 60) colorClass = "bg-departure-red-deep";
-          else if (count > 60) colorClass = "bg-black"; // For counts > 60, just in case
+          else if (count > 60) colorClass = "bg-black";
 
           return { value: count, colorClass };
         });
@@ -162,7 +158,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
   const fetchSecurityData = useCallback(async () => {
     setLoading(true);
-    setManualRefreshing(true); // Set manual refreshing true for manual trigger
+    setManualRefreshing(true);
     try {
       const currentSecurityData = await apiClient.getCurrentSecurityData();
       setCurrentTime(currentSecurityData[`t${terminalId}`]);
@@ -170,7 +166,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
       const allHistoricalData = await apiClient.getSecurityData();
       
-      // Calculate daily averages for the 7-day chart
       const dailyAverages = allHistoricalData.map(dayData => {
         const validTimes = dayData.hourlyData
           .map(h => h[`t${terminalId}`])
@@ -182,13 +177,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       });
       setHistoricalDailyAverages(dailyAverages);
 
-      // Build 24-hour tiles AND granular per-poll data from the same response
       const allActualDataPoints: HourlySecurityData[] = [];
       const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
 
       allHistoricalData.forEach(dayData => {
         dayData.hourlyData.forEach(hourData => {
-          // Tile data: use the summary t1/t2 (averaged) for the colored tiles
           if (hourData.timestamp && hourData[`t${terminalId}`] !== null) {
             allActualDataPoints.push({
               hour: hourData.hour,
@@ -198,7 +191,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             });
           }
 
-          // Granular data: extract ALL per-poll records for popover graphs
           const records = (hourData as any).records as { timestamp: string; t1: number | null; t2: number | null }[] | undefined;
           if (records && records.length > 0) {
             records.forEach(record => {
@@ -219,7 +211,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         });
       });
 
-      // Filter for data points within the last 24 hours
       const nowLocal = new Date(); 
       const twentyFourHoursAgoLocal = subHours(nowLocal, 24);
 
@@ -248,8 +239,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   }, [terminalId]);
 
   useEffect(() => {
-    refreshAllData(); // Initial fetch on mount
-  }, [terminalId]); // Only re-run if terminalId changes
+    refreshAllData();
+  }, [terminalId]);
 
   const refreshAllData = useCallback(async () => {
     setLoading(true);
@@ -271,37 +262,32 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     ? differenceInMinutes(new Date(), new Date(parseISO(lastUpdated)))
     : null;
 
-  // Calculate max value for Y-axis domain, using globalMaxTime if provided
   const yAxisDomainMax = globalMaxTime !== null && globalMaxTime !== undefined
-    ? Math.max(20, Math.ceil(globalMaxTime / 10) * 10) // Use global max, rounded up to nearest 10, min 20
-    : Math.max(20, historicalDailyAverages.reduce((max, item) => { // Fallback to local max if global not provided
+    ? Math.max(20, Math.ceil(globalMaxTime / 10) * 10)
+    : Math.max(20, historicalDailyAverages.reduce((max, item) => {
         return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
       }, 0) > 0 ? Math.ceil(historicalDailyAverages.reduce((max, item) => {
         return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
       }, 0) / 10) * 10 : 0);
 
-  // Log the data right before rendering the chart
   console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 
-  // Helper function to format time (this one is for the popover's X-axis)
   const formatTime = (isoString: string) => {
     const date = parseISO(isoString);
     return getMinutes(date) === 0 ? format(date, 'h a') : format(date, 'h:mm a');
   };
 
-  // Determine chat bubble message and styling based on current times
   let chatBubbleMessage: string | null = null;
   let chatBubbleEmoji: string | null = null;
-  let chatBubbleClassName: string = "-top-12"; // Base class for positioning
+  let chatBubbleClassName: string = "-top-12";
 
   const areTimesValid = t1CurrentTime !== null && t2CurrentTime !== null;
   const areTimesEqual = areTimesValid && t1CurrentTime === t2CurrentTime;
   const isT1Quicker = areTimesValid && t1CurrentTime < t2CurrentTime;
   const isT2Quicker = areTimesValid && t2CurrentTime < t1CurrentTime;
 
-  // Determine if this specific card should be styled green
   const shouldBeGreenStyled = areTimesEqual ||
                               (terminalId === 1 && isT1Quicker) ||
                               (terminalId === 2 && isT2Quicker);
@@ -318,7 +304,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     } else if (terminalId === 2) {
       chatBubbleMessage = "It doesn't even matter";
       chatBubbleEmoji = "🤷‍♂️";
-      // No animation for T2 when times are equal
     }
   } else if (isT1Quicker && terminalId === 1) {
     chatBubbleMessage = "Pick me!";
@@ -328,11 +313,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     chatBubbleMessage = "Pick me!";
     chatBubbleEmoji = "😃";
     chatBubbleClassName += " animate-bounce-twice";
-  } else if (isT1Quicker && terminalId === 2) { // T2 is longest if T1 is quicker
+  } else if (isT1Quicker && terminalId === 2) {
     chatBubbleMessage = "Ah sure, I'm usually the fast one";
     chatBubbleEmoji = "🥲";
     chatBubbleClassName += " bg-red-600 before:border-t-red-600";
-  } else if (isT2Quicker && terminalId === 1) { // T1 is longest if T2 is quicker
+  } else if (isT2Quicker && terminalId === 1) {
     chatBubbleMessage = "Feck sake...";
     chatBubbleEmoji = "🥲";
     chatBubbleClassName += " bg-red-600 before:border-t-red-600";
@@ -362,10 +347,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           variant="ghost"
           size="icon"
           onClick={handleRefresh}
-          disabled={manualRefreshing || isAutoRefreshing} // Disable if manual or auto refreshing
+          disabled={manualRefreshing || isAutoRefreshing}
           className="absolute top-4 right-4 text-white hover:bg-white hover:text-custom-green"
         >
-          {manualRefreshing || isAutoRefreshing ? ( // Show loader if manual or auto refreshing
+          {manualRefreshing || isAutoRefreshing ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <RefreshCw className="h-5 w-5" />
@@ -416,7 +401,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>
               {currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
-                  {currentDayHourlyData.map((dataPoint) => { // Renamed from hourData to dataPoint
+                  {currentDayHourlyData.map((dataPoint) => {
                     let bgColorClass = "bg-gray-200";
                     if (dataPoint[`t${terminalId}`] !== null) {
                       const time = dataPoint[`t${terminalId}`]!;
@@ -433,9 +418,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                     return (
                       <HourlyDetailPopover
-                        key={dataPoint.timestamp!} // Use the unique timestamp as key
-                        all24HourData={currentDayHourlyData} // Pass the full array
-                        currentDataPoint={dataPoint} // Pass the specific data point
+                        key={dataPoint.timestamp!}
+                        all24HourData={currentDayHourlyData}
+                        currentDataPoint={dataPoint}
                         terminalId={terminalId}
                         granularDataForHour={hourlyGranularSecurityData.get(getHours(parseISO(dataPoint.timestamp!))) || []}
                         isLoadingGranularData={loading}
@@ -447,7 +432,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             bgColorClass
                           )}
                         >
-                          <span>{format(parseISO(dataPoint.timestamp!), 'h a')}</span> {/* Display formatted hour (e.g., "2 AM") */}
+                          <span>{format(parseISO(dataPoint.timestamp!), 'h a')}</span>
                           <span>{dataPoint[`t${terminalId}`] !== null ? `${dataPoint[`t${terminalId}`]}m` : "N/A"}</span>
                         </div>
                       </HourlyDetailPopover>
@@ -467,9 +452,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     {departureData.length > 0 ? (
                       departureData.map((day, dayIndex) => (
                         <div key={dayIndex} className="mb-4 last:mb-0">
-                          {/* Hourly Labels */}
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
-                            <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
+                            <div className="col-span-1"></div>
                             {hourLabels.map((label, i) => (
                               <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
                                 {label}
@@ -477,7 +461,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             ))}
                           </div>
 
-                          {/* AM Row */}
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
                             <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">AM</div>
                             {day.hours.slice(0, 12).map((hour, hourIndex) => (
@@ -503,7 +486,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             ))}
                           </div>
 
-                          {/* PM Row */}
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
                             <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">PM</div>
                             {day.hours.slice(12, 24).map((hour, hourIndex) => (
@@ -544,9 +526,8 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                 {departureData.length > 0 ? (
                   departureData.map((day, dayIndex) => (
                     <div key={dayIndex} className="mb-4 last:mb-0">
-                      {/* Hourly Labels */}
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
-                        <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
+                        <div className="col-span-1"></div>
                         {hourLabels.map((label, i) => (
                           <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
                             {label}
@@ -554,7 +535,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         ))}
                       </div>
 
-                      {/* AM Row */}
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
                         <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">AM</div>
                         {day.hours.slice(0, 12).map((hour, hourIndex) => (
@@ -580,7 +560,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         ))}
                       </div>
 
-                      {/* PM Row */}
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
                         <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">PM</div>
                         {day.hours.slice(12, 24).map((hour, hourIndex) => (

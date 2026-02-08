@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import DublinAirportLogo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
-const SCROLL_THRESHOLD = 100; // Pixels scrolled down before the notch starts collapsing
+const SCROLL_THRESHOLD = 100;
 
 const PhoneNotch: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -13,16 +13,12 @@ const PhoneNotch: React.FC = () => {
     const currentScrollY = window.scrollY;
 
     if (currentScrollY > SCROLL_THRESHOLD) {
-      // User has scrolled down past the threshold
       if (currentScrollY > lastScrollY.current) {
-        // Scrolling down
         setIsCollapsed(true);
       } else {
-        // Scrolling up
         setIsCollapsed(false);
       }
     } else {
-      // User is near the top of the page
       setIsCollapsed(false);
     }
     lastScrollY.current = currentScrollY;
@@ -30,7 +26,6 @@ const PhoneNotch: React.FC = () => {
 
   useEffect(() => {
     window.addEventListener('scroll', handleScroll);
-    // Initial check in case the page loads already scrolled
     handleScroll();
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -41,7 +36,6 @@ const PhoneNotch: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // The notch should be collapsed if it's marked as collapsed by scroll AND not currently hovered
   const shouldBeCollapsed = isCollapsed && !isHovered;
 
   return (

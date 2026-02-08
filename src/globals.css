@@ -52,10 +52,10 @@
   }
 
   .dark {
-    --background: 0 0% 12%; /* Dark matte gray */
+    --background: 0 0% 12%;
     --foreground: 0 0% 93%;
 
-    --card: 0 0% 16%; /* Sleek gray for cards */
+    --card: 0 0% 16%;
     --card-foreground: 0 0% 93%;
 
     --popover: 0 0% 16%;

@@ -6,8 +6,8 @@ import { format, parseISO, getMinutes } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
 interface HourlyDepartureDisplayData {
-  date: string; // e.g., "TODAY", "MON, JUL 1"
-  hours: { value: number; colorClass: string }[]; // 24 entries for each hour
+  date: string;
+  hours: { value: number; colorClass: string }[];
 }
 
 interface GranularDepartureData {
@@ -17,12 +17,12 @@ interface GranularDepartureData {
 
 interface DepartureDetailPopoverProps {
   children: React.ReactNode;
-  dailyDepartureData: HourlyDepartureDisplayData[]; // All daily departure data (for percentage changes)
-  currentDateString: string; // The date string for the current day being displayed (e.g., "TODAY", "MON, JUL 1")
-  currentHour: number; // The hour this popover is for
+  dailyDepartureData: HourlyDepartureDisplayData[];
+  currentDateString: string;
+  currentHour: number;
   terminalId: 1 | 2;
-  granularDataForHour: GranularDepartureData[]; // Pre-fetched granular data
-  isLoadingGranularData: boolean; // Parent's loading state
+  granularDataForHour: GranularDepartureData[];
+  isLoadingGranularData: boolean;
 }
 
 const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
@@ -36,11 +36,9 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
 }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
-  // Find the current day's data based on currentDateString
   const currentDayData = dailyDepartureData.find(d => d.date === currentDateString);
   const currentHourDeparture = currentDayData?.hours.find((_, idx) => idx === currentHour)?.value || null;
 
-  // Find previous and next hour data for the same day
   const prevHourDeparture = currentHour > 0 ? currentDayData?.hours[currentHour - 1]?.value || null : null;
   const nextHourDeparture = currentHour < 23 ? currentDayData?.hours[currentHour + 1]?.value || null : null;
 
@@ -72,7 +70,6 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
     changeToNextHour = `No data for next hour`;
   }
 
-  // Calculate fluctuation within the hour
   let fluctuationMessage: string | null = null;
   if (granularDataForHour.length > 0 && granularDataForHour.some(d => d.count !== null)) {
     const validCounts = granularDataForHour.map(d => d.count).filter((c): c is number => c !== null);
@@ -98,11 +95,10 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
     fluctuationMessage = `No data for fluctuation`;
   }
 
-  // Determine Y-axis domain for the granular graph
   const allCountsInGraph = granularDataForHour.map(d => d.count).filter((c): c is number => c !== null);
   const minY = allCountsInGraph.length > 0 ? Math.min(...allCountsInGraph) : 0;
-  const maxY = allCountsInGraph.length > 0 ? Math.max(...allCountsInGraph) : 5; // Default max if no data
-  const yAxisDomain = [minY > 0 ? minY - 1 : 0, maxY + 1]; // Add some padding
+  const maxY = allCountsInGraph.length > 0 ? Math.max(...allCountsInGraph) : 5;
+  const yAxisDomain = [minY > 0 ? minY - 1 : 0, maxY + 1];
 
   return (
     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>

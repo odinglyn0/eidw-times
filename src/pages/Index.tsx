@@ -8,13 +8,12 @@ import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
 import SettingsPageLink from "@/components/SettingsPageLink";
 import { getAutoPollEnabled, getAutoPollInterval, getShowRecommendation } from '@/lib/cookies';
-import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
-import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
-import { MessageSquarePlus } from 'lucide-react'; // Import icon for the button
-import { Link } from 'react-router-dom'; // Import Link
+import { trackEvent } from '@/utils/analytics';
+import AnnouncementBanner from "@/components/AnnouncementBanner";
+import { MessageSquarePlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import LaserPulseBorder from "@/components/LaserPulseBorder";
 
-// Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
   hour: number;
   t1: number | null;
@@ -22,7 +21,7 @@ interface HourlySecurityData {
 }
 
 interface DailySecurityData {
-  date: string; // yyyy-MM-dd
+  date: string;
   hourlyData: HourlySecurityData[];
 }
 
@@ -76,22 +75,18 @@ const Index = () => {
     }
   }, []);
 
-  // Function to trigger all data fetches
   const refreshAllData = useCallback(async () => {
     setIsAutoRefreshing(true);
     await Promise.all([
       fetchRecommendationData(),
       fetchGlobalSecurityData(),
-      // TerminalSecurityCard components will handle their own fetches via their internal useEffects
-      // or could be passed a prop to trigger if needed, but current setup is fine.
     ]);
     setIsAutoRefreshing(false);
   }, [fetchRecommendationData, fetchGlobalSecurityData]);
 
   useEffect(() => {
-    refreshAllData(); // Initial fetch on mount
+    refreshAllData();
 
-    // Setup auto-refresh based on cookie settings
     const setupAutoRefresh = () => {
       if (autoRefreshIntervalId.current) {
         clearInterval(autoRefreshIntervalId.current);
@@ -104,17 +99,16 @@ const Index = () => {
         autoRefreshIntervalId.current = setInterval(() => {
           console.log(`Auto-refreshing data every ${interval} seconds...`);
           refreshAllData();
-        }, interval * 1000) as unknown as number; // Cast to number for clearInterval
+        }, interval * 1000) as unknown as number;
       }
     };
 
     setupAutoRefresh();
 
-    // Listen for changes in cookie settings (e.g., from Settings page)
     const handleStorageChange = () => {
       setupAutoRefresh();
     };
-    window.addEventListener('storage', handleStorageChange); // For cross-tab/window sync
+    window.addEventListener('storage', handleStorageChange);
 
     return () => {
       if (autoRefreshIntervalId.current) {
@@ -140,7 +134,7 @@ const Index = () => {
       } else if (t2CurrentTime < t1CurrentTime) {
         return { id: 2, time: t2CurrentTime };
       } else {
-        return { id: "either", time: t1CurrentTime }; // Both are equal
+        return { id: "either", time: t1CurrentTime };
       }
     }
     return null;
@@ -174,7 +168,7 @@ const Index = () => {
       <PhoneNotch />
       
       <SettingsPageLink />
-      <AnnouncementBanner /> {/* Add the AnnouncementBanner here */}
+      <AnnouncementBanner />
 
       {showRecommendation && (
       <LaserPulseBorder

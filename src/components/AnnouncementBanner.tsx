@@ -38,8 +38,7 @@ const AnnouncementBanner: React.FC = () => {
 
     fetchAnnouncements();
 
-    // Optionally, refresh announcements periodically
-    const interval = setInterval(fetchAnnouncements, 5 * 60 * 1000); // Refresh every 5 minutes
+    const interval = setInterval(fetchAnnouncements, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,7 +63,7 @@ const AnnouncementBanner: React.FC = () => {
   }
 
   if (!announcement) {
-    return null; // No active announcements to display
+    return null;
   }
 
   return (

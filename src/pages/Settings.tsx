@@ -29,7 +29,6 @@ const Settings: React.FC = () => {
       setIsDarkMode(cookieDark);
       setTheme(cookieDark ? 'dark' : 'light');
     } else {
-      // No cookie — match the app default: dark unless system prefers light
       const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
       const defaultDark = !systemPrefersLight;
       setIsDarkMode(defaultDark);
@@ -48,7 +47,7 @@ const Settings: React.FC = () => {
 
   const handleIntervalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 5) { // Minimum 5 seconds for interval
+    if (!isNaN(value) && value >= 5) {
       setRefreshInterval(value);
       setAutoPollInterval(value);
       toast({
@@ -56,7 +55,7 @@ const Settings: React.FC = () => {
         description: `Data will refresh every ${value} seconds.`,
       });
     } else if (e.target.value === "") {
-      setRefreshInterval(0); // Allow empty input temporarily
+      setRefreshInterval(0);
     } else {
       toast({
         title: "Invalid interval",

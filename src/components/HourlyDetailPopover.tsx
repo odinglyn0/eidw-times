@@ -94,7 +94,6 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
     fluctuationMessage = `No data for fluctuation`;
   }
 
-  // Determine if this is the current hour
   const isCurrentHour = currentDataPoint.timestamp
     ? getHours(parseISO(currentDataPoint.timestamp)) === getHours(new Date())
       && parseISO(currentDataPoint.timestamp).toDateString() === new Date().toDateString()
@@ -102,12 +101,10 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
 
   const currentMinuteNow = new Date().getMinutes();
 
-  // Build chart data: full 0-59 minute range with actual + projected lines
   const chartData: ChartDataPoint[] = useMemo(() => {
     const validGranular = granularDataForHour.filter(d => d.time !== null);
     if (validGranular.length === 0) return [];
 
-    // Map observed data by minute
     const observedByMinute = new Map<number, number>();
     validGranular.forEach(d => {
       const m = getMinutes(parseISO(d.timestamp));
@@ -115,7 +112,6 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
     });
 
     if (!isCurrentHour) {
-      // Past hour: just show actual data across full range, no projection
       const points: ChartDataPoint[] = [];
       const sortedMinutes = Array.from(observedByMinute.keys()).sort((a, b) => a - b);
       sortedMinutes.forEach(m => {
@@ -124,7 +120,6 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
       return points;
     }
 
-    // Current hour: split into actual (up to now) and projected (future)
     const observedValues = Array.from(observedByMinute.entries())
       .filter(([m]) => m <= currentMinuteNow)
       .sort(([a], [b]) => a - b);
@@ -132,28 +127,23 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
     const allObservedTimes = observedValues.map(([, v]) => v);
     const lastObserved = observedValues.length > 0 ? observedValues[observedValues.length - 1] : null;
 
-    // Run Monte Carlo projection
     const projected = lastObserved
       ? monteCarloProject(allObservedTimes, lastObserved[1], lastObserved[0])
       : [];
 
     const points: ChartDataPoint[] = [];
 
-    // Actual data points
     observedValues.forEach(([m, v]) => {
       points.push({ minute: m, actual: v, projected: null });
     });
 
-    // Bridge point: last actual value also starts the projected line
     if (lastObserved) {
-      // Update the last actual point to also have projected value for continuity
       const lastIdx = points.length - 1;
       if (lastIdx >= 0) {
         points[lastIdx].projected = points[lastIdx].actual;
       }
     }
 
-    // Projected data points
     projected.forEach(p => {
       points.push({ minute: p.minute, actual: null, projected: p.value });
     });
@@ -161,7 +151,6 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
     return points;
   }, [granularDataForHour, isCurrentHour, currentMinuteNow]);
 
-  // Y-axis domain from all values (actual + projected)
   const allChartValues = chartData
     .flatMap(d => [d.actual, d.projected])
     .filter((v): v is number => v !== null);

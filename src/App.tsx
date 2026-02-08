@@ -14,7 +14,6 @@ import posthog from 'posthog-js';
 import { useEffect, useRef } from "react";
 import { getDarkMode } from '@/lib/cookies';
 
-// Sync cookie-based dark mode preference into localStorage before React renders
 const cookieDark = getDarkMode();
 if (cookieDark !== null) {
   localStorage.setItem('vite-ui-theme', cookieDark ? 'dark' : 'light');
@@ -27,14 +26,8 @@ const GA_TRACKING_ID = import.meta.env.VITE_GA_TRACKING_ID;
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
 
-// DO NOT initialize GA or PostHog here — wait for Ketch analytics consent.
-
 const queryClient = new QueryClient();
 
-/**
- * Initializes analytics SDKs only after Ketch has confirmed analytics consent.
- * Also injects the Cloudflare beacon dynamically instead of loading it unconditionally.
- */
 const AnalyticsGate = () => {
   const { hasAnalyticsConsent } = useCookieConsent();
   const initialized = useRef(false);
@@ -47,7 +40,6 @@ const AnalyticsGate = () => {
       ReactGA.initialize(GA_TRACKING_ID);
     }
 
-    // PostHog
     if (POSTHOG_KEY) {
       posthog.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
@@ -58,7 +50,6 @@ const AnalyticsGate = () => {
       });
     }
 
-    // Cloudflare Web Analytics — inject beacon dynamically
     const cfScript = document.createElement('script');
     cfScript.defer = true;
     cfScript.src = 'https://static.cloudflareinsights.com/beacon.min.js';
@@ -69,7 +60,6 @@ const AnalyticsGate = () => {
   return null;
 };
 
-/** Track page views — only fires when analytics consent has been granted. */
 const PageTracker = () => {
   const location = useLocation();
   const { hasAnalyticsConsent } = useCookieConsent();

@@ -3,9 +3,9 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 interface Node {
   x: number;
   y: number;
-  vx: number; // Will be 0 for static planes
-  vy: number; // Will be 0 for static planes
-  radius: number; // Used for scaling the plane symbol
+  vx: number;
+  vy: number;
+  radius: number;
 }
 
 const NeuralNetworkBackground: React.FC = () => {
@@ -13,18 +13,17 @@ const NeuralNetworkBackground: React.FC = () => {
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const nodesRef = useRef<Node[]>([]);
   const animationFrameId = useRef<number | null>(null);
-  const planeImageRef = useRef<HTMLImageElement | null>(null); // Ref to store the loaded SVG image
+  const planeImageRef = useRef<HTMLImageElement | null>(null);
 
-  const planeSize = 12; // Base size for the plane symbol (will be scaled to 2x this)
-  const planeSpacing = 40; // Pixels between the center of each plane in the grid (reduced for more density)
-  const nodeColor = 'rgba(76, 175, 80, 0.8)'; // Vibrant green for visibility
+  const planeSize = 12;
+  const planeSpacing = 40;
+  const nodeColor = 'rgba(76, 175, 80, 0.8)';
 
   const initNodes = useCallback((width: number, height: number) => {
     nodesRef.current = [];
     const numCols = Math.floor(width / planeSpacing);
     const numRows = Math.floor(height / planeSpacing);
 
-    // Calculate offset to center the grid
     const offsetX = (width - numCols * planeSpacing) / 2 + planeSpacing / 2;
     const offsetY = (height - numRows * planeSpacing) / 2 + planeSpacing / 2;
 
@@ -33,13 +32,12 @@ const NeuralNetworkBackground: React.FC = () => {
         nodesRef.current.push({
           x: col * planeSpacing + offsetX,
           y: row * planeSpacing + offsetY,
-          vx: 0, // Planes are static, no velocity
-          vy: 0, // Planes are static, no velocity
+          vx: 0,
+          vy: 0,
           radius: planeSize,
         });
       }
     }
-    // Initialize mouse position to center if not already set
     if (mousePos === null) {
       setMousePos({ x: width / 2, y: height / 2 });
     }
@@ -53,43 +51,30 @@ const NeuralNetworkBackground: React.FC = () => {
 
     const { width, height } = canvas;
 
-    // Get the computed background color from the canvas element's style
-    // This will resolve the `var(--background)` to its actual RGB value
     const computedStyle = window.getComputedStyle(canvas);
     const bgColor = computedStyle.backgroundColor;
 
-    // Draw the background color directly on the canvas
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, width, height);
 
-    // Set the fill style for the SVG (currentColor in SVG will pick this up)
     ctx.fillStyle = nodeColor;
 
-    // Draw nodes (planes)
     nodesRef.current.forEach(node => {
-      // Calculate angle from node to mouse position
       let angle = 0;
       if (mousePos) {
-        // Math.atan2 gives angle relative to positive x-axis.
-        // The SVG's "top" is initially pointing along the negative Y-axis.
-        // So, we add Math.PI / 2 to align its "top" with the calculated angle.
         angle = Math.atan2(mousePos.y - node.y, mousePos.x - node.x) + Math.PI / 2;
       }
 
-      ctx.save(); // Save the current canvas state
-      ctx.translate(node.x, node.y); // Move origin to node's position
-      ctx.rotate(angle); // Rotate the canvas
+      ctx.save();
+      ctx.translate(node.x, node.y);
+      ctx.rotate(angle);
 
-      // Draw the SVG image
-      // The SVG is 24x24. We want to draw it centered at (0,0) after translation.
-      // So, the top-left corner should be at (-width/2, -height/2).
-      // The size will be 2 * node.radius.
       if (planeImageRef.current) {
-        const drawSize = node.radius * 2; // Scale the 24x24 SVG to 2 * planeSize
+        const drawSize = node.radius * 2;
         ctx.drawImage(planeImageRef.current, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
       }
 
-      ctx.restore(); // Restore the canvas state
+      ctx.restore();
     });
 
     animationFrameId.current = requestAnimationFrame(draw);
@@ -99,13 +84,11 @@ const NeuralNetworkBackground: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Load the SVG image only once when the component mounts
     if (!planeImageRef.current) {
       const img = new Image();
-      img.src = "/images/plane.svg"; // Correct path to the SVG file
+      img.src = "/images/plane.svg";
       img.onload = () => {
         planeImageRef.current = img;
-        // No need to explicitly requestAnimationFrame here, as the main loop will pick it up
       };
       img.onerror = (err) => {
         console.error("Failed to load plane SVG image from /images/plane.svg:", err);
@@ -115,7 +98,7 @@ const NeuralNetworkBackground: React.FC = () => {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      initNodes(canvas.width, canvas.height); // Re-initialize nodes on resize
+      initNodes(canvas.width, canvas.height);
     };
 
     const handleMouseMove = (event: MouseEvent) => {
@@ -124,9 +107,8 @@ const NeuralNetworkBackground: React.FC = () => {
 
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('mousemove', handleMouseMove);
-    resizeCanvas(); // Initial resize and node initialization
+    resizeCanvas();
 
-    // Start animation frame loop if not already running
     if (animationFrameId.current === null) {
       animationFrameId.current = requestAnimationFrame(draw);
     }
@@ -136,16 +118,16 @@ const NeuralNetworkBackground: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null; // Reset the ref
+        animationFrameId.current = null;
       }
     };
-  }, [draw, initNodes]); // Dependencies: draw, initNodes
+  }, [draw, initNodes]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-[-1] opacity-30" // Re-added opacity-30
-      style={{ backgroundColor: 'var(--background)' }} // Still use CSS variable for the element's background, which is read by JS
+      className="fixed inset-0 z-[-1] opacity-30"
+      style={{ backgroundColor: 'var(--background)' }}
     />
   );
 };

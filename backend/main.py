@@ -14,7 +14,6 @@ from google.cloud.recaptchaenterprise_v1 import Assessment
 app = Flask(__name__)
 CORS(app)
 
-# Force all datetime/date/Decimal objects to serialize properly in JSON
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):
         if isinstance(obj, datetime):
@@ -66,7 +65,6 @@ def get_security_data():
                 
                 data = cur.fetchall()
                 
-                # Group ALL records by date -> hour -> list of records
                 daily_hourly_data = {}
                 for item in data:
                     timestamp = item['timestamp']
@@ -98,12 +96,10 @@ def get_security_data():
                     
                     for hour in range(24):
                         records = day_data.get(hour, [])
-                        # For the summary t1/t2, use the average of non-null values
                         valid_t1 = [r['t1'] for r in records if r['t1'] is not None]
                         valid_t2 = [r['t2'] for r in records if r['t2'] is not None]
                         avg_t1 = round(sum(valid_t1) / len(valid_t1)) if valid_t1 else None
                         avg_t2 = round(sum(valid_t2) / len(valid_t2)) if valid_t2 else None
-                        # Use the latest timestamp for the tile
                         latest_ts = records[-1]['timestamp'] if records else None
                         
                         hourly_data.append({
@@ -111,7 +107,7 @@ def get_security_data():
                             't1': avg_t1,
                             't2': avg_t2,
                             'timestamp': latest_ts,
-                            'records': records,  # ALL per-poll records for this hour
+                            'records': records,
                         })
                     
                     historical_data.append({
@@ -169,8 +165,6 @@ def get_hourly_interval_security_data():
                     ORDER BY timestamp ASC
                 """)
                 
-                results = cur.fetchall()
-                # Convert timestamps to Dublin local time so frontend grouping by hour matches the hourly tiles
                 rows = []
                 for row in results:
                     r = dict(row)
@@ -198,7 +192,6 @@ def get_hourly_interval_departure_data():
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Get all departure times for this terminal in the last 3 days
                 cur.execute("""
                     SELECT scheduled_datetime
                     FROM departures 
@@ -208,11 +201,8 @@ def get_hourly_interval_departure_data():
                 
                 departures = cur.fetchall()
                 
-                # Build minute-by-minute data: for each hour that has departures,
-                # generate 60 minute slots. Count = number of flights within ±5 min of that slot.
                 from collections import defaultdict
                 
-                # Group departure times by hour bucket
                 dep_times = [row['scheduled_datetime'] for row in departures]
                 hours_with_deps = set()
                 for dt in dep_times:
@@ -225,7 +215,7 @@ def get_hourly_interval_departure_data():
                         count = 0
                         for dep_dt in dep_times:
                             diff = abs((dep_dt - minute_ts).total_seconds())
-                            if diff <= 300:  # 5 minutes = 300 seconds
+                            if diff <= 300:
                                 count += 1
                         results.append({
                             'timestamp': minute_ts,
@@ -343,11 +333,6 @@ def get_active_announcements():
 
 @app.route('/api/seo-security-data', methods=['GET'])
 def seo_security_data():
-    """
-    Returns a fully-rendered HTML page with current Dublin Airport security times
-    embedded in structured data (JSON-LD). Designed for Googlebot and other crawlers
-    to power featured snippets, rich results, and AI overviews.
-    """
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -392,7 +377,6 @@ def seo_security_data():
         else:
             recommendation = "No security time data currently available."
 
-        # Build JSON-LD structured data
         jsonld_faq = json.dumps({
             "@context": "https://schema.org",
             "@type": "FAQPage",
@@ -715,7 +699,6 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 
 @app.route('/api/range-security-data', methods=['POST'])
 def get_range_security_data():
-    """Return minute-level security data for an arbitrary time range (max 8 days span, up to 7 days in the past)."""
     try:
         data = request.get_json()
         start_iso = data.get('start')
@@ -726,7 +709,6 @@ def get_range_security_data():
         start_dt = datetime.fromisoformat(start_iso)
         end_dt = datetime.fromisoformat(end_iso)
 
-        # Clamp: no more than 7 days in the past
         earliest_allowed = datetime.now(timezone.utc) - timedelta(days=7)
         if start_dt < earliest_allowed:
             start_dt = earliest_allowed
@@ -757,7 +739,6 @@ def get_range_security_data():
 
 @app.route('/api/range-departure-data', methods=['POST'])
 def get_range_departure_data():
-    """Return minute-level departure counts for an arbitrary time range."""
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')

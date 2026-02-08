@@ -31,22 +31,20 @@ interface Props {
   className?: string;
 }
 
-// Pre-baked perimeter geometry — computed once per resize, reused every frame
 interface Perimeter {
   xs: Float32Array;
   ys: Float32Array;
   nxs: Float32Array;
   nys: Float32Array;
-  cumDist: Float32Array; // cumulative distance at each point
+  cumDist: Float32Array;
   totalLen: number;
   count: number;
 }
 
 function buildPerimeter(w: number, h: number, r: number): Perimeter {
-  // ~200 points is plenty for smooth visuals
   const pts: { x: number; y: number; nx: number; ny: number }[] = [];
-  const cSegs = 10; // corner segments
-  const sSegs = 30; // straight segments per side
+  const cSegs = 10;
+  const sSegs = 30;
 
   const arc = (cx: number, cy: number, a0: number, a1: number) => {
     for (let i = 0; i <= cSegs; i++) {
@@ -92,7 +90,6 @@ function buildPerimeter(w: number, h: number, r: number): Perimeter {
   return { xs, ys, nxs, nys, cumDist, totalLen: cumDist[n - 1], count: n };
 }
 
-// Binary search for the segment containing distance d
 function interpAtDist(p: Perimeter, dist: number): { x: number; y: number; nx: number; ny: number } {
   const d = ((dist % p.totalLen) + p.totalLen) % p.totalLen;
   let lo = 0, hi = p.count - 1;
@@ -120,7 +117,6 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
   const startTimeRef = useRef(0);
   const progressRef = useRef(0);
   const lastFrameRef = useRef(0);
-  // Cache the perimeter and config color to avoid rebuilding
   const perimRef = useRef<Perimeter | null>(null);
   const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
@@ -134,7 +130,6 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
     if (w === 0 || h === 0) return;
     const dpr = window.devicePixelRatio || 1;
 
-    // Only rebuild perimeter if size changed
     if (sizeRef.current.w !== w || sizeRef.current.h !== h || !perimRef.current) {
       canvas.width = w * dpr;
       canvas.height = h * dpr;
@@ -150,7 +145,7 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
 
     const perim = perimRef.current;
     const totalLen = perim.totalLen;
-    const bulgeRadius = cfg.bulgeSpread * 3; // only compute bulge within this distance
+    const bulgeRadius = cfg.bulgeSpread * 3;
 
     if (active && !wasActiveRef.current) {
       startTimeRef.current = performance.now();
@@ -172,12 +167,10 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
       const dt = now - lastFrameRef.current;
       lastFrameRef.current = now;
 
-      // Speed ramp
       const elapsed = now - startTimeRef.current;
       const rampT = Math.min(1, elapsed / rampDuration);
       const speed = (totalLen / duration) * (0.4 + 0.6 * rampT * rampT);
 
-      // Fade-out
       let alpha = 1;
       if (fadeStartRef.current !== null) {
         alpha = Math.max(0, 1 - (now - fadeStartRef.current) / fadeOutDuration);
@@ -189,7 +182,6 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
 
       ctx.clearRect(0, 0, w, h);
 
-      // ── Draw bulged border ──
       ctx.beginPath();
       for (let i = 0; i < perim.count; i++) {
         const cd = perim.cumDist[i];
@@ -210,7 +202,6 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
       ctx.globalAlpha = alpha * 0.45;
       ctx.stroke();
 
-      // ── Draw pulse glow ──
       const pp = interpAtDist(perim, pulseDist);
       const gr = pulseWidth * 0.5;
       const grad = ctx.createRadialGradient(pp.x, pp.y, 0, pp.x, pp.y, gr);
@@ -224,7 +215,6 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // ── Trail ──
       const bw2 = borderWidth * 2;
       for (let i = 0; i < trailSteps; i++) {
         const t = (i + 1) / trailSteps;

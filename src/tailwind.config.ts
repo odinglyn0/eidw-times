@@ -63,8 +63,8 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
         "custom-green": {
-          DEFAULT: "#4CAF50", // A vibrant green for the border and main numbers
-          dark: "#388E3C", // A slightly darker green for dark mode if needed
+          DEFAULT: "#4CAF50",
+          dark: "#388E3C",
         },
         "departure-green-dark": "#00B050",
         "departure-green-light": "#92D050",
@@ -103,7 +103,7 @@ export default {
             animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)',
           },
           '50%': {
-            transform: 'translateY(-50%)', // Increased bounce height significantly
+            transform: 'translateY(-50%)',
             animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)',
           },
         },
@@ -111,8 +111,8 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "bounce-once": "bounce-once 1s ease-in-out 1", // Play once
-        "bounce-twice": "bounce-once 1s ease-in-out 2", // Play twice
+        "bounce-once": "bounce-once 1s ease-in-out 1",
+        "bounce-twice": "bounce-once 1s ease-in-out 2",
       },
     },
   },
