@@ -2,8 +2,9 @@ import React from 'react';
 
 const BottomNotch: React.FC = () => {
   return (
-    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-fit">
-      <div className="bg-white border border-gray-700 rounded-t-3xl px-6 py-2 shadow-lg flex flex-col items-center justify-center dark:bg-gray-800 dark:border-gray-600 text-center">
+    <div className="sticky bottom-0 z-50 w-fit">
+      <div className="relative bg-white border border-gray-700 rounded-t-3xl px-6 py-2 shadow-lg flex flex-col items-center justify-center dark:bg-gray-800 dark:border-gray-600 text-center">
+        <div className="absolute top-full left-[-1px] right-[-1px] h-[1000px] bg-white dark:bg-gray-800 border-x border-gray-700 dark:border-gray-600" />
         <div className="text-gray-600 dark:text-gray-400 text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4">
           <span>
             Carrying on the legacy from{" "}
