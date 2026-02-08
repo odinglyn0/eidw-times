@@ -7,7 +7,7 @@ import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
 import SettingsPageLink from "@/components/SettingsPageLink";
-import { getAutoPollEnabled, getAutoPollInterval } from '@/lib/cookies'; // Import cookie utilities
+import { getAutoPollEnabled, getAutoPollInterval, getShowRecommendation } from '@/lib/cookies';
 import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
 import { MessageSquarePlus } from 'lucide-react'; // Import icon for the button
@@ -33,6 +33,11 @@ const Index = () => {
   const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const autoRefreshIntervalId = useRef<number | null>(null);
+  const [showRecommendation, setShowRecommendation] = useState(true);
+
+  useEffect(() => {
+    setShowRecommendation(getShowRecommendation());
+  }, []);
 
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
@@ -168,23 +173,9 @@ const Index = () => {
       <PhoneNotch />
       
       <SettingsPageLink />
-
-      {/* New Feature Request Button */}
-      <div className="absolute top-4 left-4 z-10">
-        <Link to="/feature-request"> {/* Changed to Link */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="bg-white rounded-full shadow-md border border-gray-300 text-blue-800 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-blue-200 dark:hover:bg-gray-700"
-          >
-            <MessageSquarePlus className="h-5 w-5" />
-            <span className="sr-only">Request a Feature</span>
-          </Button>
-        </Link>
-      </div>
-
       <AnnouncementBanner /> {/* Add the AnnouncementBanner here */}
 
+      {showRecommendation && (
       <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
@@ -239,6 +230,7 @@ const Index = () => {
           <span className="sr-only">Refresh recommendation</span>
         </Button>
       </div>
+      )}
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16">
         <TerminalSecurityCard 

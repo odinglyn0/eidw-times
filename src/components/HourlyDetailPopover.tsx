@@ -300,7 +300,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
           )}
         </div>
         {isCurrentHour && chartData.some(d => d.projected !== null) && (
-          <p className="text-xs text-muted-foreground text-center mb-1 italic">Dashed line = Monte Carlo projection</p>
+          <p className="text-xs text-muted-foreground text-center mb-1 italic">Dashed line = Simulated</p>
         )}
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
           {changeFromLastPoint && <p>{changeFromLastPoint}</p>}

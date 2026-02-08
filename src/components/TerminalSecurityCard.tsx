@@ -371,12 +371,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               {currentTime !== null ? currentTime : "N/A"}
             </p>
             <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>minutes</p>
-            <p className="text-sm text-gray-500 mb-8">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
 
             <div className="mb-8 w-full">
-              <h3 className="text-md font-semibold text-gray-700 mb-4">Last 24 Hours Security Times</h3>
+              <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>
               {currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
                   {currentDayHourlyData.map((dataPoint) => { // Renamed from hourData to dataPoint
@@ -425,7 +425,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             {isMobile ? (
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="departures">
-                  <AccordionTrigger className="text-md font-semibold text-gray-700">Number of Departures</AccordionTrigger>
+                  <AccordionTrigger className="text-md font-semibold text-gray-700 dark:text-gray-200">Number of Departures</AccordionTrigger>
                   <AccordionContent>
                     {departureData.length > 0 ? (
                       departureData.map((day, dayIndex) => (
@@ -434,7 +434,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
                             <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
                             {hourLabels.map((label, i) => (
-                              <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
+                              <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
                                 {label}
                               </div>
                             ))}
@@ -442,7 +442,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                           {/* AM Row */}
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
-                            <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
+                            <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">AM</div>
                             {day.hours.slice(0, 12).map((hour, hourIndex) => (
                               <DepartureDetailPopover
                                 key={`${day.date}-am-${hourIndex}`}
@@ -468,7 +468,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                           {/* PM Row */}
                           <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
-                            <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
+                            <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">PM</div>
                             {day.hours.slice(12, 24).map((hour, hourIndex) => (
                               <DepartureDetailPopover
                                 key={`${day.date}-pm-${hourIndex + 12}`}
@@ -492,7 +492,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                             ))}
                           </div>
 
-                          <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 text-center">{day.date}</p>
                         </div>
                       ))
                     ) : (
@@ -503,7 +503,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               </Accordion>
             ) : (
               <div>
-                <h3 className="text-md font-semibold text-gray-700 mb-4">Number of Departures</h3>
+                <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Number of Departures</h3>
                 {departureData.length > 0 ? (
                   departureData.map((day, dayIndex) => (
                     <div key={dayIndex} className="mb-4 last:mb-0">
@@ -511,7 +511,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 mb-1">
                         <div className="col-span-1"></div> {/* Empty space for AM/PM label */}
                         {hourLabels.map((label, i) => (
-                          <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700">
+                          <div key={`hour-label-${i}`} className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
                             {label}
                           </div>
                         ))}
@@ -519,7 +519,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                       {/* AM Row */}
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center">
-                        <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">AM</div>
+                        <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">AM</div>
                         {day.hours.slice(0, 12).map((hour, hourIndex) => (
                           <DepartureDetailPopover
                             key={`${day.date}-am-${hourIndex}`}
@@ -545,7 +545,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
 
                       {/* PM Row */}
                       <div className="grid grid-cols-[auto_repeat(12,minmax(0,1fr))] gap-1 items-center mt-1">
-                        <div className="col-span-1 text-xs font-semibold text-gray-700 text-right pr-1">PM</div>
+                        <div className="col-span-1 text-xs font-semibold text-gray-700 dark:text-gray-200 text-right pr-1">PM</div>
                         {day.hours.slice(12, 24).map((hour, hourIndex) => (
                           <DepartureDetailPopover
                             key={`${day.date}-pm-${hourIndex + 12}`}
@@ -569,7 +569,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         ))}
                       </div>
 
-                      <p className="text-sm font-medium text-gray-500 mt-2 text-center">{day.date}</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-2 text-center">{day.date}</p>
                     </div>
                   ))
                 ) : (

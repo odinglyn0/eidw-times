@@ -5,20 +5,32 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getCookieConsent, setCookieConsent } from '@/lib/cookies';
+import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getCookieConsent, setCookieConsent, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation } from '@/lib/cookies';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
+  const { setTheme, theme } = useTheme();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
-  const [refreshInterval, setRefreshInterval] = useState(30); // Default to 30 seconds
+  const [refreshInterval, setRefreshInterval] = useState(30);
   const [hasCookieConsent, setHasCookieConsent] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showRecommendation, setShowRecommendationState] = useState(true);
 
   useEffect(() => {
     setAutoRefreshEnabled(getAutoPollEnabled());
     setRefreshInterval(getAutoPollInterval());
     setHasCookieConsent(getCookieConsent());
+    setShowRecommendationState(getShowRecommendation());
+    const cookieDark = getDarkMode();
+    if (cookieDark !== null) {
+      setIsDarkMode(cookieDark);
+      setTheme(cookieDark ? 'dark' : 'light');
+    } else {
+      setIsDarkMode(theme === 'dark');
+    }
   }, []);
 
   const handleAutoRefreshToggle = (checked: boolean) => {
@@ -59,6 +71,25 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleDarkModeToggle = (checked: boolean) => {
+    setIsDarkMode(checked);
+    setDarkMode(checked);
+    setTheme(checked ? 'dark' : 'light');
+    toast({
+      title: "Theme updated",
+      description: `Switched to ${checked ? "dark" : "light"} mode.`,
+    });
+  };
+
+  const handleShowRecommendationToggle = (checked: boolean) => {
+    setShowRecommendationState(checked);
+    setShowRecommendation(checked);
+    toast({
+      title: "Recommendation updated",
+      description: `Terminal recommendation is now ${checked ? "visible" : "hidden"}.`,
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md">
@@ -66,13 +97,35 @@ const Settings: React.FC = () => {
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
         </Link>
 
-        <Card className="w-full border-2 border-gray-300 rounded-lg shadow-lg">
-          <CardHeader className="bg-gray-100 p-4 text-gray-800 text-center">
+        <Card className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg">
+          <CardHeader className="bg-gray-100 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-200 text-center">
             <CardTitle className="text-2xl font-bold">User Settings</CardTitle>
             <CardDescription>Manage your application preferences.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            {/* Dark mode toggle removed */}
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dark-mode" className="text-base">
+                Dark Mode
+              </Label>
+              <Switch
+                id="dark-mode"
+                checked={isDarkMode}
+                onCheckedChange={handleDarkModeToggle}
+                disabled={!hasCookieConsent}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="show-recommendation" className="text-base">
+                Show Recommendation
+              </Label>
+              <Switch
+                id="show-recommendation"
+                checked={showRecommendation}
+                onCheckedChange={handleShowRecommendationToggle}
+                disabled={!hasCookieConsent}
+              />
+            </div>
 
             <div className="flex items-center justify-between">
               <Label htmlFor="auto-refresh" className="text-base">
