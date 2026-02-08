@@ -183,7 +183,7 @@ const Index = () => {
         }}
         className="w-full max-w-5xl mb-8"
       >
-      <div className="w-full p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
+      <div className="w-full p-4 pr-12 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
