@@ -66,6 +66,7 @@ def get_security_data():
                 
                 data = cur.fetchall()
                 
+                # Group ALL records by date -> hour -> list of records
                 daily_hourly_data = {}
                 for item in data:
                     timestamp = item['timestamp']
@@ -78,14 +79,14 @@ def get_security_data():
                     
                     if date_key not in daily_hourly_data:
                         daily_hourly_data[date_key] = {}
+                    if hour not in daily_hourly_data[date_key]:
+                        daily_hourly_data[date_key][hour] = []
                     
-                    if hour not in daily_hourly_data[date_key] or timestamp > daily_hourly_data[date_key][hour]['original_timestamp']:
-                        daily_hourly_data[date_key][hour] = {
-                            't1': item['t1'],
-                            't2': item['t2'],
-                            'timestamp': local_time.isoformat(),
-                            'original_timestamp': timestamp
-                        }
+                    daily_hourly_data[date_key][hour].append({
+                        't1': item['t1'],
+                        't2': item['t2'],
+                        'timestamp': local_time.isoformat(),
+                    })
                 
                 historical_data = []
                 for i in range(6, -1, -1):
@@ -96,12 +97,21 @@ def get_security_data():
                     day_data = daily_hourly_data.get(date_key, {})
                     
                     for hour in range(24):
-                        record = day_data.get(hour)
+                        records = day_data.get(hour, [])
+                        # For the summary t1/t2, use the average of non-null values
+                        valid_t1 = [r['t1'] for r in records if r['t1'] is not None]
+                        valid_t2 = [r['t2'] for r in records if r['t2'] is not None]
+                        avg_t1 = round(sum(valid_t1) / len(valid_t1)) if valid_t1 else None
+                        avg_t2 = round(sum(valid_t2) / len(valid_t2)) if valid_t2 else None
+                        # Use the latest timestamp for the tile
+                        latest_ts = records[-1]['timestamp'] if records else None
+                        
                         hourly_data.append({
                             'hour': hour,
-                            't1': record['t1'] if record else None,
-                            't2': record['t2'] if record else None,
-                            'timestamp': record['timestamp'] if record else None
+                            't1': avg_t1,
+                            't2': avg_t2,
+                            'timestamp': latest_ts,
+                            'records': records,  # ALL per-poll records for this hour
                         })
                     
                     historical_data.append({
