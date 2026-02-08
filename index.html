@@ -41,6 +41,7 @@
     <meta name="bingbot" content="index, follow" />
     <link rel="canonical" href="https://eidwtimes.xyz/" />
     <link rel="icon" type="image/png" href="/images/favicon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/images/favicon.png" />
 
     <!-- Geo Meta Tags -->
@@ -572,13 +573,9 @@
     <!-- Dynamic structured data injection: fetches live security times and injects JSON-LD -->
     <script>
       (function() {
-        var API_BASE = '';
-        try {
-          var metaApi = document.querySelector('meta[name="api-base-url"]');
-          if (metaApi) API_BASE = metaApi.content;
-        } catch(e) {}
+        var API_BASE = 'https://romeo-api-b.eidwtimes.xyz';
         
-        fetch((API_BASE || '') + '/api/current-security-data')
+        fetch(API_BASE + '/api/current-security-data')
           .then(function(r) { return r.json(); })
           .then(function(data) {
             var t1 = data.t1 != null ? data.t1 + ' minutes' : 'No data';
