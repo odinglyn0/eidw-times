@@ -4,7 +4,7 @@ import logging
 import time
 import psycopg2
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from google.cloud import logging as cloud_logging
 
@@ -285,10 +285,11 @@ def run():
             continue
 
         for terminal_name, terminal_coords in TERMINAL_DESTINATIONS.items():
+            route_departure = (datetime.now(timezone.utc) + timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
             route_response, raw_json = compute_route(
                 geo["latitude"], geo["longitude"],
                 terminal_coords["latitude"], terminal_coords["longitude"],
-                departure_time_str,
+                route_departure,
             )
 
             if not route_response:
@@ -311,7 +312,7 @@ def run():
                 "origin_longitude": geo["longitude"],
                 "destination_latitude": terminal_coords["latitude"],
                 "destination_longitude": terminal_coords["longitude"],
-                "request_departure_time": now,
+                "request_departure_time": datetime.now(timezone.utc),
                 **extracted,
             }
 
