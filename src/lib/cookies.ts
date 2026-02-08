@@ -1,10 +1,13 @@
 import Cookies from 'js-cookie';
 
-const COOKIE_CONSENT_KEY = 'cookie_consent_given';
+const COOKIE_EXPIRATION_DAYS = 7; // days
+
+// ── Functional cookies (settings) ──
 const AUTO_POLL_ENABLED_KEY = 'auto_poll_enabled';
 const AUTO_POLL_INTERVAL_KEY = 'auto_poll_interval';
 const DARK_MODE_KEY = 'dark_mode_enabled';
-const COOKIE_EXPIRATION_DAYS = 7;
+const SHOW_RECOMMENDATION_KEY = 'show_recommendation';
+const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 
 export const setCookieConsent = (consent: boolean) => {
   Cookies.set(COOKIE_CONSENT_KEY, String(consent), { expires: COOKIE_EXPIRATION_DAYS });
@@ -28,7 +31,7 @@ export const setAutoPollInterval = (interval: number) => {
 
 export const getAutoPollInterval = (): number => {
   const interval = Cookies.get(AUTO_POLL_INTERVAL_KEY);
-  return interval ? parseInt(interval, 10) : 30; // Default to 30 seconds
+  return interval ? parseInt(interval, 10) : 30;
 };
 
 export const setDarkMode = (enabled: boolean) => {
@@ -37,11 +40,9 @@ export const setDarkMode = (enabled: boolean) => {
 
 export const getDarkMode = (): boolean | null => {
   const value = Cookies.get(DARK_MODE_KEY);
-  if (value === undefined) return null; // No preference set
+  if (value === undefined) return null;
   return value === 'true';
 };
-
-const SHOW_RECOMMENDATION_KEY = 'show_recommendation';
 
 export const setShowRecommendation = (enabled: boolean) => {
   Cookies.set(SHOW_RECOMMENDATION_KEY, String(enabled), { expires: COOKIE_EXPIRATION_DAYS });
@@ -49,6 +50,6 @@ export const setShowRecommendation = (enabled: boolean) => {
 
 export const getShowRecommendation = (): boolean => {
   const value = Cookies.get(SHOW_RECOMMENDATION_KEY);
-  if (value === undefined) return true; // Default to showing recommendation
+  if (value === undefined) return true;
   return value === 'true';
 };

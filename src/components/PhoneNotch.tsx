@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import DublinAirportLogo from "@/assets/Dublin_airport_logo.svg.png";
+import DublinAirportLogo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
 const SCROLL_THRESHOLD = 100; // Pixels scrolled down before the notch starts collapsing

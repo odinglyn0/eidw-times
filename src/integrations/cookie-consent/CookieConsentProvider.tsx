@@ -1,11 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { getCookieConsent, setCookieConsent } from '@/lib/cookies';
 
 interface CookieConsentContextType {
   hasConsent: boolean;
-  giveConsent: () => void;
 }
 
 const CookieConsentContext = createContext<CookieConsentContextType | undefined>(undefined);
@@ -18,40 +15,40 @@ export const useCookieConsent = () => {
   return context;
 };
 
+/**
+ * Thin wrapper — Ketch smart tag handles the actual consent UI.
+ * This provider listens for Ketch consent events and syncs state
+ * so the rest of the app can check consent status.
+ */
 export const CookieConsentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hasConsent, setHasConsent] = useState<boolean>(false);
-  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [hasConsent, setHasConsent] = useState<boolean>(getCookieConsent());
 
   useEffect(() => {
-    const consent = getCookieConsent();
-    setHasConsent(consent);
-    if (!consent) {
-      setIsDialogOpen(true);
-    }
-  }, []);
+    // Listen for Ketch consent updates
+    const handleKetchConsent = () => {
+      setCookieConsent(true);
+      setHasConsent(true);
+    };
 
-  const giveConsent = () => {
-    setCookieConsent(true);
-    setHasConsent(true);
-    setIsDialogOpen(false);
-  };
+    // Ketch fires 'consent_updated' on the semaphore object
+    const win = window as any;
+    if (win.semaphore) {
+      win.semaphore.push(['onConsent', handleKetchConsent]);
+    }
+
+    // Also poll for the Ketch consent cookie as a fallback
+    const interval = setInterval(() => {
+      if (getCookieConsent() && !hasConsent) {
+        setHasConsent(true);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [hasConsent]);
 
   return (
-    <CookieConsentContext.Provider value={{ hasConsent, giveConsent }}>
+    <CookieConsentContext.Provider value={{ hasConsent }}>
       {children}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Cookie Consent</DialogTitle>
-            <DialogDescription>
-              This website uses cookies to remember your preferences, such as auto-refresh settings. By continuing to use this site, you agree to our use of cookies.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={giveConsent}>Accept Cookies</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </CookieConsentContext.Provider>
   );
 };
