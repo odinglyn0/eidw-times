@@ -2,11 +2,11 @@ import React from 'react';
 
 const BottomNotch: React.FC = () => {
   return (
-    <div className="z-50 w-fit">
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-fit">
       <div className="bg-white border border-gray-700 rounded-t-3xl px-6 py-2 shadow-lg flex flex-col items-center justify-center dark:bg-gray-800 dark:border-gray-600 text-center">
         <div className="text-gray-600 dark:text-gray-400 text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-4">
           <span>
-            🔥 Carrying on the legacy from{" "}
+            Carrying on the legacy from{" "}
             <a
               href="https://www.reddit.com/r/ireland/comments/utoxj2/a_friend_of_mine_made_a_website_that_pulls_the/"
               target="_blank"
