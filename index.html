@@ -1,41 +1,696 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/images/favicon.png" />
-    <title>The EIDW Times - Real-time Dublin Airport Security Updates</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-    <meta name="description" content="Get real-time security queue wait times for Dublin Airport Terminal 1 and Terminal 2. View historical data, departure information, and plan your journey efficiently." />
-    <meta name="keywords" content="Dublin Airport, DUB, security times, queue times, T1, T2, airport wait times, flight departures, Ireland, travel, Dublin, Dublin airport security, Dublin airport queues, Dublin T1, Dublin T2, terminal 1, terminal 2, Dublin flight info, Dublin departures, Dublin arrivals, Dublin security, Dublin airport today, real-time airport queues, live queue updates, Dublin travel, Irish airport, Irish flights, airport delays, flight updates, travel tips, queue tracker, Dublin flight tracker, Dublin airport delays, T1 queue time, T2 queue time, airport wait tracker, wait time Dublin, live Dublin airport, Dublin airport news, airport wait Ireland, Dublin flying times, Irish airport times, airport statistics, flight statistics, travel time Dublin, flight wait time, Dublin T1 security, Dublin T2 security, live departures, travel delays, Ireland flights, DUB departures, DUB arrivals, DUB security, Dublin travel stats, Dublin security stats, airport dashboard, Dublin flight info, Ireland airport news, real-time wait, real-time departures, Dublin data, DUB terminal info, Dublin flight times, live DUB, terminal queue stats, terminal congestion, security check wait, passenger traffic, Dublin airport map, Dublin route info, air travel Ireland, Irish air traffic, Dublin customs, Dublin TSA, Dublin check-in, boarding times Dublin, Dublin gate info, DUB terminals, Dublin real-time, Irish travel news, Ireland tourism, Dublin airport analytics, live travel stats, wait time tracker, Irish flight data, passenger flow Dublin, flight status Dublin, Dublin flight dashboard, Dublin terminals explained, Dublin airport departures board, Dublin airport today live, Ireland air data, flight times Ireland, airport peak hours, Dublin airport peak, Dublin T1 wait, Dublin T2 wait, terminal wait stats, Dublin gates, Dublin flights today, Dublin airport crowds, Irish terminal data, air passenger Dublin, Ireland queue tracker, airport congestion Dublin, airport flow, queue congestion, Dublin airport app, Ireland airport trends, Dublin boarding time, security line Dublin, real-time lines, Dublin terminal delay, Dublin security analytics, Ireland travel delays, Dublin airport trends, passenger wait Ireland, airport monitoring, DUB queue data, DUB terminal traffic, terminal analytics, wait estimate Dublin, crowd estimates airport, Irish airport tracking, Dublin flights live, Dublin real-time dashboard, airport flight analytics, airport crowd prediction, Dublin queue prediction, flight flow Dublin, Dublin journey data, Dublin departure monitor, DUB air stats, Irish airport delays, travel Ireland, airport wait analytics, queue time Ireland, air travel dashboard, Dublin airport overview, queue estimate app, Dublin real-time insights, DUB travel time, T1 Dublin overview, T2 Dublin overview, T1 wait stats, T2 live times, Ireland security times, Irish travel tracker, Dublin passenger data, DUB live monitor, Dublin travel overview, security delay Ireland, terminal status DUB, DUB analytics, Ireland real-time travel, security flow Dublin, Ireland airport wait, Dublin time predictions, travel metrics Ireland, passenger flow stats, Dublin crowd levels, Irish queue monitor, airport passenger tracker, Dublin security dashboard, flight data Ireland, queue sensors Dublin, real-time DUB stats, queue management Ireland, crowd control Dublin, airport trends tracker, air travel wait time, boarding queue Dublin, airport load Dublin, Ireland airport info, Dublin trip planning, DUB travel trends, terminal time series, Irish travel data, Dublin airport today queue, Dublin real-time flights, airport now Dublin, live stats Ireland, flight experience Dublin, real-time travel Ireland, Ireland air travel updates, queue forecast Dublin, airport analytics Ireland, Irish boarding times, airport congestion tracker, Dublin departure trends, Ireland airport journey, air wait monitor, airport intelligence Dublin, live travel analytics, terminal efficiency Dublin, Irish flight times, T1 real-time data, T2 real-time data, airport flight load, travel congestion data, Dublin data explorer, passenger load times, DUB live feed, Dublin smart travel, Irish air journey, Dublin crowds live, wait times hourly, Dublin weekly flight data, Dublin travel overview, real-time departure flow, T1 delay forecast, T2 delay forecast, terminal dashboard Dublin, smart airport stats, Dublin load monitoring, DUB real-time performance, Irish airport flow, real-time analytics travel, Ireland tourist flights, DUB security forecast, Ireland trip data, flight overview Ireland, real-time trip monitoring, smart queue times, queue history Dublin, DUB line estimate, airport trends Ireland, flight pattern Dublin, tourist airport data, Dublin congestion heatmap, Ireland airport experience, wait time estimator, queue monitoring dashboard, live T1 congestion, live T2 congestion, Dublin peak hour tracker, Ireland airport flow stats, DUB terminal metrics, passenger surge Dublin, queue delay dashboard, Irish air wait tracker, DUB airport KPIs, DUB load forecasting, airport timing insights, Dublin hourly flight tracker, Dublin trend dashboard, T1 vs T2 analysis, Dublin stats visualized, Ireland airport dashboards, DUB security flowmap, terminal performance data, Irish airport congestion tracker, Dublin weekly overview, smart terminal data, Dublin departure planning, airport timing forecast, Irish air stats live, real-time wait time forecast, airport intelligence dashboard, Dublin congestion stats, airport optimization Ireland, Dublin T1 vs T2 traffic, DUB wait data, DUB throughput metrics, queue length monitor, Irish airport queues today, dublin airport security times, dublin airport security times live, dublin airport security times last 7 days, dublin airport times, dublin airport security times history, EIDW times, Dublin airport security times, dublin airport security times live, dublin airport security, irish airports, dublin security, eidw, dublin airport, dub security times, security times, live security times, dublin airport live security times, live dublin airport security times, terminal 2 security times, terminal 1 security times, t1, t2, t1 security, t2 security, t1 security times, t2 security times, t1 and t2 security times, terminal 1 vs terminal 2 dublin airport" />
+    <!-- Primary Meta Tags -->
+    <title>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times</title>
+    <meta name="title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times" />
+    <meta name="description" content="Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2. Real-time updates, historical trends, departure info, and AI-projected wait times. Plan your journey through Dublin Airport (DUB/EIDW) with confidence." />
+    <meta name="keywords" content="Dublin Airport security times, Dublin Airport queue times, Dublin Airport T1 security, Dublin Airport T2 security, Dublin Airport wait times, Dublin Airport live security, DUB airport security, EIDW security times, Dublin Airport Terminal 1, Dublin Airport Terminal 2, Dublin Airport departures, Dublin Airport today, Dublin Airport real-time, Dublin Airport security queue, Dublin Airport delays, Dublin Airport security wait, Dublin Airport tips, Dublin Airport travel, Ireland airport security, Dublin Airport check-in times, Dublin Airport peak hours, Dublin Airport crowds, Dublin Airport security forecast, Dublin Airport T1 vs T2, Dublin Airport fastest security, Dublin Airport queue tracker, Dublin Airport live updates, Dublin Airport flight info, Dublin Airport passenger info, Dublin Airport security dashboard, Dublin Airport analytics, Dublin Airport data, Dublin Airport statistics, Dublin Airport trends, Dublin Airport security history, Dublin Airport weekly trends, Dublin Airport hourly data, Dublin Airport minute by minute, Dublin Airport security prediction, Dublin Airport Monte Carlo, Dublin Airport projected wait, Dublin Airport departure board, Dublin Airport flights today, Dublin Airport terminal comparison, Dublin Airport which terminal, Dublin Airport security recommendation, Dublin Airport best terminal, Dublin Airport shortest queue, Dublin Airport fastest queue, DUB departures, DUB arrivals, DUB security, DUB queue, DUB wait time, DUB terminal 1, DUB terminal 2, EIDW, EIDW times, Dublin Airport Ireland, Dublin Airport travel tips, Dublin Airport planning, Dublin Airport journey planner, airport security times Ireland, Irish airport security, Irish airport queue times, live airport queue Ireland, real-time airport data Ireland, Dublin Airport app, Dublin Airport monitor, Dublin Airport tracker, Dublin Airport status, Dublin Airport congestion, Dublin Airport passenger flow, Dublin Airport security line, Dublin Airport boarding times, Dublin Airport gate info, Dublin Airport security check" />
+    <meta name="author" content="EIDW Times" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
     <link rel="canonical" href="https://eidwtimes.xyz/" />
+    <link rel="icon" type="image/png" href="/images/favicon.png" />
+    <link rel="apple-touch-icon" href="/images/favicon.png" />
+
+    <!-- Geo Meta Tags -->
+    <meta name="geo.region" content="IE-D" />
+    <meta name="geo.placename" content="Dublin, Ireland" />
+    <meta name="geo.position" content="53.4264;-6.2499" />
+    <meta name="ICBM" content="53.4264, -6.2499" />
+
+    <!-- Language / Locale -->
+    <meta name="language" content="English" />
+    <meta name="content-language" content="en-IE" />
+    <link rel="alternate" hreflang="en" href="https://eidwtimes.xyz/" />
+    <link rel="alternate" hreflang="x-default" href="https://eidwtimes.xyz/" />
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#4CAF50"> <!-- Matches the theme_color in manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#4CAF50" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EIDW Times" />
+    <meta name="application-name" content="EIDW Times" />
+    <meta name="msapplication-TileColor" content="#4CAF50" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://eidwtimes.xyz/" />
-    <meta property="og:title" content="The EIDW Times - Real-time Dublin Airport Security Updates" />
-    <meta property="og:description" content="Get real-time security queue wait times for Dublin Airport Terminal 1 and Terminal 2. View historical data, departure information, and plan your journey efficiently." />
-    <meta property="og:image" content="https://eidwtimes.xyz/images/favicon.png" />
+    <meta property="og:title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times" />
+    <meta property="og:description" content="Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2. Real-time updates, historical trends, departure info, and projected wait times." />
+    <meta property="og:image" content="https://eidwtimes.xyz/images/og-image.png" />
+    <meta property="og:image:alt" content="EIDW Times — Dublin Airport Security Queue Dashboard" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="EIDW Times" />
+    <meta property="og:locale" content="en_IE" />
 
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://eidwtimes.xyz/" />
-    <meta property="twitter:title" content="The EIDW Times - Real-time Dublin Airport Security Updates" />
-    <meta property="twitter:description" content="Get real-time security queue wait times for Dublin Airport Terminal 1 and Terminal 2. View historical data, departure information, and plan your journey efficiently." />
-    <meta property="twitter:image" content="https://eidwtimes.xyz/images/favicon.png" /> 
-    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://eidwtimes.xyz/" />
+    <meta name="twitter:title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times" />
+    <meta name="twitter:description" content="Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2. Real-time updates, historical trends, and projected wait times." />
+    <meta name="twitter:image" content="https://eidwtimes.xyz/images/og-image.png" />
+    <meta name="twitter:image:alt" content="EIDW Times — Dublin Airport Security Queue Dashboard" />
+
+    <!-- Structured Data: WebSite (enables sitelinks search box) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "EIDW Times",
+      "alternateName": ["Dublin Airport Security Times", "Dublin Airport Queue Times", "DUB Security Times", "Dublin Airport Wait Times"],
+      "url": "https://eidwtimes.xyz/",
+      "description": "Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2 with historical trends and AI-projected outcomes.",
+      "inLanguage": "en",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://eidwtimes.xyz/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: WebPage with Speakable (Google Assistant / voice search) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "Dublin Airport Security Times — Live T1 & T2 Queue Wait Times",
+      "description": "Real-time Dublin Airport security queue wait times for Terminal 1 and Terminal 2.",
+      "url": "https://eidwtimes.xyz/",
+      "isPartOf": { "@type": "WebSite", "name": "EIDW Times", "url": "https://eidwtimes.xyz/" },
+      "about": { "@type": "Airport", "name": "Dublin Airport", "iataCode": "DUB", "icaoCode": "EIDW" },
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "xpath": [
+          "/html/head/meta[@name='description']/@content"
+        ]
+      },
+      "mainContentOfPage": {
+        "@type": "WebPageElement",
+        "cssSelector": "#root"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "EIDW Times",
+      "url": "https://eidwtimes.xyz/",
+      "applicationCategory": "TravelApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript",
+      "description": "Real-time Dublin Airport (DUB/EIDW) security queue wait times for Terminal 1 and Terminal 2. View live data, historical trends, departure information, and Monte Carlo projected wait times.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR"
+      },
+      "featureList": [
+        "Live security queue wait times for T1 and T2",
+        "Historical 7-day security time trends",
+        "Real-time departure board information",
+        "Monte Carlo simulation projected wait times",
+        "Terminal comparison and recommendation",
+        "Minute-by-minute hourly breakdown",
+        "Dark mode support",
+        "Progressive Web App (installable)"
+      ]
+    }
+    </script>
+
+    <!-- Structured Data: Airport -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Airport",
+      "name": "Dublin Airport",
+      "alternateName": ["DUB", "EIDW", "Aerfort Bhaile Átha Cliath"],
+      "iataCode": "DUB",
+      "icaoCode": "EIDW",
+      "url": "https://www.dublinairport.com/",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Dublin",
+        "addressRegion": "County Dublin",
+        "addressCountry": "IE"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 53.4264,
+        "longitude": -6.2499
+      },
+      "hasMap": "https://maps.google.com/?q=Dublin+Airport"
+    }
+    </script>
+
+    <!-- Structured Data: FAQPage (rich snippets) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What are the security times at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times provides live, real-time security queue wait times for both Terminal 1 (T1) and Terminal 2 (T2) at Dublin Airport, updated every few minutes. Visit eidwtimes.xyz for the latest data including historical trends and projected wait times."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the current Dublin Airport security queue times?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Current Dublin Airport security queue times are available live at eidwtimes.xyz. The site shows real-time wait times for both Terminal 1 and Terminal 2, updated every few minutes with minute-by-minute breakdowns."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long are the queues at Dublin Airport security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport security queue lengths vary throughout the day. EIDW Times tracks wait times in real-time for both terminals. Typical peak times are early morning (5-8 AM) and mid-afternoon. Check eidwtimes.xyz for the current wait and historical patterns."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which terminal has shorter security queues at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times compares Terminal 1 and Terminal 2 security wait times in real-time and provides a recommendation for the fastest terminal. You can use either terminal's security regardless of which terminal your flight departs from."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How early should I arrive at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport recommends arriving 2 hours before short-haul flights and 3 hours before long-haul flights. Use EIDW Times to check current security wait times and historical trends to better plan your arrival."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I go through T1 security if my flight is from T2 at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, at Dublin Airport you can use either Terminal 1 or Terminal 2 security screening and then proceed to your departure gate in either terminal. EIDW Times helps you pick the faster option."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is EIDW Times?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times is a free, real-time dashboard showing Dublin Airport security queue wait times for Terminal 1 and Terminal 2. It includes historical data, departure information, and Monte Carlo simulated projections to help travellers plan their airport journey. Available at eidwtimes.xyz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security times today?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Today's Dublin Airport security times are tracked live at eidwtimes.xyz. The dashboard shows current wait times for T1 and T2, plus a full 24-hour breakdown of how security times have changed throughout the day."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does security take at Dublin Airport Terminal 1?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Security wait times at Dublin Airport Terminal 1 (T1) change throughout the day. EIDW Times tracks T1 security times in real-time with minute-by-minute updates. You can view the current wait, today's hourly breakdown, and the last 7 days of historical data at eidwtimes.xyz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does security take at Dublin Airport Terminal 2?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Security wait times at Dublin Airport Terminal 2 (T2) vary by time of day. EIDW Times provides live T2 security queue data updated every few minutes, along with historical trends and projected wait times at eidwtimes.xyz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What time is Dublin Airport security busiest?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport security is typically busiest between 5:00 AM and 8:00 AM for early morning departures, and again in the mid-afternoon. EIDW Times shows hourly historical data for the last 7 days so you can see exactly when peak times occur and plan accordingly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Dublin Airport security busy right now?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Check eidwtimes.xyz for live Dublin Airport security queue times right now. The dashboard shows the current wait for both Terminal 1 and Terminal 2, and recommends which terminal has the shorter queue."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport queue times live?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Live Dublin Airport queue times are available at eidwtimes.xyz. The site updates every few minutes with real-time security wait times for Terminal 1 and Terminal 2, plus departure information and projected wait times."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I check Dublin Airport security wait times?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Visit eidwtimes.xyz to check Dublin Airport security wait times in real-time. The free dashboard shows live queue times for both Terminal 1 and Terminal 2, historical trends, departure boards, and AI-projected wait times. No account or app download required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there an app for Dublin Airport security times?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times (eidwtimes.xyz) is a free Progressive Web App that tracks Dublin Airport security times. You can install it directly from your browser to your home screen on any phone or tablet — no app store needed. It provides live T1 and T2 queue times, historical data, and projected wait times."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport T1 vs T2 security — which is faster?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It changes throughout the day. EIDW Times compares Terminal 1 and Terminal 2 security wait times side by side in real-time and tells you which is currently faster. You can use either terminal's security regardless of your flight's departure terminal."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I walk between Terminal 1 and Terminal 2 at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. After clearing security at either terminal, you can walk between Terminal 1 and Terminal 2 at Dublin Airport. This means you can choose whichever terminal has the shorter security queue — EIDW Times helps you make that decision with live data."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are Dublin Airport peak hours?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport's busiest periods are typically early morning (5-8 AM), mid-morning (10-11 AM), and mid-afternoon (2-4 PM). However, this varies by day of the week and season. EIDW Times provides 7 days of historical hourly data so you can see the exact peak patterns."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does it take to get through Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The time to get through Dublin Airport depends on security queue length, check-in method, and terminal. Security is usually the biggest variable. EIDW Times shows live security wait times so you can estimate your total airport time. Dublin Airport recommends allowing 2 hours for short-haul and 3 hours for long-haul flights."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security waiting times history?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times provides a full 7-day history of Dublin Airport security waiting times, broken down hour by hour for both Terminal 1 and Terminal 2. You can see patterns, peak times, and trends to help plan your arrival. Visit eidwtimes.xyz to view the historical data."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the fastest way through Dublin Airport security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The fastest way through Dublin Airport security is to check which terminal has the shorter queue using EIDW Times (eidwtimes.xyz), then go through that terminal's security. You can use either T1 or T2 security regardless of your departure terminal. Also ensure liquids are in a clear bag and electronics are easily accessible."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport departures today?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times shows real-time departure information for both Terminal 1 and Terminal 2 at Dublin Airport, alongside live security queue times. Visit eidwtimes.xyz to see today's departures and current security wait times in one dashboard."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How accurate are Dublin Airport security time estimates?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times sources security wait time data directly from Dublin Airport's official feeds, updated every few minutes. The data reflects the actual current queue times as reported by the airport. Historical data and Monte Carlo projections provide additional context for planning."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security times at 4am?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport security at 4 AM is typically very quiet with minimal wait times, as most early departures start from 5 AM onwards. EIDW Times tracks security times 24/7 including overnight hours. Check the historical hourly data at eidwtimes.xyz to see typical 4 AM patterns."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security times at 5am?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "5 AM is when Dublin Airport starts getting busy as early morning flights begin departing. Security queues can build quickly from this point. EIDW Times shows historical 5 AM security data for the last 7 days so you can see typical wait times at this hour."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security times early morning?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Early morning (4-7 AM) is one of the busiest periods at Dublin Airport security as passengers arrive for the first wave of departures. EIDW Times tracks these times in real-time and provides historical data so you can see exactly how busy early mornings typically are."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Dublin Airport busy on weekends?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport can be busy on weekends, especially Friday evenings and Sunday afternoons. EIDW Times provides 7 days of historical data so you can compare weekday vs weekend security patterns and plan your arrival time accordingly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security tips?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Top tips for Dublin Airport security: 1) Check live queue times at eidwtimes.xyz before you leave home. 2) Use whichever terminal (T1 or T2) has the shorter queue. 3) Have liquids in a clear resealable bag. 4) Remove laptops and large electronics from bags. 5) Arrive 2 hours before short-haul, 3 hours before long-haul flights."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does EIDW stand for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW is the ICAO (International Civil Aviation Organization) airport code for Dublin Airport, Ireland. EI stands for Ireland (Éire) and DW identifies Dublin Airport specifically. The more commonly known IATA code is DUB. EIDW Times uses this code as its name."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How often is Dublin Airport security data updated?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times updates Dublin Airport security wait time data every few minutes, sourced from Dublin Airport's official feeds. The dashboard shows the exact time of the last update so you always know how fresh the data is."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport Terminal 1 airlines?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport Terminal 1 (T1) is used by most airlines including Ryanair, Lufthansa, Air France, KLM, Emirates, and many others. However, you can go through security at either terminal regardless of your airline. Check eidwtimes.xyz to see which terminal has the shorter security queue."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport Terminal 2 airlines?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport Terminal 2 (T2) is primarily used by Aer Lingus, as well as some other carriers. Regardless of which terminal your airline uses, you can clear security at either T1 or T2 and walk to your gate. EIDW Times shows live queue times for both terminals."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is EIDW Times free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, EIDW Times is completely free to use. There are no subscriptions, accounts, or app downloads required. Simply visit eidwtimes.xyz in any browser to see live Dublin Airport security queue times, historical data, and departure information."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security queue prediction?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times uses Monte Carlo simulations to project future security queue wait times based on current and historical data. The projections show a median expected wait time plus confidence bands (50% and 80% probability ranges) for the remainder of the current hour."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How to avoid long queues at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "To avoid long queues at Dublin Airport: check live security times at eidwtimes.xyz before heading to the airport, use whichever terminal has the shorter queue (you can use either), avoid peak hours (typically 5-8 AM and 2-4 PM), and have your liquids bag and electronics ready for screening."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport live updates?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times provides live updates for Dublin Airport including real-time security queue wait times for Terminal 1 and Terminal 2, departure information, and projected wait times. Data is refreshed every few minutes at eidwtimes.xyz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the security rules at Dublin Airport?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dublin Airport follows standard EU aviation security rules: liquids must be in containers of 100ml or less in a single clear resealable bag (max 1 litre), laptops and large electronics must be removed from bags for screening, and coats and belts may need to be removed. Check eidwtimes.xyz for current queue wait times."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport security times last 7 days?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times displays a full 7-day history of Dublin Airport security times, broken down by hour for both Terminal 1 and Terminal 2. This lets you spot patterns and plan your arrival based on what security has been like at your travel time over the past week. View the data at eidwtimes.xyz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport flight status?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EIDW Times shows departure information for Dublin Airport alongside live security queue times. For full flight status including arrivals and gate information, check dublinairport.com or your airline's app. EIDW Times focuses on helping you plan your time through security."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How far in advance can I go through Dublin Airport security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can go through Dublin Airport security as soon as you arrive at the airport and have your boarding pass. There is no minimum time restriction. Many passengers go through security early to enjoy the shops and restaurants airside. Check eidwtimes.xyz for current queue times to plan your timing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport for families — how long should I allow?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Families travelling through Dublin Airport should allow extra time — at least 2.5 hours for short-haul and 3.5 hours for long-haul flights. Security with children and buggies takes longer. Check live queue times at eidwtimes.xyz before you leave home so you know what to expect."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Dublin Airport US preclearance times?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "US preclearance at Dublin Airport (available in Terminal 2) adds additional time to your journey as you clear US immigration and customs before boarding. Allow extra time on top of regular security. EIDW Times tracks T2 security queue times which is the first step before preclearance."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured Data: BreadcrumbList -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://eidwtimes.xyz/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Settings",
+          "item": "https://eidwtimes.xyz/settings"
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured Data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "EIDW Times",
+      "url": "https://eidwtimes.xyz/",
+      "logo": "https://eidwtimes.xyz/images/favicon.png",
+      "description": "Real-time Dublin Airport security queue wait times and travel intelligence.",
+      "areaServed": {
+        "@type": "Place",
+        "name": "Dublin Airport, Ireland"
+      }
+    }
+    </script>
+
     <!-- Google reCAPTCHA Enterprise script -->
     <script src="https://www.google.com/recaptcha/enterprise.js?render=explicit" async defer></script>
 
+    <!-- Dynamic structured data injection: fetches live security times and injects JSON-LD -->
+    <script>
+      (function() {
+        var API_BASE = '';
+        try {
+          var metaApi = document.querySelector('meta[name="api-base-url"]');
+          if (metaApi) API_BASE = metaApi.content;
+        } catch(e) {}
+        
+        fetch((API_BASE || '') + '/api/current-security-data')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var t1 = data.t1 != null ? data.t1 + ' minutes' : 'No data';
+            var t2 = data.t2 != null ? data.t2 + ' minutes' : 'No data';
+            var now = new Date().toLocaleString('en-IE', { hour: 'numeric', minute: '2-digit', hour12: true });
+            
+            var rec = '';
+            if (data.t1 != null && data.t2 != null) {
+              if (data.t1 < data.t2) rec = 'Terminal 1 is currently faster.';
+              else if (data.t2 < data.t1) rec = 'Terminal 2 is currently faster.';
+              else rec = 'Both terminals are equal.';
+            }
+
+            var ld = {
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": [{
+                "@type": "Question",
+                "name": "What are the current security times at Dublin Airport?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "As of " + now + ", Dublin Airport Terminal 1 security wait time is " + t1 + " and Terminal 2 is " + t2 + ". " + rec
+                }
+              }, {
+                "@type": "Question",
+                "name": "Which Dublin Airport terminal has the shortest security queue?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": rec + " Terminal 1: " + t1 + ", Terminal 2: " + t2 + "."
+                }
+              }]
+            };
+
+            var script = document.createElement('script');
+            script.type = 'application/ld+json';
+            script.id = 'dynamic-seo-jsonld';
+            script.textContent = JSON.stringify(ld);
+            document.head.appendChild(script);
+          })
+          .catch(function() {});
+      })();
+    </script>
   </head>
 
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
+  <body>
+    <div id="root"></div>
 
+    <!-- SEO fallback for crawlers that don't execute JavaScript -->
+    <noscript>
+      <div style="max-width:800px;margin:40px auto;padding:20px;font-family:system-ui,sans-serif;">
+        <h1>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times</h1>
+        <p>Welcome to <strong>EIDW Times</strong> — the free, real-time dashboard for Dublin Airport security queue wait times.</p>
 
+        <h2>What We Provide</h2>
+        <ul>
+          <li>Live security queue wait times for Dublin Airport Terminal 1 (T1) and Terminal 2 (T2)</li>
+          <li>Terminal comparison with a recommendation for the fastest security queue</li>
+          <li>Historical 7-day security time trends with hourly breakdowns</li>
+          <li>Real-time departure board information for each terminal</li>
+          <li>Monte Carlo simulation projected wait times</li>
+          <li>Minute-by-minute hourly security time graphs</li>
+        </ul>
+
+        <h2>Frequently Asked Questions About Dublin Airport Security</h2>
+
+        <h3>What are the security times at Dublin Airport?</h3>
+        <p>EIDW Times provides live, real-time security queue wait times for both Terminal 1 (T1) and Terminal 2 (T2) at Dublin Airport, updated every few minutes. Visit eidwtimes.xyz for the latest data including historical trends and projected wait times.</p>
+
+        <h3>What are the current Dublin Airport security queue times?</h3>
+        <p>Current Dublin Airport security queue times are available live at eidwtimes.xyz. The site shows real-time wait times for both Terminal 1 and Terminal 2, updated every few minutes with minute-by-minute breakdowns.</p>
+
+        <h3>How long are the queues at Dublin Airport security?</h3>
+        <p>Dublin Airport security queue lengths vary throughout the day. EIDW Times tracks wait times in real-time for both terminals. Typical peak times are early morning (5-8 AM) and mid-afternoon.</p>
+
+        <h3>Which terminal has shorter security queues at Dublin Airport?</h3>
+        <p>EIDW Times compares Terminal 1 and Terminal 2 security wait times in real-time and provides a recommendation for the fastest terminal. You can use either terminal's security regardless of which terminal your flight departs from.</p>
+
+        <h3>How early should I arrive at Dublin Airport?</h3>
+        <p>Dublin Airport recommends arriving 2 hours before short-haul flights and 3 hours before long-haul flights. Use EIDW Times to check current security wait times and historical trends to better plan your arrival.</p>
+
+        <h3>Can I go through T1 security if my flight is from T2?</h3>
+        <p>Yes. At Dublin Airport you can use either Terminal 1 or Terminal 2 security screening and then walk to your departure gate in either terminal.</p>
+
+        <h3>How long does security take at Dublin Airport Terminal 1?</h3>
+        <p>Security wait times at Dublin Airport Terminal 1 (T1) change throughout the day. EIDW Times tracks T1 security times in real-time with minute-by-minute updates, plus a full 7-day history.</p>
+
+        <h3>How long does security take at Dublin Airport Terminal 2?</h3>
+        <p>Security wait times at Dublin Airport Terminal 2 (T2) vary by time of day. EIDW Times provides live T2 security queue data updated every few minutes, along with historical trends and projected wait times.</p>
+
+        <h3>What time is Dublin Airport security busiest?</h3>
+        <p>Dublin Airport security is typically busiest between 5:00 AM and 8:00 AM for early morning departures, and again in the mid-afternoon. EIDW Times shows hourly historical data for the last 7 days so you can see exactly when peak times occur.</p>
+
+        <h3>Is Dublin Airport security busy right now?</h3>
+        <p>Check eidwtimes.xyz for live Dublin Airport security queue times right now. The dashboard shows the current wait for both Terminal 1 and Terminal 2, and recommends which terminal has the shorter queue.</p>
+
+        <h3>Dublin Airport T1 vs T2 security — which is faster?</h3>
+        <p>It changes throughout the day. EIDW Times compares Terminal 1 and Terminal 2 security wait times side by side in real-time and tells you which is currently faster.</p>
+
+        <h3>Can I walk between Terminal 1 and Terminal 2 at Dublin Airport?</h3>
+        <p>Yes. After clearing security at either terminal, you can walk between Terminal 1 and Terminal 2 at Dublin Airport.</p>
+
+        <h3>What are Dublin Airport peak hours?</h3>
+        <p>Dublin Airport's busiest periods are typically early morning (5-8 AM), mid-morning (10-11 AM), and mid-afternoon (2-4 PM). This varies by day of the week and season.</p>
+
+        <h3>How long does it take to get through Dublin Airport?</h3>
+        <p>The time to get through Dublin Airport depends on security queue length, check-in method, and terminal. Dublin Airport recommends allowing 2 hours for short-haul and 3 hours for long-haul flights.</p>
+
+        <h3>What is the fastest way through Dublin Airport security?</h3>
+        <p>Check live queue times at eidwtimes.xyz before you leave home, use whichever terminal has the shorter queue, have liquids in a clear bag, and remove laptops from bags.</p>
+
+        <h3>Dublin Airport security tips</h3>
+        <p>Top tips: 1) Check live queue times at eidwtimes.xyz. 2) Use whichever terminal has the shorter queue. 3) Have liquids in a clear resealable bag. 4) Remove laptops and large electronics. 5) Arrive 2 hours before short-haul, 3 hours before long-haul.</p>
+
+        <h3>What does EIDW stand for?</h3>
+        <p>EIDW is the ICAO airport code for Dublin Airport, Ireland. EI stands for Ireland (Éire) and DW identifies Dublin Airport. The IATA code is DUB.</p>
+
+        <h3>Dublin Airport security times early morning?</h3>
+        <p>Early morning (4-7 AM) is one of the busiest periods at Dublin Airport security. EIDW Times tracks these times in real-time and provides historical data.</p>
+
+        <h3>Is Dublin Airport busy on weekends?</h3>
+        <p>Dublin Airport can be busy on weekends, especially Friday evenings and Sunday afternoons. EIDW Times provides 7 days of historical data to compare weekday vs weekend patterns.</p>
+
+        <h3>Dublin Airport security queue prediction?</h3>
+        <p>EIDW Times uses Monte Carlo simulations to project future security queue wait times based on current and historical data, showing median expected wait times plus confidence bands.</p>
+
+        <h3>Dublin Airport US preclearance times?</h3>
+        <p>US preclearance at Dublin Airport (Terminal 2) adds additional time as you clear US immigration before boarding. Allow extra time on top of regular security.</p>
+
+        <h3>Is EIDW Times free?</h3>
+        <p>Yes, EIDW Times is completely free. No subscriptions, accounts, or downloads required. Visit eidwtimes.xyz in any browser.</p>
+
+        <h3>What are the security rules at Dublin Airport?</h3>
+        <p>Dublin Airport follows EU aviation security rules: liquids in 100ml containers in a clear bag (max 1 litre), laptops removed from bags, coats and belts may need removal.</p>
+
+        <p><em>Please enable JavaScript to use the full interactive dashboard.</em></p>
+        <p>Data provided by <a href="https://eidwtimes.xyz/">EIDW Times</a> — live Dublin Airport security queue tracker.</p>
+      </div>
+    </noscript>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

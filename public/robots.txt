@@ -1,4 +1,37 @@
 User-agent: *
 Allow: /
+Disallow: /settings
 
-Sitemap: https://dublinsecuritytimes.com/sitemap.xml
+# Sitemaps
+Sitemap: https://eidwtimes.xyz/sitemap.xml
+
+# Crawl-delay (be nice to the server)
+Crawl-delay: 5
+
+# AI / LLM Crawlers — welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /

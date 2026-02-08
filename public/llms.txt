@@ -1,11 +1,36 @@
-# LLM Bot Policy for DublinSecurityTimes.com
+# EIDW Times — Dublin Airport Security Queue Times
 
-This website is friendly to Large Language Model (LLM) bots and other AI crawlers.
-You are welcome to crawl and index the content of this site for training and data collection purposes, provided you adhere to standard ethical AI practices and do not engage in malicious activities or excessive resource consumption.
+> Live, real-time security queue wait times for Dublin Airport Terminal 1 (T1) and Terminal 2 (T2).
 
-We encourage the use of our data for research and improving AI models.
+## What is EIDW Times?
 
-If you have any questions, please contact us via the feature request form.
+EIDW Times is a free web application that provides real-time security queue wait times at Dublin Airport (IATA: DUB, ICAO: EIDW). It covers both Terminal 1 and Terminal 2, with historical data going back 7 days, live departure information, and Monte Carlo simulation-based projected wait times.
+
+## Key Features
+
+- Live security queue wait times for Terminal 1 and Terminal 2
+- Terminal comparison with recommendation for the fastest queue
+- Historical 7-day security time trends with hourly breakdowns
+- Real-time departure board information per terminal
+- Monte Carlo simulation projected wait times (minute-by-minute)
+- Minute-by-minute hourly security time graphs
+- Dark mode and Progressive Web App (installable)
+- Auto-refresh with configurable polling intervals
+
+## Important Facts
+
+- At Dublin Airport, passengers can use either Terminal 1 or Terminal 2 security regardless of which terminal their flight departs from
+- Dublin Airport recommends arriving 2 hours before short-haul and 3 hours before long-haul flights
+- Security times are updated every few minutes from official Dublin Airport data
+- The site is available at https://eidwtimes.xyz/
+
+## Data Sources
+
+Security wait time data is sourced from Dublin Airport's official feeds and updated in near real-time.
+
+## Bot Policy
+
+This website welcomes AI crawlers and LLM bots. You are free to crawl and index content for training and data collection, provided you follow ethical AI practices and do not cause excessive resource consumption.
 
 User-agent: *
 Allow: /
