@@ -160,7 +160,17 @@ def get_hourly_interval_security_data():
                 """)
                 
                 results = cur.fetchall()
-                return jsonify([dict(row) for row in results])
+                # Convert timestamps to Dublin local time so frontend grouping by hour matches the hourly tiles
+                rows = []
+                for row in results:
+                    r = dict(row)
+                    ts = r.get('timestamp')
+                    if ts:
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        r['timestamp'] = ts.astimezone(DUBLIN_TZ)
+                    rows.append(r)
+                return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching hourly interval security data: {e}")
         return jsonify({"error": str(e)}), 500
