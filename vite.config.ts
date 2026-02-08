@@ -58,7 +58,6 @@ export default defineConfig(({ mode }) => ({
         manualChunks(id) {
           if (id.includes("node_modules/react-dom")) return "react-dom";
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-router")) return "react-core";
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "recharts";
           if (id.includes("node_modules/@radix-ui")) return "radix";
           if (id.includes("node_modules/posthog-js") || id.includes("node_modules/react-ga4")) return "analytics";
           if (id.includes("node_modules/date-fns")) return "date-fns";
