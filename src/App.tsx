@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import CookiePolicy from "./pages/CookiePolicy";
+import Legal from "./pages/Legal";
 import { ThemeProvider } from "@/components/theme-provider";
 import ReactGA from 'react-ga4';
 import posthog from 'posthog-js';
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/cookies" element={<CookiePolicy />} />
+              <Route path="/legal" element={<Legal />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </CookieConsentProvider>
