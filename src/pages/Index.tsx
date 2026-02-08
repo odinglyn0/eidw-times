@@ -69,7 +69,7 @@ const Index = () => {
         });
       });
       setGlobalMaxSecurityTime(maxOverallTime);
-      console.log("Client: Calculated global max security time:", maxOverallTime);
+
     } catch (error) {
       console.error("Error fetching global security data:", error);
       setGlobalMaxSecurityTime(null);
@@ -98,7 +98,6 @@ const Index = () => {
 
       if (enabled && interval > 0) {
         autoRefreshIntervalId.current = setInterval(() => {
-          console.log(`Auto-refreshing data every ${interval} seconds...`);
           refreshAllData();
         }, interval * 1000) as unknown as number;
       }

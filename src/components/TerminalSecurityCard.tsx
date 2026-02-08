@@ -86,7 +86,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       const threeDaysAgo = subDays(new Date(), 3).toISOString();
       const data = await apiClient.getDepartureData(terminalId.toString(), threeDaysAgo);
       const rawDepartureData = data as { departure_datetime: string; departure_count: number }[];
-      console.log(`Raw departure data for T${terminalId} from Edge Function:`, rawDepartureData);
 
       const processedData: HourlyDepartureDisplayData[] = [];
       const today = new Date();
@@ -269,8 +268,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       }, 0) > 0 ? Math.ceil(historicalDailyAverages.reduce((max, item) => {
         return item.t1Average !== null && item.t1Average > max ? item.t1Average : max;
       }, 0) / 10) * 10 : 0);
-
-  console.log("Data for LineChart (historicalDailyAverages):", historicalDailyAverages);
 
   const hourLabels = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
 

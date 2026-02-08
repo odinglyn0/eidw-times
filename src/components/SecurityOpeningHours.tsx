@@ -350,7 +350,6 @@ const SecurityOpeningHours: React.FC = () => {
         )}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Terminal 1 */}
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Terminal 1
@@ -360,7 +359,6 @@ const SecurityOpeningHours: React.FC = () => {
             ))}
           </div>
 
-          {/* Terminal 2 */}
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Terminal 2
