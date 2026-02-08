@@ -42,20 +42,21 @@ def get_db_connection():
 
 
 def _verify_recaptcha_enterprise(token, expected_action=None):
-    url = "https://www.google.com/recaptcha/api/siteverify"
-    resp = http_requests.post(url, data={
-        "secret": RECAPTCHA_SECRET_KEY,
-        "response": token,
-    })
-    if resp.status_code != 200:
-        return None, 0.0
-    data = resp.json()
-    success = data.get("success", False)
-    score = data.get("score", 0.0)
-    action = data.get("action", "")
-    if expected_action and action != expected_action:
+    client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
+    event = recaptchaenterprise_v1.Event()
+    event.site_key = RECAPTCHA_SITE_KEY
+    event.token = token
+    assessment = recaptchaenterprise_v1.Assessment()
+    assessment.event = event
+    request = recaptchaenterprise_v1.CreateAssessmentRequest()
+    request.assessment = assessment
+    request.parent = f"projects/{GCP_PROJECT_ID}"
+    response = client.create_assessment(request)
+    if not response.token_properties.valid:
         return False, 0.0
-    return success, score
+    if expected_action and response.token_properties.action != expected_action:
+        return False, 0.0
+    return True, response.risk_analysis.score
 
 
 def _mint_bounce_token(client_ip, fingerprint):
