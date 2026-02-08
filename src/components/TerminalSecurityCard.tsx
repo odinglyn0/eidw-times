@@ -28,6 +28,7 @@ import {
 import HourlyDetailPopover from "./HourlyDetailPopover";
 import DepartureDetailPopover from "./DepartureDetailPopover";
 import ProjectedHourlyPopover from "./ProjectedHourlyPopover";
+import HourGraphDialog from "./HourGraphDialog";
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -76,8 +77,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map()); // Map<DateString, Map<Hour, Data[]>>
   const [loading, setLoading] = useState(true);
-  const [manualRefreshing, setManualRefreshing] = useState(false); // Renamed to avoid conflict
-  const isMobile = useIsMobile(); // Use the hook to detect mobile
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [hourGraphOpen, setHourGraphOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const fetchDepartureData = useCallback(async () => {
     try {
@@ -310,27 +312,27 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   if (areTimesEqual) {
     if (terminalId === 1) {
       chatBubbleMessage = "Pick me!";
-      chatBubbleEmoji = "😝";
+      chatBubbleEmoji = "😃";
       chatBubbleClassName += " animate-bounce-twice";
     } else if (terminalId === 2) {
-      chatBubbleMessage = "It doesn't even matter bro";
+      chatBubbleMessage = "It doesn't even matter";
       chatBubbleEmoji = "🤷‍♂️";
       // No animation for T2 when times are equal
     }
   } else if (isT1Quicker && terminalId === 1) {
     chatBubbleMessage = "Pick me!";
-    chatBubbleEmoji = "😝";
+    chatBubbleEmoji = "😃";
     chatBubbleClassName += " animate-bounce-twice";
   } else if (isT2Quicker && terminalId === 2) {
     chatBubbleMessage = "Pick me!";
-    chatBubbleEmoji = "😝";
+    chatBubbleEmoji = "😃";
     chatBubbleClassName += " animate-bounce-twice";
   } else if (isT1Quicker && terminalId === 2) { // T2 is longest if T1 is quicker
-    chatBubbleMessage = "Damn...";
+    chatBubbleMessage = "Ah sure, I'm usually the fast one";
     chatBubbleEmoji = "🥲";
     chatBubbleClassName += " bg-red-600 before:border-t-red-600";
   } else if (isT2Quicker && terminalId === 1) { // T1 is longest if T2 is quicker
-    chatBubbleMessage = "Damn...";
+    chatBubbleMessage = "Feck sake...";
     chatBubbleEmoji = "🥲";
     chatBubbleClassName += " bg-red-600 before:border-t-red-600";
   }
@@ -368,10 +370,16 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           </div>
         ) : (
           <>
-            <p className={cn("text-7xl font-extrabold mb-2", currentTimeColorClass)}>
-              {currentTime !== null ? currentTime : "N/A"}
-            </p>
-            <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>minutes</p>
+            <div
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => setHourGraphOpen(true)}
+              title="Click for detailed hour graph"
+            >
+              <p className={cn("text-7xl font-extrabold mb-2", currentTimeColorClass)}>
+                {currentTime !== null ? currentTime : "N/A"}
+              </p>
+              <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>minutes</p>
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
@@ -381,6 +389,15 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                 currentTime={currentTime}
               />
             </div>
+
+            <HourGraphDialog
+              open={hourGraphOpen}
+              onOpenChange={setHourGraphOpen}
+              terminalId={terminalId}
+              securityData={hourlyGranularSecurityData.get(new Date().getHours()) || []}
+              departureData={hourlyGranularDepartureData.get("TODAY")?.get(new Date().getHours()) || []}
+              currentTime={currentTime}
+            />
 
             <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>

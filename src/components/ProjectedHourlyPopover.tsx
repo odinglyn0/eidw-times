@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TrendingUp, Clock, BarChart3, ArrowUp } from 'lucide-react';
-import { getHourlyProjectionStats } from '@/utils/monteCarlo';
-import { parseISO, getMinutes, getHours } from 'date-fns';
+import { monteCarloMultiPath } from '@/utils/monteCarlo';
+import { parseISO, getMinutes } from 'date-fns';
 
 interface GranularSecurityData {
   timestamp: string;
@@ -32,17 +32,39 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
     const lastMinute = getMinutes(parseISO(lastEntry.timestamp));
     const lastValue = lastEntry.time!;
 
-    return getHourlyProjectionStats(observedValues, lastValue, lastMinute);
+    const paths = monteCarloMultiPath(observedValues, lastValue, lastMinute, 500);
+    if (paths.length === 0) return null;
+
+    // Compute median path
+    const numFuture = paths[0].length;
+    const medians: number[] = [];
+    for (let i = 0; i < numFuture; i++) {
+      const vals = paths.map(p => p[i].value).sort((a, b) => a - b);
+      medians.push(vals[Math.floor(vals.length / 2)]);
+    }
+
+    const allValues = [...observedValues, ...medians];
+    const maxTime = Math.max(...medians);
+    const avgTime = Math.round(allValues.reduce((s, v) => s + v, 0) / allValues.length);
+
+    // Find biggest jump
+    let peakMinute = paths[0]?.[0]?.minute ?? 0;
+    let biggestIncrease = 0;
+    for (let i = 1; i < medians.length; i++) {
+      const inc = medians[i] - medians[i - 1];
+      if (inc > biggestIncrease) {
+        biggestIncrease = inc;
+        peakMinute = paths[0][i].minute;
+      }
+    }
+
+    return { maxTime, avgTime, peakMinute, dataPoints: validData.length };
   }, [granularDataForCurrentHour, currentTime]);
 
   if (!stats || currentTime === null) return null;
 
   const currentHour = new Date().getHours();
-  const formatHour = (h: number) => {
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12} ${ampm}`;
-  };
+  const formatHour = (h: number) => `${h % 12 || 12} ${h >= 12 ? 'PM' : 'AM'}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -71,7 +93,6 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
               <p className="text-xs text-muted-foreground">projected peak</p>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30">
               <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -81,7 +102,6 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
               <p className="text-xs text-muted-foreground">avg for the hour</p>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30">
               <ArrowUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -91,9 +111,8 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
               <p className="text-xs text-muted-foreground">biggest expected jump</p>
             </div>
           </div>
-
           <p className="text-[10px] text-muted-foreground text-center pt-1 italic border-t border-border">
-            Based on {granularDataForCurrentHour.filter(d => d.time !== null).length} data points · Monte Carlo sim
+            Based on {stats.dataPoints} data points · Monte Carlo sim
           </p>
         </div>
       </PopoverContent>
