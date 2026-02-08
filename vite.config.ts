@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import Sitemap from "vite-plugin-sitemap";
+import obfuscatorPlugin from "rollup-plugin-obfuscator";
 
 function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; priority: number }[]): Plugin {
   return {
@@ -42,10 +43,27 @@ function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; prio
   };
 }
 
-export default defineConfig(() => ({
+export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+  },
+  build: {
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        passes: 2,
+      },
+      mangle: {
+        toplevel: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
+    sourcemap: false,
   },
   plugins: [
     dyadComponentTagger(),
@@ -101,6 +119,29 @@ export default defineConfig(() => ({
         priority: 0.5,
       },
     ]),
+    ...(mode === "production"
+      ? [
+          obfuscatorPlugin({
+            options: {
+              compact: true,
+              controlFlowFlattening: true,
+              controlFlowFlatteningThreshold: 0.5,
+              deadCodeInjection: true,
+              deadCodeInjectionThreshold: 0.2,
+              identifierNamesGenerator: "hexadecimal",
+              renameGlobals: false,
+              selfDefending: true,
+              stringArray: true,
+              stringArrayEncoding: ["base64"],
+              stringArrayThreshold: 0.75,
+              splitStrings: true,
+              splitStringsChunkLength: 10,
+              transformObjectKeys: true,
+              unicodeEscapeSequence: false,
+            },
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: {
