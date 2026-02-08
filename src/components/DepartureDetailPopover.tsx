@@ -152,11 +152,11 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
                   }}
                 />
                 <Line
-                  type="monotone"
+                  type="natural"
                   dataKey="count"
-                  stroke="#FF8000" // Orange for departure graph line
+                  stroke="#FF8000"
                   strokeWidth={2}
-                  dot={true}
+                  dot={false}
                 />
               </LineChart>
             </ResponsiveContainer>
