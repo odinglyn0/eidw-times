@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
+import { Shield, Loader2 } from "lucide-react";
 
 const STORAGE_KEY = "elasticBounceTokenScreen";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
@@ -24,13 +25,16 @@ interface BounceTokenGateProps {
   children: React.ReactNode;
 }
 
-function waitForRecaptcha(): Promise<void> {
-  return new Promise((resolve) => {
+function waitForRecaptcha(timeoutMs = 10000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
     const check = () => {
       if (window.grecaptcha?.enterprise?.ready) {
         window.grecaptcha.enterprise.ready(resolve);
+      } else if (Date.now() - start > timeoutMs) {
+        reject(new Error("reCAPTCHA script load timeout"));
       } else {
-        setTimeout(check, 100);
+        setTimeout(check, 150);
       }
     };
     check();
@@ -68,33 +72,36 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     attemptedRef.current = true;
 
     const run = async () => {
-      try {
-        const [fpResult] = await Promise.all([
-          FingerprintJS.load().then((fp) => fp.get()),
-          waitForRecaptcha(),
-        ]);
+      let visitorId = "";
 
-        setFingerprint(fpResult.visitorId);
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        visitorId = result.visitorId;
+        setFingerprint(visitorId);
+      } catch {
+        visitorId = "fp_unavailable_" + Date.now();
+        setFingerprint(visitorId);
+      }
+
+      try {
+        await waitForRecaptcha();
 
         const recaptchaToken = await window.grecaptcha.enterprise.execute(
           RECAPTCHA_SITE_KEY,
           { action: "bouncetoken_screen" }
         );
 
-        const response = await apiClient.verifyBounceToken(recaptchaToken, fpResult.visitorId);
+        const response = await apiClient.verifyBounceToken(recaptchaToken, visitorId);
 
         if (response.status === "granted" && response.elasticBounceTokenScreen) {
           sessionStorage.setItem(STORAGE_KEY, response.elasticBounceTokenScreen);
           setState("granted");
-        } else if (response.status === "checkbox_required") {
-          setState("checkbox");
-        } else {
-          navigate("/consentscreen/failure", { replace: true });
+          return;
         }
-      } catch (e) {
-        console.error("BounceTokenGate error:", e);
-        navigate("/consentscreen/failure", { replace: true });
-      }
+      } catch {}
+
+      setState("checkbox");
     };
 
     run();
@@ -103,8 +110,16 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   useEffect(() => {
     if (state !== "checkbox" || !checkboxRef.current || widgetIdRef.current !== null) return;
 
-    waitForRecaptcha().then(() => {
+    const mount = async () => {
+      try {
+        await waitForRecaptcha();
+      } catch {
+        navigate("/consentscreen/failure", { replace: true });
+        return;
+      }
+
       if (!checkboxRef.current || widgetIdRef.current !== null) return;
+
       widgetIdRef.current = window.grecaptcha.enterprise.render(checkboxRef.current, {
         sitekey: RECAPTCHA_SITE_KEY,
         callback: async (token: string) => {
@@ -125,17 +140,56 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
           navigate("/consentscreen/failure", { replace: true });
         },
       });
-    });
+    };
+
+    mount();
   }, [state, fingerprint, navigate]);
 
   if (state === "granted") return <>{children}</>;
+
+  if (state === "loading") {
+    return (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "#0a0a0a",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 99999,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        gap: "1.25rem",
+      }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+        }}>
+          <Shield size={28} color="#4ade80" />
+          <span style={{ color: "#e2e8f0", fontSize: "1.125rem", fontWeight: 600 }}>
+            EIDW Times
+          </span>
+        </div>
+        <Loader2
+          size={32}
+          color="#4ade80"
+          style={{ animation: "spin 1s linear infinite" }}
+        />
+        <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
+          Running integrity checks...
+        </p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   if (state === "checkbox" || state === "verifying") {
     return (
       <div style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0,0,0,0.85)",
+        backgroundColor: "rgba(0,0,0,0.9)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -146,22 +200,28 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         <div style={{
           backgroundColor: "#1e293b",
           borderRadius: "12px",
-          padding: "2rem",
+          padding: "2rem 2.5rem",
           textAlign: "center",
-          maxWidth: "400px",
+          maxWidth: "420px",
+          border: "1px solid #334155",
         }}>
-          <h2 style={{ color: "#fff", fontSize: "1.25rem", marginBottom: "0.5rem" }}>
-            Verification Required
+          <Shield size={32} color="#4ade80" style={{ marginBottom: "0.75rem" }} />
+          <h2 style={{ color: "#f1f5f9", fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.375rem" }}>
+            One more step
           </h2>
-          <p style={{ color: "#94a3b8", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
-            Please complete the challenge below to continue.
+          <p style={{ color: "#94a3b8", fontSize: "0.8125rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+            Please verify you're human to continue.
           </p>
           {state === "verifying" ? (
-            <p style={{ color: "#4ade80" }}>Verifying...</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+              <Loader2 size={18} color="#4ade80" style={{ animation: "spin 1s linear infinite" }} />
+              <span style={{ color: "#4ade80", fontSize: "0.875rem" }}>Verifying...</span>
+            </div>
           ) : (
             <div ref={checkboxRef} style={{ display: "inline-block" }} />
           )}
         </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }

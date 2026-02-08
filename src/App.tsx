@@ -4,10 +4,11 @@ import { TooltipProvider } from "@/components/ui/TlTp";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import Index from "./pages/Index";
+const Index = lazy(() => import("./pages/Index"));
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import { ThemeProvider } from "@/components/TP";
 import { getDarkMode } from '@/lib/cookies';
+import BounceTokenGate from "@/components/BounceTokenGate";
 
 const NeuralNetworkBackground = lazy(() => import("@/components/BackG"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -17,7 +18,6 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const Legal = lazy(() => import("./pages/Legal"));
 const ConsentScreenFailure = lazy(() => import("./pages/ConsentScreenFailure"));
-const BounceTokenGate = lazy(() => import("@/components/BounceTokenGate"));
 let _ReactGA: typeof import('react-ga4').default | null = null;
 let _posthog: typeof import('posthog-js').default | null = null;
 
@@ -115,11 +115,13 @@ const App = () => (
           <CookieConsentProvider>
             <AnalyticsGate />
             <PageTracker />
-            <Suspense fallback={null}>
-              <Routes>
-                <Route path="/consentscreen/failure" element={<ConsentScreenFailure />} />
-                <Route path="*" element={
-                  <BounceTokenGate>
+            <Routes>
+              <Route path="/consentscreen/failure" element={
+                <Suspense fallback={null}><ConsentScreenFailure /></Suspense>
+              } />
+              <Route path="*" element={
+                <BounceTokenGate>
+                  <Suspense fallback={null}>
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/settings" element={<Settings />} />
@@ -129,10 +131,10 @@ const App = () => (
                       <Route path="/legal" element={<Legal />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
-                  </BounceTokenGate>
-                } />
-              </Routes>
-            </Suspense>
+                  </Suspense>
+                </BounceTokenGate>
+              } />
+            </Routes>
           </CookieConsentProvider>
         </BrowserRouter>
       </TooltipProvider>
