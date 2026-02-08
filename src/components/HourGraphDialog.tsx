@@ -66,29 +66,6 @@ function sliderToDate(val: number): Date {
   return addMinutes(now, offsetFromNow);
 }
 
-/** Convert a Date to slider value */
-function dateToSlider(d: Date): number {
-  const now = new Date();
-  const diffMins = differenceInMinutes(d, now);
-  return Math.round(MAX_PAST_MINUTES + diffMins);
-}
-
-/** Format a date for display */
-function formatRangeDate(d: Date): string {
-  const now = new Date();
-  const diffMins = differenceInMinutes(d, now);
-  const absMins = Math.abs(diffMins);
-
-  if (absMins < 2) return 'Now';
-  if (absMins < 60) return `${diffMins > 0 ? '+' : ''}${diffMins}m`;
-  if (absMins < 1440) {
-    const h = Math.round(absMins / 60);
-    return `${diffMins > 0 ? '+' : '-'}${h}h`;
-  }
-  const days = Math.round(absMins / 1440);
-  return `${diffMins > 0 ? '+' : '-'}${days}d`;
-}
-
 /** Format a date for the axis */
 function formatAxisDate(d: Date, spanMinutes: number): string {
   if (spanMinutes <= 60) return format(d, 'h:mm a');
