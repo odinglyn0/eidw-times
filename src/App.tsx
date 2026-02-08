@@ -16,6 +16,8 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const Legal = lazy(() => import("./pages/Legal"));
+const ConsentScreenFailure = lazy(() => import("./pages/ConsentScreenFailure"));
+const BounceTokenGate = lazy(() => import("@/components/BounceTokenGate"));
 let _ReactGA: typeof import('react-ga4').default | null = null;
 let _posthog: typeof import('posthog-js').default | null = null;
 
@@ -115,13 +117,20 @@ const App = () => (
             <PageTracker />
             <Suspense fallback={null}>
               <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/cookies" element={<CookiePolicy />} />
-                <Route path="/legal" element={<Legal />} />
-                <Route path="*" element={<NotFound />} />
+                <Route path="/consentscreen/failure" element={<ConsentScreenFailure />} />
+                <Route path="*" element={
+                  <BounceTokenGate>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/terms" element={<Terms />} />
+                      <Route path="/privacy" element={<Privacy />} />
+                      <Route path="/cookies" element={<CookiePolicy />} />
+                      <Route path="/legal" element={<Legal />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BounceTokenGate>
+                } />
               </Routes>
             </Suspense>
           </CookieConsentProvider>

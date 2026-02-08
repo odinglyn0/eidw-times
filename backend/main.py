@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import hashlib
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -9,6 +10,8 @@ from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import numpy as np
+import jwt
+import requests as http_requests
 
 app = Flask(__name__)
 CORS(app)
@@ -28,9 +31,130 @@ app.json = ISOJSONProvider(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
+RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
+RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY', '')
+GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
+BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET', hashlib.sha256((RECAPTCHA_SITE_KEY + 'elasticBounce').encode()).hexdigest())
+RECAPTCHA_SCORE_THRESHOLD = 0.85
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+
+def _verify_recaptcha_enterprise(token, expected_action=None):
+    url = "https://www.google.com/recaptcha/api/siteverify"
+    resp = http_requests.post(url, data={
+        "secret": RECAPTCHA_SECRET_KEY,
+        "response": token,
+    })
+    if resp.status_code != 200:
+        return None, 0.0
+    data = resp.json()
+    success = data.get("success", False)
+    score = data.get("score", 0.0)
+    action = data.get("action", "")
+    if expected_action and action != expected_action:
+        return False, 0.0
+    return success, score
+
+
+def _mint_bounce_token(client_ip, fingerprint):
+    payload = {
+        "ip": client_ip,
+        "fp": fingerprint,
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        "type": "elasticBounceTokenScreen",
+    }
+    return jwt.encode(payload, BOUNCE_TOKEN_SECRET, algorithm="HS512")
+
+
+def _get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+UNPROTECTED_PATHS = {
+    "/api/bouncetoken/verify",
+    "/api/bouncetoken/checkbox-verify",
+    "/api/seo-security-data",
+    "/api/current-security-data",
+}
+
+
+@app.before_request
+def verify_bounce_token():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    if not request.path.startswith("/api/"):
+        return None
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Missing bounce token"}), 401
+    token = auth_header[7:]
+    try:
+        payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
+        request.bounce_claims = payload
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Bounce token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid bounce token"}), 401
+    return None
+
+
+@app.route('/api/bouncetoken/verify', methods=['POST'])
+def bouncetoken_verify():
+    try:
+        data = request.get_json()
+        recaptcha_token = data.get("recaptchaToken")
+        fingerprint = data.get("fingerprint")
+
+        if not recaptcha_token or not fingerprint:
+            return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
+
+        valid, score = _verify_recaptcha_enterprise(recaptcha_token, "bouncetoken_screen")
+
+        if not valid:
+            return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
+
+        client_ip = _get_client_ip()
+
+        if score >= RECAPTCHA_SCORE_THRESHOLD:
+            token = _mint_bounce_token(client_ip, fingerprint)
+            return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
+
+        return jsonify({"status": "checkbox_required"})
+    except Exception as e:
+        logging.error(f"Error in bouncetoken verify: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/bouncetoken/checkbox-verify', methods=['POST'])
+def bouncetoken_checkbox_verify():
+    try:
+        data = request.get_json()
+        recaptcha_token = data.get("recaptchaToken")
+        fingerprint = data.get("fingerprint")
+
+        if not recaptcha_token or not fingerprint:
+            return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
+
+        valid, score = _verify_recaptcha_enterprise(recaptcha_token, "bouncetoken_checkbox")
+
+        if not valid or score < 0.5:
+            return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
+
+        client_ip = _get_client_ip()
+        token = _mint_bounce_token(client_ip, fingerprint)
+        return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
+    except Exception as e:
+        logging.error(f"Error in bouncetoken checkbox verify: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/api/current-security-data', methods=['GET'])
 def get_current_security_data():
