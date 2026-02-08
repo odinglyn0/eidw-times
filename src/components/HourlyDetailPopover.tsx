@@ -3,6 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format, parseISO, getMinutes, getHours } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { monteCarloProject } from '@/utils/monteCarlo';
 
 interface HourlySecurityData {
   hour: number;
@@ -29,58 +30,6 @@ interface HourlyDetailPopoverProps {
   terminalId: 1 | 2;
   granularDataForHour: GranularSecurityData[];
   isLoadingGranularData: boolean;
-}
-
-/**
- * Monte Carlo projection: given observed security times, simulate future minutes.
- * Uses a mean-reverting random walk with observed mean/stddev.
- * Runs `numSims` paths and returns the median at each future minute.
- */
-function monteCarloProject(
-  observedValues: number[],
-  lastValue: number,
-  lastMinute: number,
-  numSims: number = 200
-): { minute: number; value: number }[] {
-  if (observedValues.length === 0) return [];
-
-  const mean = observedValues.reduce((s, v) => s + v, 0) / observedValues.length;
-  const variance = observedValues.length > 1
-    ? observedValues.reduce((s, v) => s + (v - mean) ** 2, 0) / (observedValues.length - 1)
-    : 1;
-  const stddev = Math.sqrt(variance) || 0.5;
-  const meanReversion = 0.3; // strength of pull toward mean
-
-  const futureMinutes: number[] = [];
-  for (let m = lastMinute + 1; m <= 59; m++) futureMinutes.push(m);
-  if (futureMinutes.length === 0) return [];
-
-  // Run simulations
-  const allPaths: number[][] = [];
-  for (let sim = 0; sim < numSims; sim++) {
-    const path: number[] = [];
-    let current = lastValue;
-    for (let i = 0; i < futureMinutes.length; i++) {
-      // Box-Muller for normal random
-      const u1 = Math.random();
-      const u2 = Math.random();
-      const z = Math.sqrt(-2 * Math.log(u1 || 0.001)) * Math.cos(2 * Math.PI * u2);
-      // Mean-reverting step
-      const drift = meanReversion * (mean - current);
-      current = current + drift + stddev * 0.3 * z;
-      path.push(Math.max(0, Math.round(current)));
-    }
-    allPaths.push(path);
-  }
-
-  // Take median at each future minute
-  const result: { minute: number; value: number }[] = [];
-  for (let i = 0; i < futureMinutes.length; i++) {
-    const values = allPaths.map(p => p[i]).sort((a, b) => a - b);
-    const median = values[Math.floor(values.length / 2)];
-    result.push({ minute: futureMinutes[i], value: median });
-  }
-  return result;
 }
 
 const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all24HourData, currentDataPoint, terminalId, granularDataForHour, isLoadingGranularData }) => {

@@ -25,8 +25,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion components
-import HourlyDetailPopover from "./HourlyDetailPopover"; // Import the new HourlyDetailPopover
-import DepartureDetailPopover from "./DepartureDetailPopover"; // Import the new DepartureDetailPopover
+import HourlyDetailPopover from "./HourlyDetailPopover";
+import DepartureDetailPopover from "./DepartureDetailPopover";
+import ProjectedHourlyPopover from "./ProjectedHourlyPopover";
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -374,6 +375,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
             </p>
+            <div className="mb-4">
+              <ProjectedHourlyPopover
+                granularDataForCurrentHour={hourlyGranularSecurityData.get(new Date().getHours()) || []}
+                currentTime={currentTime}
+              />
+            </div>
 
             <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>
