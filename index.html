@@ -6,6 +6,36 @@
       The semaphore queue buffers ketch() API calls until boot.js is ready.
     -->
     <script>
+      (function() {
+        var origLog = console.log;
+        console.log = function() {
+          var msg = arguments[0];
+          if (typeof msg === 'string' && (
+            msg.indexOf('[Ketch]') === 0 ||
+            msg.indexOf('showConsentExperience') === 0 ||
+            msg.indexOf('App.tsx') === 0 ||
+            msg.indexOf('useFireExperienceEvents') === 0 ||
+            msg === 'fullConfig = ' ||
+            msg === 'payload = ' ||
+            msg === 'consents = ' ||
+            msg === 'showConsentOptions = ' ||
+            msg === 'purposeTCFInfo = ' ||
+            msg === 'options = ' ||
+            msg === 'theme = ' ||
+            msg === 'appStateProviderPayload = ' ||
+            msg === 'showPreferenceOptions = ' ||
+            msg === 'mutableConfig = ' ||
+            msg === 'error = ' ||
+            msg === 'isThemeMapMounted = ' ||
+            msg === 'experience = ' ||
+            msg === 'store = ' ||
+            msg === 'host = '
+          )) return;
+          origLog.apply(console, arguments);
+        };
+      })();
+    </script>
+    <script>
       !function(){
         window.semaphore=window.semaphore||[];
         window.ketch=function(){window.semaphore.push(arguments)};
@@ -16,15 +46,6 @@
         e.onerror=function(){console.error('[Ketch] boot.js failed to load')};
         document.getElementsByTagName("head")[0].appendChild(e);
       }();
-
-      // Debug: log all Ketch lifecycle events so we can see what's happening
-      window.ketch('on', 'consent', function(c){ console.log('[Ketch] consent event:', c); });
-      window.ketch('on', 'environment', function(e){ console.log('[Ketch] environment:', e); });
-      window.ketch('on', 'regionInfo', function(r){ console.log('[Ketch] regionInfo:', r); });
-      window.ketch('on', 'jurisdiction', function(j){ console.log('[Ketch] jurisdiction:', j); });
-      window.ketch('on', 'identities', function(i){ console.log('[Ketch] identities:', i); });
-      window.ketch('on', 'willShowExperience', function(x){ console.log('[Ketch] willShowExperience:', x); });
-      window.ketch('on', 'hideExperience', function(x){ console.log('[Ketch] hideExperience:', x); });
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
