@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { apiClient } from "@/integrations/api/client";
 import { cn } from "@/lib/utils";
-import { Shield, Zap, Globe, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Shield, Zap, Globe, Clock, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 type FacilityStatus = "open" | "closed" | "opening-soon" | "closing-soon";
 
@@ -211,7 +211,8 @@ function getIcon(type: string) {
 
 const SecurityOpeningHours: React.FC = () => {
   const [irishTime, setIrishTime] = useState<Date | null>(null);
-  const [lastDepartures, setLastDepartures] = useState<Record<string, string>>({});
+  const [lastDepartures, setLastDepartures] = useState<Record<string, string> | null>(null);
+  const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
   const offsetRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -240,8 +241,7 @@ const SecurityOpeningHours: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    syncTime();
-    fetchLastDepartures();
+    Promise.all([syncTime(), fetchLastDepartures()]).then(() => setLoading(false));
 
     const syncInterval = setInterval(syncTime, 5 * 60 * 1000);
     const depInterval = setInterval(fetchLastDepartures, 15 * 60 * 1000);
@@ -259,20 +259,30 @@ const SecurityOpeningHours: React.FC = () => {
     };
   }, [syncTime, fetchLastDepartures]);
 
-  if (!irishTime) return null;
+  if (loading || !irishTime || lastDepartures === null) {
+    return (
+      <div className="w-full max-w-5xl mb-6">
+        <div className="w-full flex items-center justify-center px-4 py-3 rounded-lg border border-border bg-card">
+          <Loader2 className="h-4 w-4 animate-spin mr-2 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Loading facility hours...</span>
+        </div>
+      </div>
+    );
+  }
 
   function resolveCloseTime(def: FacilityDefinition): { resolvedClose: string; displayClose: string } {
     if (def.closeTime !== "last-flight") {
       return { resolvedClose: def.closeTime, displayClose: def.closeTime };
     }
     const terminalKey = `T${def.terminal}`;
-    const lastDepIso = lastDepartures[terminalKey];
+    const lastDepIso = lastDepartures![terminalKey];
     if (lastDepIso) {
       const lastDep = new Date(lastDepIso);
       const hh = String(lastDep.getHours()).padStart(2, "0");
       const mm = String(lastDep.getMinutes()).padStart(2, "0");
       return { resolvedClose: `${hh}:${mm}`, displayClose: `${hh}:${mm} (last flight)` };
     }
+    return { resolvedClose: "23:59", displayClose: "No flights found" };
   }
 
   const facilities: Facility[] = FACILITY_DEFINITIONS.map((def) => {
