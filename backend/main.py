@@ -794,6 +794,136 @@ def get_irish_time():
     return jsonify({"time": now.strftime('%Y-%m-%dT%H:%M:%S.') + f"{now.microsecond // 1000:03d}" + now.strftime('%z')[:3] + ':' + now.strftime('%z')[3:]})
 
 
+OPENING_SOON_MINUTES = 30
+CLOSING_SOON_MINUTES = 30
+
+FACILITY_DEFINITIONS = [
+    {"name": "Security", "terminal": 1, "openTime": "03:00", "closeTime": "last-flight", "iconType": "shield"},
+    {"name": "Fast Track Security", "terminal": 1, "openTime": "04:00", "closeTime": "21:00", "iconType": "zap"},
+    {"name": "Security", "terminal": 2, "openTime": "03:30", "closeTime": "last-flight", "iconType": "shield"},
+    {"name": "Fast Track Security", "terminal": 2, "openTime": "04:00", "closeTime": "18:00", "iconType": "zap"},
+    {"name": "US Preclearance", "terminal": 2, "openTime": "07:00", "closeTime": "16:30", "iconType": "globe"},
+]
+
+
+def _parse_hhmm(hhmm: str):
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _format_duration(total_minutes: int) -> str:
+    if total_minutes < 1:
+        return "less than a minute"
+    h = total_minutes // 60
+    m = total_minutes % 60
+    if h == 0:
+        return f"{m}m"
+    if m == 0:
+        return f"{h}h"
+    return f"{h}h {m}m"
+
+
+def _compute_status(now_mins: int, open_time: str, close_time: str):
+    open_mins = _parse_hhmm(open_time)
+    close_mins = _parse_hhmm(close_time)
+
+    if now_mins < open_mins:
+        mins_until_open = open_mins - now_mins
+        if mins_until_open <= OPENING_SOON_MINUTES:
+            return {"status": "opening-soon", "opensIn": _format_duration(mins_until_open)}
+        return {"status": "closed", "opensIn": _format_duration(mins_until_open)}
+
+    if open_mins <= now_mins < close_mins:
+        mins_until_close = close_mins - now_mins
+        if mins_until_close <= CLOSING_SOON_MINUTES:
+            return {"status": "closing-soon", "closesIn": _format_duration(mins_until_close)}
+        return {"status": "open"}
+
+    return {"status": "closed"}
+
+
+def _resolve_last_departures():
+    try:
+        now_dublin = datetime.now(DUBLIN_TZ)
+        today_start = now_dublin.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_start = today_start + timedelta(days=1)
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT terminal_name,
+                           MAX(scheduled_datetime) as last_departure
+                    FROM departures
+                    WHERE scheduled_datetime >= %s
+                      AND scheduled_datetime < %s
+                    GROUP BY terminal_name
+                    ORDER BY terminal_name
+                """, (today_start, tomorrow_start))
+                results = cur.fetchall()
+                last_deps = {}
+                for row in results:
+                    terminal = row['terminal_name']
+                    last_dep = row['last_departure']
+                    if last_dep:
+                        if last_dep.tzinfo is None:
+                            last_dep = last_dep.replace(tzinfo=timezone.utc)
+                        last_deps[terminal] = last_dep.astimezone(DUBLIN_TZ)
+                return last_deps
+    except Exception:
+        return {}
+
+
+@app.route('/api/facility-hours', methods=['GET'])
+def get_facility_hours():
+    try:
+        now_dublin = datetime.now(DUBLIN_TZ)
+        now_mins = now_dublin.hour * 60 + now_dublin.minute
+        last_deps = _resolve_last_departures()
+
+        facilities = []
+        for defn in FACILITY_DEFINITIONS:
+            close_time = defn["closeTime"]
+            close_display = close_time
+
+            if close_time == "last-flight":
+                terminal_key = f"T{defn['terminal']}"
+                last_dep_dt = last_deps.get(terminal_key)
+                if last_dep_dt:
+                    hh = f"{last_dep_dt.hour:02d}"
+                    mm = f"{last_dep_dt.minute:02d}"
+                    close_time = f"{hh}:{mm}"
+                    close_display = f"{hh}:{mm} (last flight)"
+                else:
+                    close_time = "23:59"
+                    close_display = "No flights found"
+
+            status_info = _compute_status(now_mins, defn["openTime"], close_time)
+
+            facilities.append({
+                "name": defn["name"],
+                "terminal": defn["terminal"],
+                "openTime": defn["openTime"],
+                "closeTime": defn["closeTime"],
+                "closeDisplayText": close_display,
+                "iconType": defn["iconType"],
+                "status": status_info["status"],
+                "opensIn": status_info.get("opensIn"),
+                "closesIn": status_info.get("closesIn"),
+            })
+
+        irish_time_iso = now_dublin.strftime('%Y-%m-%dT%H:%M:%S.') + \
+            f"{now_dublin.microsecond // 1000:03d}" + \
+            now_dublin.strftime('%z')[:3] + ':' + now_dublin.strftime('%z')[3:]
+
+        return jsonify({
+            "facilities": facilities,
+            "irishTime": irish_time_iso,
+        })
+    except Exception as e:
+        logging.error(f"Error fetching facility hours: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/last-departures', methods=['GET'])
 def get_last_departures():
     try:

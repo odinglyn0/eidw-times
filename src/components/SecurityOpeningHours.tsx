@@ -8,65 +8,14 @@ type FacilityStatus = "open" | "closed" | "opening-soon" | "closing-soon";
 
 interface Facility {
   name: string;
-  icon: React.ReactNode;
   terminal: 1 | 2;
   openTime: string;
   closeTime: string;
   closeDisplayText: string;
+  iconType: string;
   status: FacilityStatus;
-  opensIn?: string;
-  closesIn?: string;
-}
-
-const OPENING_SOON_MINUTES = 30;
-const CLOSING_SOON_MINUTES = 30;
-
-function parseHHMM(hhmm: string): { hours: number; minutes: number } {
-  const [h, m] = hhmm.split(":").map(Number);
-  return { hours: h, minutes: m };
-}
-
-function getMinutesSinceMidnight(date: Date): number {
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-function formatDuration(totalMinutes: number): string {
-  if (totalMinutes < 1) return "less than a minute";
-  const h = Math.floor(totalMinutes / 60);
-  const m = Math.round(totalMinutes % 60);
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-function computeStatus(
-  now: Date,
-  openTime: string,
-  closeTime: string,
-): { status: FacilityStatus; opensIn?: string; closesIn?: string } {
-  const nowMins = getMinutesSinceMidnight(now);
-  const open = parseHHMM(openTime);
-  const openMins = open.hours * 60 + open.minutes;
-  const close = parseHHMM(closeTime);
-  const closeMins = close.hours * 60 + close.minutes;
-
-  if (nowMins < openMins) {
-    const minsUntilOpen = openMins - nowMins;
-    if (minsUntilOpen <= OPENING_SOON_MINUTES) {
-      return { status: "opening-soon", opensIn: formatDuration(minsUntilOpen) };
-    }
-    return { status: "closed", opensIn: formatDuration(minsUntilOpen) };
-  }
-
-  if (nowMins >= openMins && nowMins < closeMins) {
-    const minsUntilClose = closeMins - nowMins;
-    if (minsUntilClose <= CLOSING_SOON_MINUTES) {
-      return { status: "closing-soon", closesIn: formatDuration(minsUntilClose) };
-    }
-    return { status: "open" };
-  }
-
-  return { status: "closed" };
+  opensIn?: string | null;
+  closesIn?: string | null;
 }
 
 const statusConfig: Record<FacilityStatus, {
@@ -131,6 +80,15 @@ const StatusDot: React.FC<{ status: FacilityStatus }> = ({ status }) => {
   );
 };
 
+function getIcon(type: string) {
+  switch (type) {
+    case "shield": return <Shield className="h-4 w-4" />;
+    case "zap": return <Zap className="h-4 w-4" />;
+    case "globe": return <Globe className="h-4 w-4" />;
+    default: return <Shield className="h-4 w-4" />;
+  }
+}
+
 const FacilityRow: React.FC<{ facility: Facility }> = ({ facility }) => {
   const config = statusConfig[facility.status];
 
@@ -143,7 +101,7 @@ const FacilityRow: React.FC<{ facility: Facility }> = ({ facility }) => {
       )}
     >
       <div className="flex-shrink-0 text-gray-300">
-        {facility.icon}
+        {getIcon(facility.iconType)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -185,82 +143,37 @@ const FacilityRow: React.FC<{ facility: Facility }> = ({ facility }) => {
   );
 };
 
-interface FacilityDefinition {
-  name: string;
-  terminal: 1 | 2;
-  openTime: string;
-  closeTime: string | "last-flight";
-  iconType: string;
-}
-
-const FACILITY_DEFINITIONS: FacilityDefinition[] = [
-  { name: "Security", terminal: 1, openTime: "03:00", closeTime: "last-flight", iconType: "shield" },
-  { name: "Fast Track Security", terminal: 1, openTime: "04:00", closeTime: "21:00", iconType: "zap" },
-  { name: "Security", terminal: 2, openTime: "03:30", closeTime: "last-flight", iconType: "shield" },
-  { name: "Fast Track Security", terminal: 2, openTime: "04:00", closeTime: "18:00", iconType: "zap" },
-  { name: "US Preclearance", terminal: 2, openTime: "07:00", closeTime: "16:30", iconType: "globe" },
-];
-
-function getIcon(type: string) {
-  switch (type) {
-    case "shield": return <Shield className="h-4 w-4" />;
-    case "zap": return <Zap className="h-4 w-4" />;
-    case "globe": return <Globe className="h-4 w-4" />;
-    default: return <Shield className="h-4 w-4" />;
-  }
-}
-
 const SecurityOpeningHours: React.FC = () => {
+  const [facilities, setFacilities] = useState<Facility[]>([]);
   const [irishTime, setIrishTime] = useState<Date | null>(null);
-  const [lastDepartures, setLastDepartures] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
-  const offsetRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const syncTime = useCallback(async () => {
+  const fetchFacilityHours = useCallback(async () => {
     try {
-      const before = Date.now();
-      const data = await apiClient.getIrishTime();
-      const after = Date.now();
-      const latency = (after - before) / 2;
-      const serverTime = new Date(data.time).getTime() + latency;
-      offsetRef.current = serverTime - Date.now();
-      setIrishTime(new Date(Date.now() + offsetRef.current));
-    } catch {
+      const data = await apiClient.getFacilityHours();
+      setFacilities(data.facilities);
+      setIrishTime(new Date(data.irishTime));
+    } catch (err) {
+      console.error("Error fetching facility hours:", err);
+      setFacilities([]);
       setIrishTime(new Date());
-    }
-  }, []);
-
-  const fetchLastDepartures = useCallback(async () => {
-    try {
-      const data = await apiClient.getLastDepartures();
-      setLastDepartures(data);
-    } catch {
-      setLastDepartures({});
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    Promise.all([syncTime(), fetchLastDepartures()]).then(() => setLoading(false));
-
-    const syncInterval = setInterval(syncTime, 5 * 60 * 1000);
-    const depInterval = setInterval(fetchLastDepartures, 15 * 60 * 1000);
-
-    intervalRef.current = setInterval(() => {
-      if (offsetRef.current !== null) {
-        setIrishTime(new Date(Date.now() + offsetRef.current));
-      }
-    }, 30_000);
+    fetchFacilityHours();
+    intervalRef.current = setInterval(fetchFacilityHours, 60_000);
 
     return () => {
-      clearInterval(syncInterval);
-      clearInterval(depInterval);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [syncTime, fetchLastDepartures]);
+  }, [fetchFacilityHours]);
 
-  if (loading || !irishTime || lastDepartures === null) {
+  if (loading || !irishTime) {
     return (
       <div className="w-full max-w-5xl mb-8">
         <Card className="w-full border-2 rounded-lg shadow-lg border-border">
@@ -274,37 +187,6 @@ const SecurityOpeningHours: React.FC = () => {
       </div>
     );
   }
-
-  function resolveCloseTime(def: FacilityDefinition): { resolvedClose: string; displayClose: string } {
-    if (def.closeTime !== "last-flight") {
-      return { resolvedClose: def.closeTime, displayClose: def.closeTime };
-    }
-    const terminalKey = `T${def.terminal}`;
-    const lastDepIso = lastDepartures![terminalKey];
-    if (lastDepIso) {
-      const lastDep = new Date(lastDepIso);
-      const hh = String(lastDep.getHours()).padStart(2, "0");
-      const mm = String(lastDep.getMinutes()).padStart(2, "0");
-      return { resolvedClose: `${hh}:${mm}`, displayClose: `${hh}:${mm} (last flight)` };
-    }
-    return { resolvedClose: "23:59", displayClose: "No flights found" };
-  }
-
-  const facilities: Facility[] = FACILITY_DEFINITIONS.map((def) => {
-    const { resolvedClose, displayClose } = resolveCloseTime(def);
-    const { status, opensIn, closesIn } = computeStatus(irishTime, def.openTime, resolvedClose);
-    return {
-      name: def.name,
-      icon: getIcon(def.iconType),
-      terminal: def.terminal,
-      openTime: def.openTime,
-      closeTime: def.closeTime,
-      closeDisplayText: displayClose,
-      status,
-      opensIn,
-      closesIn,
-    };
-  });
 
   const t1Facilities = facilities.filter((f) => f.terminal === 1);
   const t2Facilities = facilities.filter((f) => f.terminal === 2);
@@ -320,7 +202,6 @@ const SecurityOpeningHours: React.FC = () => {
 
   const summaryStatus: FacilityStatus = allOpen ? "open" : allClosed ? "closed" : "opening-soon";
 
-  // Compute averaged border/header color based on ratio of open facilities
   const openRatio = facilities.length > 0 ? openCount / facilities.length : 0;
   const averagedBorderColor = openRatio >= 0.6
     ? "border-emerald-600/50"

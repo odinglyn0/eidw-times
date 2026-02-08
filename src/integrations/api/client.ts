@@ -83,6 +83,12 @@ export const apiClient = {
     return response.json();
   },
 
+  async getFacilityHours() {
+    const response = await fetch(`${API_BASE_URL}/api/facility-hours`);
+    if (!response.ok) throw new Error('Failed to fetch facility hours');
+    return response.json();
+  },
+
   async getRangeDepartureData(terminalId: string, start: string, end: string) {
     const response = await fetch(`${API_BASE_URL}/api/range-departure-data`, {
       method: 'POST',
