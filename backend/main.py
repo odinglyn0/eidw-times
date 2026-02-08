@@ -178,17 +178,41 @@ def get_hourly_interval_departure_data():
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
+                # Get all departure times for this terminal in the last 3 days
                 cur.execute("""
-                    SELECT 
-                        scheduled_datetime as timestamp,
-                        1 as count
+                    SELECT scheduled_datetime
                     FROM departures 
                     WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '3 days'
                     ORDER BY scheduled_datetime ASC
                 """, (terminal_name,))
                 
-                results = cur.fetchall()
-                return jsonify([dict(row) for row in results])
+                departures = cur.fetchall()
+                
+                # Build minute-by-minute data: for each hour that has departures,
+                # generate 60 minute slots. Count = number of flights within ±5 min of that slot.
+                from collections import defaultdict
+                
+                # Group departure times by hour bucket
+                dep_times = [row['scheduled_datetime'] for row in departures]
+                hours_with_deps = set()
+                for dt in dep_times:
+                    hours_with_deps.add(dt.replace(minute=0, second=0, microsecond=0))
+                
+                results = []
+                for hour_start in sorted(hours_with_deps):
+                    for minute in range(60):
+                        minute_ts = hour_start + timedelta(minutes=minute)
+                        count = 0
+                        for dep_dt in dep_times:
+                            diff = abs((dep_dt - minute_ts).total_seconds())
+                            if diff <= 300:  # 5 minutes = 300 seconds
+                                count += 1
+                        results.append({
+                            'timestamp': minute_ts,
+                            'count': count
+                        })
+                
+                return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": str(e)}), 500
