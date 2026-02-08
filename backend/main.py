@@ -162,24 +162,31 @@ def bouncetoken_checkbox_verify():
         data = request.get_json()
         recaptcha_token = data.get("recaptchaToken")
         fingerprint = data.get("fingerprint")
+        client_ip = _get_client_ip()
+        country = _get_client_country()
+
+        logging.info(f"[BOUNCE-CHECKBOX] Request from ip={client_ip} country={country} fp={fingerprint[:12] if fingerprint else 'None'}... token_present={bool(recaptcha_token)}")
 
         if not recaptcha_token or not fingerprint:
+            logging.warning(f"[BOUNCE-CHECKBOX] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}")
             return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
 
         try:
             valid, score = _verify_recaptcha_enterprise(recaptcha_token)
+            logging.info(f"[BOUNCE-CHECKBOX] Assessment result: valid={valid} score={score}")
         except Exception as e:
-            logging.error(f"reCAPTCHA checkbox assessment failed: {e}")
+            logging.error(f"[BOUNCE-CHECKBOX] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
             return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
 
         if not valid:
+            logging.warning(f"[BOUNCE-CHECKBOX] Token not valid -> FAILURE | ip={client_ip}")
             return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
 
-        client_ip = _get_client_ip()
-        token = _mint_bounce_token(client_ip, fingerprint, _get_client_country())
+        token = _mint_bounce_token(client_ip, fingerprint, country)
+        logging.info(f"[BOUNCE-CHECKBOX] GRANTED | ip={client_ip} score={score}")
         return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
     except Exception as e:
-        logging.error(f"Error in bouncetoken checkbox verify: {e}")
+        logging.error(f"[BOUNCE-CHECKBOX] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
