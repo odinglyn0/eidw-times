@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
-import { Shield, Loader2 } from "lucide-react";
+import Logo from "@/assets/intakeLogo.png";
 
 const COOKIE_NAME = "elasticBounceTokenScreen";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
@@ -150,27 +150,28 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       justifyContent: "center",
       zIndex: 99999,
       fontFamily: "system-ui, -apple-system, sans-serif",
-      gap: "1.25rem",
+      gap: "1.5rem",
     }}>
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.75rem",
-      }}>
-        <Shield size={28} color="#4ade80" />
-        <span style={{ color: "#e2e8f0", fontSize: "1.125rem", fontWeight: 600 }}>
-          EIDW Times
-        </span>
+      <img src={Logo} alt="EIDW Times" style={{ height: 140, marginBottom: "2rem" }} />
+      <div className="sk-spinner">
+        <div className="sk-rect1" />
+        <div className="sk-rect2" />
+        <div className="sk-rect3" />
+        <div className="sk-rect4" />
+        <div className="sk-rect5" />
       </div>
-      <Loader2
-        size={32}
-        color="#4ade80"
-        style={{ animation: "spin 1s linear infinite" }}
-      />
       <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
-        Running integrity checks...
+        Verifying you are not an evil hacker
       </p>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        .sk-spinner{margin:0 auto;width:50px;height:40px;text-align:center;font-size:10px}
+        .sk-spinner>div{background-color:#fff;height:100%;width:6px;display:inline-block;animation:sk-stretchdelay 1.2s infinite ease-in-out}
+        .sk-rect2{animation-delay:-1.1s!important}
+        .sk-rect3{animation-delay:-1.0s!important}
+        .sk-rect4{animation-delay:-0.9s!important}
+        .sk-rect5{animation-delay:-0.8s!important}
+        @keyframes sk-stretchdelay{0%,40%,100%{transform:scaleY(0.4)}20%{transform:scaleY(1.0)}}
+      `}</style>
     </div>
   );
 };
