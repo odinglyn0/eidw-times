@@ -127,5 +127,53 @@ export const apiClient = {
     });
     if (!response.ok) throw new Error('Failed to fetch range departure data');
     return response.json();
+  },
+
+  async getRecommendation() {
+    const response = await fetch(`${API_BASE_URL}/api/recommendation`);
+    if (!response.ok) throw new Error('Failed to fetch recommendation');
+    return response.json();
+  },
+
+  async getProcessedSecurityData(terminalId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/processed-security-data?terminalId=${terminalId}`);
+    if (!response.ok) throw new Error('Failed to fetch processed security data');
+    return response.json();
+  },
+
+  async getProcessedDepartureData(terminalId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/processed-departure-data?terminalId=${terminalId}`);
+    if (!response.ok) throw new Error('Failed to fetch processed departure data');
+    return response.json();
+  },
+
+  async getChartData(terminalId: number, start: string, end: string, granularity: number) {
+    const response = await fetch(`${API_BASE_URL}/api/chart-data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, start, end, granularity })
+    });
+    if (!response.ok) throw new Error('Failed to fetch chart data');
+    return response.json();
+  },
+
+  async getHourlyDetailStats(terminalId: number, currentTimestamp: string, prevTimestamp?: string, nextTimestamp?: string) {
+    const response = await fetch(`${API_BASE_URL}/api/hourly-detail-stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, currentTimestamp, prevTimestamp, nextTimestamp })
+    });
+    if (!response.ok) throw new Error('Failed to fetch hourly detail stats');
+    return response.json();
+  },
+
+  async getProjectedHourlyStats(terminalId: number, numSims: number = 500) {
+    const response = await fetch(`${API_BASE_URL}/api/projected-hourly-stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ terminalId, numSims })
+    });
+    if (!response.ok) throw new Error('Failed to fetch projected hourly stats');
+    return response.json();
   }
 };

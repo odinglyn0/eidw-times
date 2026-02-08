@@ -9,29 +9,22 @@ import PhoneNotch from "@/components/PhoneNotch";
 import BottomNotch from "@/components/BottomNotch";
 import SettingsPageLink from "@/components/SettingsPageLink";
 import { getAutoPollEnabled, getAutoPollInterval, getShowRecommendation } from '@/lib/cookies';
-import { trackEvent } from '@/utils/analytics';
 import AnnouncementBanner from "@/components/AnnouncementBanner";
-import { MessageSquarePlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import LaserPulseBorder from "@/components/LaserPulseBorder";
 
-interface HourlySecurityData {
-  hour: number;
+interface RecommendationData {
   t1: number | null;
   t2: number | null;
-}
-
-interface DailySecurityData {
-  date: string;
-  hourlyData: HourlySecurityData[];
+  lastUpdated: string | null;
+  recommended: { id: number | "either"; time: number } | null;
+  timeDifferenceMessage: string | null;
+  additionalTip: string;
+  globalMaxSecurityTime: number;
 }
 
 const Index = () => {
-  const [t1CurrentTime, setT1CurrentTime] = useState<number | null>(null);
-  const [t2CurrentTime, setT2CurrentTime] = useState<number | null>(null);
-  const [recommendationLastUpdated, setRecommendationLastUpdated] = useState<string | null>(null);
+  const [recData, setRecData] = useState<RecommendationData | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(true);
-  const [globalMaxSecurityTime, setGlobalMaxSecurityTime] = useState<number | null>(null);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const autoRefreshIntervalId = useRef<number | null>(null);
   const [showRecommendation, setShowRecommendation] = useState(true);
@@ -43,47 +36,21 @@ const Index = () => {
   const fetchRecommendationData = useCallback(async () => {
     setLoadingRecommendation(true);
     try {
-      const currentSecurityData = await apiClient.getCurrentSecurityData();
-      setT1CurrentTime(currentSecurityData.t1);
-      setT2CurrentTime(currentSecurityData.t2);
-      setRecommendationLastUpdated(currentSecurityData.last_updated);
-      
+      const data = await apiClient.getRecommendation();
+      setRecData(data);
     } catch (err) {
-      console.error("Unexpected error fetching recommendation data:", err);
-      setT1CurrentTime(null);
-      setT2CurrentTime(null);
-      setRecommendationLastUpdated(null);
+      console.error("Error fetching recommendation:", err);
+      setRecData(null);
     } finally {
       setLoadingRecommendation(false);
     }
   }, []);
 
-  const fetchGlobalSecurityData = useCallback(async () => {
-    try {
-      const allHistoricalData = await apiClient.getSecurityData();
-      let maxOverallTime = 0;
-      allHistoricalData.forEach(dayData => {
-        dayData.hourlyData.forEach(hourData => {
-          if (hourData.t1 !== null) maxOverallTime = Math.max(maxOverallTime, hourData.t1);
-          if (hourData.t2 !== null) maxOverallTime = Math.max(maxOverallTime, hourData.t2);
-        });
-      });
-      setGlobalMaxSecurityTime(maxOverallTime);
-
-    } catch (error) {
-      console.error("Error fetching global security data:", error);
-      setGlobalMaxSecurityTime(null);
-    }
-  }, []);
-
   const refreshAllData = useCallback(async () => {
     setIsAutoRefreshing(true);
-    await Promise.all([
-      fetchRecommendationData(),
-      fetchGlobalSecurityData(),
-    ]);
+    await fetchRecommendationData();
     setIsAutoRefreshing(false);
-  }, [fetchRecommendationData, fetchGlobalSecurityData]);
+  }, [fetchRecommendationData]);
 
   useEffect(() => {
     refreshAllData();
@@ -92,10 +59,8 @@ const Index = () => {
       if (autoRefreshIntervalId.current) {
         clearInterval(autoRefreshIntervalId.current);
       }
-
       const enabled = getAutoPollEnabled();
       const interval = getAutoPollInterval();
-
       if (enabled && interval > 0) {
         autoRefreshIntervalId.current = setInterval(() => {
           refreshAllData();
@@ -105,68 +70,22 @@ const Index = () => {
 
     setupAutoRefresh();
 
-    const handleStorageChange = () => {
-      setupAutoRefresh();
-    };
+    const handleStorageChange = () => { setupAutoRefresh(); };
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
-      if (autoRefreshIntervalId.current) {
-        clearInterval(autoRefreshIntervalId.current);
-      }
+      if (autoRefreshIntervalId.current) clearInterval(autoRefreshIntervalId.current);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [refreshAllData]);
 
-  const recommendedTerminal = (() => {
-    if (t1CurrentTime === null && t2CurrentTime === null) {
-      return null;
-    }
-    if (t1CurrentTime !== null && t2CurrentTime === null) {
-      return { id: 1, time: t1CurrentTime };
-    }
-    if (t1CurrentTime === null && t2CurrentTime !== null) {
-      return { id: 2, time: t2CurrentTime };
-    }
-    if (t1CurrentTime !== null && t2CurrentTime !== null) {
-      if (t1CurrentTime < t2CurrentTime) {
-        return { id: 1, time: t1CurrentTime };
-      } else if (t2CurrentTime < t1CurrentTime) {
-        return { id: 2, time: t2CurrentTime };
-      } else {
-        return { id: "either", time: t1CurrentTime };
-      }
-    }
-    return null;
-  })();
-
-  const timeSinceRecommendationUpdate = recommendationLastUpdated
-    ? differenceInMinutes(new Date(), new Date(parseISO(recommendationLastUpdated)))
+  const timeSinceRecommendationUpdate = recData?.lastUpdated
+    ? differenceInMinutes(new Date(), new Date(parseISO(recData.lastUpdated)))
     : null;
-
-  const timeDifferenceMessage = (() => {
-    if (t1CurrentTime !== null && t2CurrentTime !== null && recommendedTerminal && recommendedTerminal.id !== "either") {
-      const diff = Math.abs(t1CurrentTime - t2CurrentTime);
-      if (diff > 0 && diff < 3) {
-        return `But it doesn't really matter because it's only a ~${diff} min difference`;
-      }
-    }
-    return null;
-  })();
-
-  let additionalTip = "";
-  if (recommendedTerminal) {
-    if (recommendedTerminal.id === 1 || recommendedTerminal.id === "either") {
-      additionalTip = "and T1 has the best shops!";
-    } else if (recommendedTerminal.id === 2) {
-      additionalTip = "and T2 is usually less chaotic!";
-    }
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
       <PhoneNotch />
-      
       <SettingsPageLink />
       <AnnouncementBanner />
 
@@ -189,28 +108,28 @@ const Index = () => {
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             <p>Loading recommendation...</p>
           </div>
-        ) : recommendedTerminal ? (
+        ) : recData?.recommended ? (
           <>
             <p className="text-lg font-semibold mb-2">
               We recommend using{" "}
               <span className="font-bold text-blue-900 dark:text-blue-100">
-                {recommendedTerminal.id === "either"
+                {recData.recommended.id === "either"
                   ? "either Terminal"
-                  : `Terminal ${recommendedTerminal.id}`}
+                  : `Terminal ${recData.recommended.id}`}
               </span>{" "}
               as it is currently the quickest (
               <span className="font-bold text-blue-900 dark:text-blue-100">
-                {recommendedTerminal.time} minutes
+                {recData.recommended.time} minutes
               </span>
               ).
             </p>
-            {timeDifferenceMessage && (
+            {recData.timeDifferenceMessage && (
               <p className="text-base font-normal text-blue-700 dark:text-blue-300 mt-2">
-                {timeDifferenceMessage}
+                {recData.timeDifferenceMessage}
               </p>
             )}
             <p className="text-sm">
-              You can easily proceed to your preferred terminal after clearing security, {additionalTip}
+              You can easily proceed to your preferred terminal after clearing security, {recData.additionalTip}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               Recommendation last updated{" "}
@@ -241,24 +160,23 @@ const Index = () => {
       )}
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16">
-        <TerminalSecurityCard 
-          terminalId={1} 
-          globalMaxTime={globalMaxSecurityTime} 
-          isAutoRefreshing={isAutoRefreshing} 
-          t1CurrentTime={t1CurrentTime}
-          t2CurrentTime={t2CurrentTime}
+        <TerminalSecurityCard
+          terminalId={1}
+          globalMaxTime={recData?.globalMaxSecurityTime ?? null}
+          isAutoRefreshing={isAutoRefreshing}
+          t1CurrentTime={recData?.t1 ?? null}
+          t2CurrentTime={recData?.t2 ?? null}
         />
-        <TerminalSecurityCard 
-          terminalId={2} 
-          globalMaxTime={globalMaxSecurityTime} 
-          isAutoRefreshing={isAutoRefreshing} 
-          t1CurrentTime={t1CurrentTime}
-          t2CurrentTime={t2CurrentTime}
+        <TerminalSecurityCard
+          terminalId={2}
+          globalMaxTime={recData?.globalMaxSecurityTime ?? null}
+          isAutoRefreshing={isAutoRefreshing}
+          t1CurrentTime={recData?.t1 ?? null}
+          t2CurrentTime={recData?.t2 ?? null}
         />
       </div>
 
       <SecurityOpeningHours />
-
       <BottomNotch />
     </div>
   );

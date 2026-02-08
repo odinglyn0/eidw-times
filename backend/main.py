@@ -876,6 +876,515 @@ def get_last_departures():
         return jsonify({"error": str(e)}), 500
 
 
+def _color_class_for_value(value):
+    if value is None:
+        return "bg-gray-200"
+    if value == 0:
+        return "bg-departure-green-dark"
+    if value == 1:
+        return "bg-departure-green-light"
+    if 2 <= value <= 3:
+        return "bg-departure-yellow"
+    if 4 <= value <= 5:
+        return "bg-departure-orange-yellow"
+    if 6 <= value <= 10:
+        return "bg-departure-orange"
+    if 11 <= value <= 20:
+        return "bg-departure-red-light"
+    if 21 <= value <= 40:
+        return "bg-departure-red"
+    if 41 <= value <= 60:
+        return "bg-departure-red-deep"
+    return "bg-black"
+
+
+@app.route('/api/recommendation', methods=['GET'])
+def get_recommendation():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1")
+                current = cur.fetchone()
+
+        if not current:
+            return jsonify({"error": "No data"}), 404
+
+        t1 = current.get('t1')
+        t2 = current.get('t2')
+        last_updated = current.get('last_updated')
+        if last_updated and hasattr(last_updated, 'isoformat'):
+            if last_updated.tzinfo is None:
+                last_updated = last_updated.replace(tzinfo=timezone.utc)
+            last_updated = last_updated.isoformat()
+
+        rec = None
+        if t1 is not None and t2 is not None:
+            if t1 < t2:
+                rec = {"id": 1, "time": t1}
+            elif t2 < t1:
+                rec = {"id": 2, "time": t2}
+            else:
+                rec = {"id": "either", "time": t1}
+        elif t1 is not None:
+            rec = {"id": 1, "time": t1}
+        elif t2 is not None:
+            rec = {"id": 2, "time": t2}
+
+        time_diff_msg = None
+        if t1 is not None and t2 is not None and rec and rec["id"] != "either":
+            diff = abs(t1 - t2)
+            if 0 < diff < 3:
+                time_diff_msg = f"But it doesn't really matter because it's only a ~{diff} min difference"
+
+        tip = ""
+        if rec:
+            if rec["id"] == 1 or rec["id"] == "either":
+                tip = "and T1 has the best shops!"
+            elif rec["id"] == 2:
+                tip = "and T2 is usually less chaotic!"
+
+        seven_days_ago = datetime.now(timezone.utc) - timedelta(days=6)
+        global_max = 0
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT GREATEST(
+                        COALESCE(MAX(t1), 0),
+                        COALESCE(MAX(t2), 0)
+                    ) as max_time
+                    FROM security_times
+                    WHERE timestamp >= %s
+                """, (seven_days_ago,))
+                row = cur.fetchone()
+                if row and row['max_time']:
+                    global_max = int(row['max_time'])
+
+        return jsonify({
+            "t1": t1,
+            "t2": t2,
+            "lastUpdated": last_updated,
+            "recommended": rec,
+            "timeDifferenceMessage": time_diff_msg,
+            "additionalTip": tip,
+            "globalMaxSecurityTime": global_max,
+        })
+    except Exception as e:
+        logging.error(f"Error in recommendation: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/processed-security-data', methods=['GET'])
+def get_processed_security_data():
+    try:
+        terminal_id = request.args.get('terminalId', type=int)
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        t_key = f"t{terminal_id}"
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                seven_days_ago = datetime.now(timezone.utc) - timedelta(days=6)
+                cur.execute("""
+                    SELECT timestamp, t1, t2
+                    FROM security_times
+                    WHERE timestamp >= %s
+                    ORDER BY timestamp ASC
+                """, (seven_days_ago,))
+                data = cur.fetchall()
+
+        daily_hourly_data = {}
+        for item in data:
+            timestamp = item['timestamp']
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            local_time = timestamp.astimezone(DUBLIN_TZ)
+            date_key = local_time.strftime('%Y-%m-%d')
+            hour = local_time.hour
+            if date_key not in daily_hourly_data:
+                daily_hourly_data[date_key] = {}
+            if hour not in daily_hourly_data[date_key]:
+                daily_hourly_data[date_key][hour] = []
+            daily_hourly_data[date_key][hour].append({
+                't1': item['t1'],
+                't2': item['t2'],
+                'timestamp': local_time.isoformat(),
+            })
+
+        now_dublin = datetime.now(DUBLIN_TZ)
+        twenty_four_hours_ago = now_dublin - timedelta(hours=24)
+
+        all_data_points = []
+        granular_by_hour = {}
+
+        historical_data = []
+        for i in range(6, -1, -1):
+            d = now_dublin - timedelta(days=i)
+            date_key = d.strftime('%Y-%m-%d')
+            day_data = daily_hourly_data.get(date_key, {})
+            hourly_data = []
+            for hour in range(24):
+                records = day_data.get(hour, [])
+                valid_vals = [r[t_key] for r in records if r[t_key] is not None]
+                avg_val = round(sum(valid_vals) / len(valid_vals)) if valid_vals else None
+                latest_ts = records[-1]['timestamp'] if records else None
+                hourly_data.append({
+                    'hour': hour,
+                    't1': records[-1]['t1'] if records else None,
+                    't2': records[-1]['t2'] if records else None,
+                    'avgForTerminal': avg_val,
+                    'timestamp': latest_ts,
+                })
+
+                for record in records:
+                    ts_parsed = datetime.fromisoformat(record['timestamp'])
+                    time_val = record[t_key]
+                    if time_val is not None:
+                        if hour not in granular_by_hour:
+                            granular_by_hour[hour] = []
+                        granular_by_hour[hour].append({
+                            'timestamp': record['timestamp'],
+                            'time': time_val,
+                        })
+
+                if latest_ts and avg_val is not None:
+                    ts_parsed = datetime.fromisoformat(latest_ts)
+                    if ts_parsed >= twenty_four_hours_ago and ts_parsed <= now_dublin:
+                        all_data_points.append({
+                            'hour': hour,
+                            't1': records[-1]['t1'] if records else None,
+                            't2': records[-1]['t2'] if records else None,
+                            'timestamp': latest_ts,
+                            'colorClass': _color_class_for_value(avg_val),
+                            'displayValue': avg_val,
+                        })
+
+            historical_data.append({'date': date_key, 'hourlyData': hourly_data})
+
+        daily_averages = []
+        for day in historical_data:
+            valid_times = [h['avgForTerminal'] for h in day['hourlyData'] if h['avgForTerminal'] is not None]
+            avg = round(sum(valid_times) / len(valid_times)) if valid_times else None
+            daily_averages.append({'date': day['date'], 't1Average': avg})
+
+        all_data_points.sort(key=lambda x: x['timestamp'])
+
+        return jsonify({
+            'dailyAverages': daily_averages,
+            'last24HourData': all_data_points,
+            'granularByHour': granular_by_hour,
+        })
+    except Exception as e:
+        logging.error(f"Error in processed-security-data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/processed-departure-data', methods=['GET'])
+def get_processed_departure_data():
+    try:
+        terminal_id = request.args.get('terminalId', type=int)
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        terminal_name = f"T{terminal_id}"
+        now_dublin = datetime.now(DUBLIN_TZ)
+        three_days_ago = now_dublin - timedelta(days=3)
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT
+                        DATE_TRUNC('hour', scheduled_datetime) as departure_datetime,
+                        COUNT(*) as departure_count
+                    FROM departures
+                    WHERE terminal_name = %s AND scheduled_datetime >= %s
+                    GROUP BY DATE_TRUNC('hour', scheduled_datetime)
+                    ORDER BY departure_datetime ASC
+                """, (terminal_name, three_days_ago))
+                raw_data = cur.fetchall()
+
+        dates_to_process = []
+        for i in range(3):
+            d = now_dublin - timedelta(days=i)
+            date_key = d.strftime('%Y-%m-%d')
+            if i == 0:
+                label = "TODAY"
+            else:
+                label = d.strftime('%a, %b ') + _ordinal(d.day)
+                label = label.upper()
+            dates_to_process.append((date_key, label))
+
+        processed = []
+        for date_key, label in dates_to_process:
+            hourly_counts = [0] * 24
+            for item in raw_data:
+                dt = item['departure_datetime']
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                local_dt = dt.astimezone(DUBLIN_TZ)
+                if local_dt.strftime('%Y-%m-%d') == date_key:
+                    hourly_counts[local_dt.hour] = int(item['departure_count'])
+
+            hours = []
+            for count in hourly_counts:
+                hours.append({
+                    'value': count,
+                    'colorClass': _color_class_for_value(count),
+                })
+
+            processed.append({'date': label, 'hours': hours})
+
+        return jsonify({'days': processed})
+    except Exception as e:
+        logging.error(f"Error in processed-departure-data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+def _ordinal(n):
+    if 11 <= (n % 100) <= 13:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
+
+
+@app.route('/api/chart-data', methods=['POST'])
+def get_chart_data():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        start_iso = data.get('start')
+        end_iso = data.get('end')
+        granularity_minutes = data.get('granularity', 1)
+
+        if not terminal_id or not start_iso or not end_iso:
+            return jsonify({"error": "Missing params"}), 400
+
+        t_key = f"t{terminal_id}"
+        start_dt = datetime.fromisoformat(start_iso)
+        end_dt = datetime.fromisoformat(end_iso)
+        now = datetime.now(timezone.utc)
+        sec_fetch_end = min(end_dt, now)
+
+        sec_rows = []
+        if start_dt < sec_fetch_end:
+            sec_rows = _fetch_security_range(terminal_id, start_dt, sec_fetch_end)
+
+        dep_rows = _fetch_departures_range(terminal_id, start_dt, end_dt)
+
+        sec_points = []
+        for r in sec_rows:
+            ts = r['timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if r['sec_time'] is not None:
+                sec_points.append({'ts': ts.timestamp(), 'value': int(r['sec_time'])})
+
+        dep_by_hour = {}
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            hour_key = ts.replace(minute=0, second=0, microsecond=0)
+            dep_by_hour[hour_key] = dep_by_hour.get(hour_key, 0) + 1
+
+        dep_points = []
+        for hour_key, count in dep_by_hour.items():
+            for minute in range(60):
+                minute_ts = hour_key + timedelta(minutes=minute)
+                if start_dt <= minute_ts <= end_dt:
+                    near_count = sum(1 for r in dep_rows
+                                     if abs((r['scheduled_datetime'].replace(tzinfo=timezone.utc if r['scheduled_datetime'].tzinfo is None else r['scheduled_datetime'].tzinfo) - minute_ts).total_seconds()) <= 300)
+                    if near_count > 0:
+                        dep_points.append({'ts': minute_ts.timestamp(), 'value': near_count})
+
+        gran_secs = granularity_minutes * 60
+        cursor = start_dt
+        buckets = []
+        while cursor < end_dt:
+            bucket_end = cursor + timedelta(minutes=granularity_minutes)
+            cursor_ts = cursor.timestamp()
+            bucket_end_ts = bucket_end.timestamp()
+
+            sec_in_bucket = [p['value'] for p in sec_points if cursor_ts <= p['ts'] < bucket_end_ts]
+            dep_in_bucket = [p['value'] for p in dep_points if cursor_ts <= p['ts'] < bucket_end_ts]
+
+            sec_avg = round(sum(sec_in_bucket) / len(sec_in_bucket)) if sec_in_bucket else None
+            dep_avg = round(sum(dep_in_bucket) / len(dep_in_bucket)) if dep_in_bucket else None
+
+            is_past = cursor <= now
+            buckets.append({
+                'ts': int(cursor_ts * 1000),
+                'security': sec_avg if is_past else None,
+                'departures': dep_avg or 0,
+            })
+            cursor = bucket_end
+
+        return jsonify({'points': buckets})
+    except Exception as e:
+        logging.error(f"Error in chart-data: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/hourly-detail-stats', methods=['POST'])
+def get_hourly_detail_stats():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        current_timestamp = data.get('currentTimestamp')
+        prev_timestamp = data.get('prevTimestamp')
+        next_timestamp = data.get('nextTimestamp')
+
+        if not terminal_id or not current_timestamp:
+            return jsonify({"error": "Missing params"}), 400
+
+        t_key = f"t{terminal_id}"
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT t1, t2 FROM security_times_current WHERE id = 1")
+                current_row = cur.fetchone()
+
+        def get_avg_for_timestamp(ts_iso):
+            if not ts_iso:
+                return None
+            ts = datetime.fromisoformat(ts_iso)
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=DUBLIN_TZ)
+            hour_start = ts.replace(minute=0, second=0, microsecond=0)
+            hour_end = hour_start + timedelta(hours=1)
+            rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+            vals = [r['sec_time'] for r in rows if r['sec_time'] is not None]
+            return round(sum(vals) / len(vals)) if vals else None
+
+        current_time = get_avg_for_timestamp(current_timestamp)
+        prev_time = get_avg_for_timestamp(prev_timestamp) if prev_timestamp else None
+        next_time = get_avg_for_timestamp(next_timestamp) if next_timestamp else None
+
+        change_from_prev = None
+        if current_time is not None and prev_time is not None:
+            if prev_time == 0 and current_time == 0:
+                change_from_prev = "No change from previous point (0m)"
+            elif prev_time == 0:
+                change_from_prev = f"Increased from 0m to {current_time}m"
+            else:
+                pct = ((current_time - prev_time) / prev_time) * 100
+                direction = "Up" if pct > 0 else "Down"
+                change_from_prev = f"{direction} {abs(pct):.0f}% from previous point"
+        elif current_time is not None and prev_time is None:
+            change_from_prev = "No data for previous point"
+
+        change_to_next = None
+        if current_time is not None and next_time is not None:
+            if current_time == 0 and next_time == 0:
+                change_to_next = "No change to next point (0m)"
+            elif current_time == 0:
+                change_to_next = f"Increased from 0m to {next_time}m"
+            else:
+                pct = ((next_time - current_time) / current_time) * 100
+                direction = "Up" if pct > 0 else "Down"
+                change_to_next = f"{direction} {abs(pct):.0f}% to next point"
+        elif current_time is not None and next_time is None:
+            change_to_next = "No data for next point"
+
+        ts = datetime.fromisoformat(current_timestamp)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=DUBLIN_TZ)
+        hour_start = ts.replace(minute=0, second=0, microsecond=0)
+        hour_end = hour_start + timedelta(hours=1)
+        granular_rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+        valid_times = [r['sec_time'] for r in granular_rows if r['sec_time'] is not None]
+
+        fluctuation_msg = None
+        if len(valid_times) > 1:
+            min_t = min(valid_times)
+            max_t = max(valid_times)
+            rng = max_t - min_t
+            if min_t == 0 and max_t == 0:
+                fluctuation_msg = "No fluctuation (0m)"
+            elif min_t == 0:
+                fluctuation_msg = f"Fluctuated by {rng}m (from 0m)"
+            else:
+                pct = (rng / min_t) * 100
+                fluctuation_msg = f"Fluctuated by {rng}m ({pct:.0f}%) within the hour"
+        elif len(valid_times) == 1:
+            fluctuation_msg = f"Only one data point ({valid_times[0]}m)"
+        else:
+            fluctuation_msg = "No data for fluctuation"
+
+        return jsonify({
+            'changeFromPrev': change_from_prev,
+            'changeToNext': change_to_next,
+            'fluctuationMessage': fluctuation_msg,
+        })
+    except Exception as e:
+        logging.error(f"Error in hourly-detail-stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/projected-hourly-stats', methods=['POST'])
+def get_projected_hourly_stats():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        num_sims = data.get('numSims', 500)
+
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        now = datetime.now(DUBLIN_TZ)
+        hour_start = now.replace(minute=0, second=0, microsecond=0)
+        hour_end = hour_start + timedelta(hours=1)
+
+        rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+        if not rows:
+            return jsonify({"stats": None})
+
+        observed_values = [r['sec_time'] for r in rows]
+        last_row = rows[-1]
+        last_ts = last_row['timestamp']
+        if last_ts.tzinfo is None:
+            last_ts = last_ts.replace(tzinfo=timezone.utc)
+        last_minute = last_ts.astimezone(DUBLIN_TZ).minute
+        last_value = last_row['sec_time']
+
+        paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
+        if not paths or len(paths) == 0:
+            return jsonify({"stats": None})
+
+        num_future = len(paths[0])
+        if num_future == 0:
+            return jsonify({"stats": None})
+
+        medians = []
+        for i in range(num_future):
+            vals = sorted(p[i]["value"] for p in paths)
+            medians.append(vals[len(vals) // 2])
+
+        max_time = max(medians)
+        avg_time = round(sum(medians) / len(medians))
+
+        peak_minute = paths[0][0]["minute"] if paths[0] else 0
+        biggest_increase = 0
+        for i in range(1, len(medians)):
+            inc = medians[i] - medians[i - 1]
+            if inc > biggest_increase:
+                biggest_increase = inc
+                peak_minute = paths[0][i]["minute"]
+
+        return jsonify({
+            "stats": {
+                "maxTime": max_time,
+                "avgTime": avg_time,
+                "peakMinute": peak_minute,
+                "dataPoints": len(observed_values),
+            }
+        })
+    except Exception as e:
+        logging.error(f"Error in projected-hourly-stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 def _linear_regression(xs, ys):
     n = len(xs)
     if n < 2:
