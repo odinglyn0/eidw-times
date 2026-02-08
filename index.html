@@ -7,31 +7,25 @@
     -->
     <script>
       (function() {
-        var origLog = console.log;
-        console.log = function() {
-          var msg = arguments[0];
-          if (typeof msg === 'string' && (
-            msg.indexOf('[Ketch]') === 0 ||
-            msg.indexOf('showConsentExperience') === 0 ||
-            msg.indexOf('App.tsx') === 0 ||
-            msg.indexOf('useFireExperienceEvents') === 0 ||
-            msg === 'fullConfig = ' ||
-            msg === 'payload = ' ||
-            msg === 'consents = ' ||
-            msg === 'showConsentOptions = ' ||
-            msg === 'purposeTCFInfo = ' ||
-            msg === 'options = ' ||
-            msg === 'theme = ' ||
-            msg === 'appStateProviderPayload = ' ||
-            msg === 'showPreferenceOptions = ' ||
-            msg === 'mutableConfig = ' ||
-            msg === 'error = ' ||
-            msg === 'isThemeMapMounted = ' ||
-            msg === 'experience = ' ||
-            msg === 'store = ' ||
-            msg === 'host = '
-          )) return;
-          origLog.apply(console, arguments);
+        var ketchPatterns = /^\[Ketch\]|^showConsentExperience|^App\.tsx|^useFireExperienceEvents|^fullConfig|^payload|^consents|^showConsentOptions|^purposeTCFInfo|^options|^theme|^appStateProviderPayload|^showPreferenceOptions|^mutableConfig|^error|^isThemeMapMounted|^experience|^store|^host/;
+        function patchConsole(ctx) {
+          var orig = ctx.console.log;
+          ctx.console.log = function() {
+            var msg = arguments[0];
+            if (typeof msg === 'string' && ketchPatterns.test(msg.trim())) return;
+            orig.apply(ctx.console, arguments);
+          };
+        }
+        patchConsole(window);
+        var origCreate = document.createElement;
+        document.createElement = function(tag) {
+          var el = origCreate.apply(document, arguments);
+          if (tag.toLowerCase() === 'iframe') {
+            el.addEventListener('load', function() {
+              try { if (el.contentWindow) patchConsole(el.contentWindow); } catch(e) {}
+            });
+          }
+          return el;
         };
       })();
     </script>
