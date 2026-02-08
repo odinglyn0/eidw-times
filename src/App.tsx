@@ -8,6 +8,9 @@ import NotFound from "./pages/NotFound";
 import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import Settings from "./pages/Settings";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import CookiePolicy from "./pages/CookiePolicy";
 import { ThemeProvider } from "@/components/theme-provider";
 import ReactGA from 'react-ga4';
 import posthog from 'posthog-js';
@@ -93,6 +96,9 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/cookies" element={<CookiePolicy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </CookieConsentProvider>

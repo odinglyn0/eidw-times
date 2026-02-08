@@ -52,8 +52,7 @@ export default defineConfig(() => ({
     react(),
     Sitemap({
       hostname: "https://eidwtimes.xyz",
-      dynamicRoutes: ["/"],
-      exclude: ["/settings"],
+      dynamicRoutes: ["/", "/settings"],
       generateRobotsTxt: false,
       changefreq: "hourly",
       priority: 1.0,
@@ -62,7 +61,6 @@ export default defineConfig(() => ({
         {
           userAgent: "*",
           allow: "/",
-          disallow: "/settings",
         },
       ],
     }),
@@ -71,6 +69,36 @@ export default defineConfig(() => ({
         loc: "https://romeo-api-b.eidwtimes.xyz/api/seo-security-data",
         changefreq: "always",
         priority: 0.9,
+      },
+      {
+        loc: "https://eidwtimes.xyz/legal/privacy.docx",
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        loc: "https://eidwtimes.xyz/legal/terms.docx",
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        loc: "https://eidwtimes.xyz/legal/cookies.docx",
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        loc: "https://eidwtimes.xyz/terms",
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        loc: "https://eidwtimes.xyz/privacy",
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        loc: "https://eidwtimes.xyz/cookies",
+        changefreq: "monthly",
+        priority: 0.5,
       },
     ]),
   ],
