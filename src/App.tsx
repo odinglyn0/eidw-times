@@ -43,7 +43,6 @@ const AnalyticsGate = () => {
     if (!hasAnalyticsConsent || initialized.current) return;
     initialized.current = true;
 
-    // Google Analytics
     if (GA_TRACKING_ID) {
       ReactGA.initialize(GA_TRACKING_ID);
     }
