@@ -51,6 +51,10 @@ const AnalyticsGate = () => {
         capture_pageview: false,
         capture_pageleave: true,
         autocapture: true,
+        session_recording: {
+          maskAllInputs: true,
+          recordCrossOriginIframes: false,
+        },
       });
     }
 
