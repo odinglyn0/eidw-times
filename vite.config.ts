@@ -42,7 +42,7 @@ function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; prio
   };
 }
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
@@ -53,19 +53,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     cssCodeSplit: false,
     modulePreload: { polyfill: false },
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/react-dom")) return "react-dom";
-          if (id.includes("node_modules/react/") || id.includes("node_modules/react-router")) return "react-core";
-          if (id.includes("node_modules/@radix-ui")) return "radix";
-          if (id.includes("node_modules/posthog-js") || id.includes("node_modules/react-ga4")) return "analytics";
-          if (id.includes("node_modules/date-fns")) return "date-fns";
-          if (id.includes("node_modules")) return "vendor";
-        },
-      },
-    },
-    chunkSizeWarningLimit: 200,
+    chunkSizeWarningLimit: 500,
   },
   plugins: [
     dyadComponentTagger(),
@@ -75,7 +63,6 @@ export default defineConfig(({ mode }) => ({
       ext: ".br",
       threshold: 1024,
     }),
-
     viteCompression({
       algorithm: "gzip",
       ext: ".gz",
