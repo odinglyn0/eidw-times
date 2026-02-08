@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getCookieConsent, setCookieConsent, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation } from '@/lib/cookies';
+import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation } from '@/lib/cookies';
+import { useCookieConsent } from '@/integrations/cookie-consent/CookieConsentProvider';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -13,16 +14,15 @@ import { useTheme } from 'next-themes';
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { setTheme, theme } = useTheme();
+  const { hasConsent: hasCookieConsent } = useCookieConsent();
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30);
-  const [hasCookieConsent, setHasCookieConsent] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showRecommendation, setShowRecommendationState] = useState(true);
 
   useEffect(() => {
     setAutoRefreshEnabled(getAutoPollEnabled());
     setRefreshInterval(getAutoPollInterval());
-    setHasCookieConsent(getCookieConsent());
     setShowRecommendationState(getShowRecommendation());
     const cookieDark = getDarkMode();
     if (cookieDark !== null) {
@@ -64,15 +64,6 @@ const Settings: React.FC = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const handleGiveCookieConsent = () => {
-    setCookieConsent(true);
-    setHasCookieConsent(true);
-    toast({
-      title: "Cookie consent granted",
-      description: "Your preferences will now be saved.",
-    });
   };
 
   const handleDarkModeToggle = (checked: boolean) => {
@@ -161,17 +152,6 @@ const Settings: React.FC = () => {
               </p>
             </div>
 
-            {!hasCookieConsent && (
-              <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
-                <p className="font-semibold mb-2">Cookie Consent Required</p>
-                <p className="text-sm mb-4">
-                  To save your settings, please accept cookies.
-                </p>
-                <Button onClick={handleGiveCookieConsent} className="bg-red-600 hover:bg-red-700 text-white">
-                  Accept Cookies
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

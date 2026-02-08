@@ -12,6 +12,7 @@ import { trackEvent } from '@/utils/analytics'; // Import the trackEvent utility
 import AnnouncementBanner from "@/components/AnnouncementBanner"; // Import the new AnnouncementBanner
 import { MessageSquarePlus } from 'lucide-react'; // Import icon for the button
 import { Link } from 'react-router-dom'; // Import Link
+import LaserPulseBorder from "@/components/LaserPulseBorder";
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -153,7 +154,7 @@ const Index = () => {
     if (t1CurrentTime !== null && t2CurrentTime !== null && recommendedTerminal && recommendedTerminal.id !== "either") {
       const diff = Math.abs(t1CurrentTime - t2CurrentTime);
       if (diff > 0 && diff < 3) {
-        return `But it doesn't really matter because it's only a ${diff} min difference 🤷‍♂️`;
+        return `But it doesn't really matter because it's only a ~${diff} min difference`;
       }
     }
     return null;
@@ -162,9 +163,9 @@ const Index = () => {
   let additionalTip = "";
   if (recommendedTerminal) {
     if (recommendedTerminal.id === 1 || recommendedTerminal.id === "either") {
-      additionalTip = "and T1 has the best shops 🤫!";
+      additionalTip = "and T1 has the best shops!";
     } else if (recommendedTerminal.id === 2) {
-      additionalTip = "and T2 is usually less chaotic 🤫!";
+      additionalTip = "and T2 is usually less chaotic!";
     }
   }
 
@@ -176,7 +177,19 @@ const Index = () => {
       <AnnouncementBanner /> {/* Add the AnnouncementBanner here */}
 
       {showRecommendation && (
-      <div className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
+      <LaserPulseBorder
+        active={loadingRecommendation || isAutoRefreshing}
+        config={{
+          color: "#3B82F6",
+          duration: 600,
+          pulseWidth: 50,
+          bulgeAmount: 3,
+          bulgeSpread: 35,
+          borderRadius: 8,
+        }}
+        className="w-full max-w-5xl mb-8"
+      >
+      <div className="w-full p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -185,11 +198,11 @@ const Index = () => {
         ) : recommendedTerminal ? (
           <>
             <p className="text-lg font-semibold mb-2">
-              💡 We recommend using{" "}
+              We recommend using{" "}
               <span className="font-bold text-blue-900 dark:text-blue-100">
                 {recommendedTerminal.id === "either"
-                  ? "either Terminal's security"
-                  : `Terminal ${recommendedTerminal.id}'s security`}
+                  ? "either Terminal"
+                  : `Terminal ${recommendedTerminal.id}`}
               </span>{" "}
               as it is currently the quickest (
               <span className="font-bold text-blue-900 dark:text-blue-100">
@@ -230,6 +243,7 @@ const Index = () => {
           <span className="sr-only">Refresh recommendation</span>
         </Button>
       </div>
+      </LaserPulseBorder>
       )}
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16">

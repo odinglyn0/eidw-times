@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getCookieConsent, setCookieConsent } from '@/lib/cookies';
+import { getKetchConsent, getKetchAnalyticsConsent } from '@/lib/cookies';
 
 interface CookieConsentContextType {
+  /** General consent — the Ketch consent cookie exists. */
   hasConsent: boolean;
+  /** Analytics-specific consent confirmed by Ketch. */
+  hasAnalyticsConsent: boolean;
 }
 
 const CookieConsentContext = createContext<CookieConsentContextType | undefined>(undefined);
@@ -16,38 +19,54 @@ export const useCookieConsent = () => {
 };
 
 /**
- * Thin wrapper — Ketch smart tag handles the actual consent UI.
- * This provider listens for Ketch consent events and syncs state
- * so the rest of the app can check consent status.
+ * Listens for Ketch consent via the official semaphore API:
+ *   ketch('on', 'consent', callback)   — fires every time consent is resolved
+ *   ketch('once', 'userConsentUpdated') — fires once when user interacts with banner
+ *
+ * Also checks the _ketch_consent_v1_ cookie as a fallback for returning visitors.
  */
 export const CookieConsentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hasConsent, setHasConsent] = useState<boolean>(getCookieConsent());
+  const [hasConsent, setHasConsent] = useState<boolean>(getKetchConsent());
+  const [hasAnalyticsConsent, setHasAnalyticsConsent] = useState<boolean>(getKetchAnalyticsConsent());
 
   useEffect(() => {
-    // Listen for Ketch consent updates
-    const handleKetchConsent = () => {
-      setCookieConsent(true);
+    const syncConsent = () => {
       setHasConsent(true);
+      const analyticsGranted = getKetchAnalyticsConsent();
+      setHasAnalyticsConsent(analyticsGranted);
+      (window as any).__ketchAnalyticsConsent = analyticsGranted;
     };
 
-    // Ketch fires 'consent_updated' on the semaphore object
-    const win = window as any;
-    if (win.semaphore) {
-      win.semaphore.push(['onConsent', handleKetchConsent]);
+    const ketch = (window as any).ketch;
+    if (typeof ketch === 'function') {
+      // 'on' + 'consent' fires every time consent is resolved (load from
+      // storage, remote, or user prompt). The callback receives the consent
+      // object { purposeCode: boolean }.
+      ketch('on', 'consent', (consent: Record<string, boolean>) => {
+        setHasConsent(true);
+        const granted = !!consent?.analytics;
+        setHasAnalyticsConsent(granted);
+        (window as any).__ketchAnalyticsConsent = granted;
+      });
+
+      // 'once' + 'userConsentUpdated' fires once when the user actively
+      // interacts with the banner (not on cached consent load).
+      ketch('once', 'userConsentUpdated', syncConsent);
     }
 
-    // Also poll for the Ketch consent cookie as a fallback
+    // Fallback: poll the cookie for returning visitors whose consent was
+    // already stored before React mounted.
     const interval = setInterval(() => {
-      if (getCookieConsent() && !hasConsent) {
-        setHasConsent(true);
+      if (!hasConsent && getKetchConsent()) {
+        syncConsent();
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(interval);
-  }, [hasConsent]);
+  }, [hasConsent, hasAnalyticsConsent]);
 
   return (
-    <CookieConsentContext.Provider value={{ hasConsent }}>
+    <CookieConsentContext.Provider value={{ hasConsent, hasAnalyticsConsent }}>
       {children}
     </CookieConsentContext.Provider>
   );

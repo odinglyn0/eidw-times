@@ -6,12 +6,12 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
-import { CookieConsentProvider } from "@/integrations/cookie-consent/CookieConsentProvider";
+import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import Settings from "./pages/Settings";
 import { ThemeProvider } from "@/components/theme-provider";
 import ReactGA from 'react-ga4';
 import posthog from 'posthog-js';
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getDarkMode } from '@/lib/cookies';
 
 // Sync cookie-based dark mode preference into localStorage before React renders
@@ -23,32 +23,61 @@ if (cookieDark !== null) {
   localStorage.setItem('vite-ui-theme', systemPrefersLight ? 'light' : 'dark');
 }
 
-// Initialize Google Analytics from env
 const GA_TRACKING_ID = import.meta.env.VITE_GA_TRACKING_ID;
-if (GA_TRACKING_ID) {
-  ReactGA.initialize(GA_TRACKING_ID);
-}
-
-// Initialize PostHog from env
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com';
-if (POSTHOG_KEY) {
-  posthog.init(POSTHOG_KEY, {
-    api_host: POSTHOG_HOST,
-    person_profiles: 'identified_only',
-    capture_pageview: false, // We handle pageviews manually below
-    capture_pageleave: true,
-    autocapture: true,
-  });
-}
+
+// DO NOT initialize GA or PostHog here — wait for Ketch analytics consent.
 
 const queryClient = new QueryClient();
 
-// Track page views for both GA and PostHog
-const PageTracker = () => {
-  const location = useLocation();
+/**
+ * Initializes analytics SDKs only after Ketch has confirmed analytics consent.
+ * Also injects the Cloudflare beacon dynamically instead of loading it unconditionally.
+ */
+const AnalyticsGate = () => {
+  const { hasAnalyticsConsent } = useCookieConsent();
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (!hasAnalyticsConsent || initialized.current) return;
+    initialized.current = true;
+
+    // Google Analytics
+    if (GA_TRACKING_ID) {
+      ReactGA.initialize(GA_TRACKING_ID);
+    }
+
+    // PostHog
+    if (POSTHOG_KEY) {
+      posthog.init(POSTHOG_KEY, {
+        api_host: POSTHOG_HOST,
+        person_profiles: 'identified_only',
+        capture_pageview: false,
+        capture_pageleave: true,
+        autocapture: true,
+      });
+    }
+
+    // Cloudflare Web Analytics — inject beacon dynamically
+    const cfScript = document.createElement('script');
+    cfScript.defer = true;
+    cfScript.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+    cfScript.dataset.cfBeacon = '{"token": "399530eea2ca4eacbaaccf1182a0533c"}';
+    document.head.appendChild(cfScript);
+  }, [hasAnalyticsConsent]);
+
+  return null;
+};
+
+/** Track page views — only fires when analytics consent has been granted. */
+const PageTracker = () => {
+  const location = useLocation();
+  const { hasAnalyticsConsent } = useCookieConsent();
+
+  useEffect(() => {
+    if (!hasAnalyticsConsent) return;
+
     const path = location.pathname + location.search;
     if (GA_TRACKING_ID) {
       ReactGA.send({ hitType: "pageview", page: path });
@@ -56,7 +85,7 @@ const PageTracker = () => {
     if (POSTHOG_KEY) {
       posthog.capture('$pageview', { $current_url: window.location.href });
     }
-  }, [location]);
+  }, [location, hasAnalyticsConsent]);
 
   return null;
 };
@@ -69,8 +98,9 @@ const App = () => (
         <Sonner />
         <NeuralNetworkBackground />
         <BrowserRouter>
-          <PageTracker />
           <CookieConsentProvider>
+            <AnalyticsGate />
+            <PageTracker />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/settings" element={<Settings />} />

@@ -3,7 +3,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  ResponsiveContainer, ComposedChart, Line, Bar, Area, XAxis, YAxis,
+  ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts';
 import { monteCarloDepartureAware } from '@/utils/monteCarlo';
@@ -531,12 +531,16 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   />
                 )}
 
-                {/* Departure bars */}
-                <Bar
+                {/* Departure line — same style as departure popovers */}
+                <Line
                   yAxisId="departures"
+                  type="natural"
                   dataKey="departures"
-                  fill="rgba(239, 68, 68, 0.25)"
-                  radius={[2, 2, 0, 0]}
+                  stroke="#FF8000"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={true}
+                  isAnimationActive={false}
                 />
 
                 {/* Outer confidence band */}
@@ -546,7 +550,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   dataKey="bandOuter"
                   fill="rgba(74, 222, 128, 0.08)"
                   stroke="none"
-                  connectNulls={false}
+                  connectNulls={true}
                   isAnimationActive={false}
                 />
 
@@ -557,7 +561,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   dataKey="bandInner"
                   fill="rgba(74, 222, 128, 0.15)"
                   stroke="none"
-                  connectNulls={false}
+                  connectNulls={true}
                   isAnimationActive={false}
                 />
 
@@ -570,7 +574,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
                   strokeWidth={2}
                   strokeDasharray="6 3"
                   dot={false}
-                  connectNulls={false}
+                  connectNulls={true}
                   isAnimationActive={false}
                 />
 
@@ -613,7 +617,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
             </>
           )}
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: 'rgba(239, 68, 68, 0.25)' }} />
+            <span className="inline-block w-5 h-[2.5px] rounded-full" style={{ background: '#FF8000' }} />
             Departures
           </span>
         </div>
@@ -680,7 +684,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload, spanMinutes }) => {
 
       {departures > 0 && (
         <div className="flex justify-between items-center gap-3 mt-1 pt-1 border-t border-gray-700">
-          <span className="text-red-400">Departures</span>
+          <span className="text-orange-400">Departures</span>
           <span className="text-white font-semibold">{departures}</span>
         </div>
       )}

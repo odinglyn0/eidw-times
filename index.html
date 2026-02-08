@@ -1,7 +1,31 @@
 <!doctype html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
-    <script>!function(){window.semaphore=window.semaphore||[],window.ketch=function(){window.semaphore.push(arguments)};var e=document.createElement("script");e.type="text/javascript",e.src="https://global.ketchcdn.com/web/v3/config/ogm/website_smart_tag/boot.js",e.defer=e.async=!0,document.getElementsByTagName("head")[0].appendChild(e)}();</script>
+    <!--
+      Ketch Smart Tag — MUST be the first script in <head>.
+      The semaphore queue buffers ketch() API calls until boot.js is ready.
+    -->
+    <script>
+      !function(){
+        window.semaphore=window.semaphore||[];
+        window.ketch=function(){window.semaphore.push(arguments)};
+        var e=document.createElement("script");
+        e.type="text/javascript";
+        e.src="https://global.ketchcdn.com/web/v3/config/ogm/website_smart_tag/boot.js";
+        e.defer=e.async=!0;
+        e.onerror=function(){console.error('[Ketch] boot.js failed to load')};
+        document.getElementsByTagName("head")[0].appendChild(e);
+      }();
+
+      // Debug: log all Ketch lifecycle events so we can see what's happening
+      window.ketch('on', 'consent', function(c){ console.log('[Ketch] consent event:', c); });
+      window.ketch('on', 'environment', function(e){ console.log('[Ketch] environment:', e); });
+      window.ketch('on', 'regionInfo', function(r){ console.log('[Ketch] regionInfo:', r); });
+      window.ketch('on', 'jurisdiction', function(j){ console.log('[Ketch] jurisdiction:', j); });
+      window.ketch('on', 'identities', function(i){ console.log('[Ketch] identities:', i); });
+      window.ketch('on', 'willShowExperience', function(x){ console.log('[Ketch] willShowExperience:', x); });
+      window.ketch('on', 'hideExperience', function(x){ console.log('[Ketch] hideExperience:', x); });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -696,8 +720,6 @@
 
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Cloudflare Web Analytics -->
-    <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "399530eea2ca4eacbaaccf1182a0533c"}'></script>
-    <!-- End Cloudflare Web Analytics -->
+    <!-- Cloudflare Web Analytics — loaded dynamically by AnalyticsGate after Ketch analytics consent -->
   </body>
 </html>

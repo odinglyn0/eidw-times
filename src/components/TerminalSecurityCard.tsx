@@ -29,6 +29,7 @@ import HourlyDetailPopover from "./HourlyDetailPopover";
 import DepartureDetailPopover from "./DepartureDetailPopover";
 import ProjectedHourlyPopover from "./ProjectedHourlyPopover";
 import HourGraphDialog from "./HourGraphDialog";
+import LaserPulseBorder from "./LaserPulseBorder";
 
 // Define interfaces for historical data structure received from Edge Function
 interface HourlySecurityData {
@@ -338,6 +339,18 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   }
 
   return (
+    <LaserPulseBorder
+      active={manualRefreshing || isAutoRefreshing}
+      config={{
+        color: shouldBeGreenStyled ? "#4CAF50" : "#FF8000",
+        duration: 600,
+        pulseWidth: 50,
+        bulgeAmount: 4,
+        bulgeSpread: 36,
+        borderRadius: 8,
+      }}
+      className="w-full"
+    >
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
       {chatBubbleMessage && (
         <ChatBubble message={chatBubbleMessage} emoji={chatBubbleEmoji!} className={chatBubbleClassName} />
@@ -605,6 +618,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         )}
       </CardContent>
     </Card>
+    </LaserPulseBorder>
   );
 };
 

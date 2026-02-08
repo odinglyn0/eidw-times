@@ -112,7 +112,7 @@ const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground text-center pt-1 italic border-t border-border">
-            Based on {stats.dataPoints} data points · Monte Carlo sim
+            Based on ~{stats.dataPoints} data points
           </p>
         </div>
       </PopoverContent>
