@@ -16,6 +16,7 @@ from google.cloud.recaptchaenterprise_v1 import Assessment
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):
