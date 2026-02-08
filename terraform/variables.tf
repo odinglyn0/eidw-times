@@ -26,12 +26,6 @@ variable "google_maps_api_key" {
   sensitive   = true
 }
 
-variable "recaptcha_secret_key" {
-  description = "Google reCAPTCHA Enterprise secret key for server-side verification"
-  type        = string
-  sensitive   = true
-}
-
 variable "bounce_token_secret" {
   description = "Secret key for signing elasticBounceTokenScreen JWTs (HS512)"
   type        = string
