@@ -122,6 +122,11 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "RECAPTCHA_ACTION"
         value = "submit_feature_request"
       }
+
+      env {
+        name  = "BOUNCE_TOKEN_SECRET"
+        value = var.bounce_token_secret
+      }
     }
   }
 

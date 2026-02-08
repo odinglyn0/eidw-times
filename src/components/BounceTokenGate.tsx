@@ -1,0 +1,221 @@
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
+import { apiClient } from "@/integrations/api/client";
+import Logo from "@/assets/intakeLogo.png";
+
+const COOKIE_NAME = "elasticBounceTokenScreen";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      enterprise: {
+        ready: (cb: () => void) => void;
+        execute: (siteKey: string, options: { action: string }) => Promise<string>;
+      };
+    };
+  }
+}
+
+interface BounceTokenGateProps {
+  children: React.ReactNode;
+}
+
+function getCookie(name: string): string | null {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp("(?:^|; )" + escaped + "=([^;]*)"));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
+}
+
+function hideRecaptchaBadge() {
+  const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null;
+  if (badge) {
+    badge.style.visibility = 'hidden';
+    return;
+  }
+  const observer = new MutationObserver((_mutations, obs) => {
+    const el = document.querySelector('.grecaptcha-badge') as HTMLElement | null;
+    if (el) {
+      el.style.visibility = 'hidden';
+      obs.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), 10000);
+}
+
+function waitForRecaptcha(timeoutMs = 10000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (window.grecaptcha?.enterprise?.ready) {
+        window.grecaptcha.enterprise.ready(resolve);
+      } else if (Date.now() - start > timeoutMs) {
+        reject(new Error("reCAPTCHA script load timeout"));
+      } else {
+        setTimeout(check, 150);
+      }
+    };
+    check();
+  });
+}
+
+function StretchLoader() {
+  return (
+    <>
+      <div className="sk-stretch">
+        <div className="sk-r sk-r1" />
+        <div className="sk-r sk-r2" />
+        <div className="sk-r sk-r3" />
+        <div className="sk-r sk-r4" />
+        <div className="sk-r sk-r5" />
+      </div>
+      <style>{`
+        .sk-stretch{width:50px;height:40px;text-align:center;font-size:10px}
+        .sk-stretch .sk-r{background:#fff;height:100%;width:6px;display:inline-block;animation:sk-sd 1.2s infinite ease-in-out}
+        .sk-r2{animation-delay:-1.1s!important}
+        .sk-r3{animation-delay:-1.0s!important}
+        .sk-r4{animation-delay:-0.9s!important}
+        .sk-r5{animation-delay:-0.8s!important}
+        @keyframes sk-sd{0%,40%,100%{transform:scaleY(0.4)}20%{transform:scaleY(1.0)}}
+      `}</style>
+    </>
+  );
+}
+
+function RotatePlaneLoader() {
+  return (
+    <>
+      <div className="sk-plane" />
+      <style>{`
+        .sk-plane{width:40px;height:40px;background:#fff;animation:sk-rp 1.2s infinite ease-in-out}
+        @keyframes sk-rp{0%{transform:perspective(120px) rotateX(0deg) rotateY(0deg)}50%{transform:perspective(120px) rotateX(-180.1deg) rotateY(0deg)}100%{transform:perspective(120px) rotateX(-180deg) rotateY(-179.9deg)}}
+      `}</style>
+    </>
+  );
+}
+
+function CubeGridLoader() {
+  return (
+    <>
+      <div className="sk-cg">
+        {[1,2,3,4,5,6,7,8,9].map(n => <div key={n} className={`sk-c sk-c${n}`} />)}
+      </div>
+      <style>{`
+        .sk-cg{width:40px;height:40px}
+        .sk-c{width:33%;height:33%;background:#fff;float:left;animation:sk-cgd 1.3s infinite ease-in-out}
+        .sk-c1{animation-delay:0.2s}.sk-c2{animation-delay:0.3s}.sk-c3{animation-delay:0.4s}
+        .sk-c4{animation-delay:0.1s}.sk-c5{animation-delay:0.2s}.sk-c6{animation-delay:0.3s}
+        .sk-c7{animation-delay:0s}.sk-c8{animation-delay:0.1s}.sk-c9{animation-delay:0.2s}
+        @keyframes sk-cgd{0%,70%,100%{transform:scale3D(1,1,1)}35%{transform:scale3D(0,0,1)}}
+      `}</style>
+    </>
+  );
+}
+
+const LOADERS = [StretchLoader, RotatePlaneLoader, CubeGridLoader];
+
+const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
+  const [state, setState] = useState<"loading" | "granted" | "failed">("loading");
+  const navigate = useNavigate();
+  const attemptedRef = useRef(false);
+  const Loader = useMemo(() => LOADERS[Math.floor(Math.random() * LOADERS.length)], []);
+
+  const hasValidToken = useCallback(() => {
+    const token = getCookie(COOKIE_NAME);
+    if (!token) return false;
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return false;
+      const payload = JSON.parse(atob(parts[1]));
+      return payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasValidToken()) {
+      hideRecaptchaBadge();
+      setState("granted");
+      return;
+    }
+
+    if (attemptedRef.current) return;
+    attemptedRef.current = true;
+
+    const run = async () => {
+      let visitorId = "";
+
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        visitorId = result.visitorId;
+      } catch {
+        visitorId = "fp_unavailable_" + Date.now();
+      }
+
+      try {
+        await waitForRecaptcha();
+
+        const recaptchaToken = await window.grecaptcha.enterprise.execute(
+          RECAPTCHA_SITE_KEY,
+          { action: "bouncetoken_screen" }
+        );
+
+        const response = await apiClient.verifyBounceToken(recaptchaToken, visitorId);
+
+        if (response.status === "granted" && response.elasticBounceTokenScreen) {
+          setCookie(COOKIE_NAME, response.elasticBounceTokenScreen, 1);
+          hideRecaptchaBadge();
+          setState("granted");
+          return;
+        }
+
+        setState("failed");
+      } catch (err) {
+        console.warn("[BounceGate] Verification failed:", err);
+        setState("failed");
+      }
+    };
+
+    run();
+  }, [hasValidToken, navigate]);
+
+  useEffect(() => {
+    if (state === "failed") {
+      navigate("/consentscreen/failure", { replace: true });
+    }
+  }, [state, navigate]);
+
+  if (state === "granted") return <>{children}</>;
+
+  return (
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "#0a0a0a",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 99999,
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      gap: "1.5rem",
+    }}>
+      <img src={Logo} alt="EIDW Times" style={{ height: 140, marginBottom: "2rem" }} />
+      <Loader />
+      <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
+        Verifying you are not an evil hacker
+      </p>
+    </div>
+  );
+};
+
+export default BounceTokenGate;

@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import hashlib
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -9,9 +10,13 @@ from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import numpy as np
+import jwt
+from google.cloud import recaptchaenterprise_v1
+from google.cloud.recaptchaenterprise_v1 import Assessment
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):
@@ -28,9 +33,128 @@ app.json = ISOJSONProvider(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
+RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
+GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
+BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET', hashlib.sha256((RECAPTCHA_SITE_KEY + 'elasticBounce').encode()).hexdigest())
+RECAPTCHA_SCORE_THRESHOLD = 0.5
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+
+def _verify_recaptcha_enterprise(token, expected_action=None):
+    logging.info(f"[RECAPTCHA] Starting assessment | site_key={RECAPTCHA_SITE_KEY[:8]}... | project={GCP_PROJECT_ID} | expected_action={expected_action} | token_len={len(token) if token else 0}")
+    client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
+    event = recaptchaenterprise_v1.Event()
+    event.site_key = RECAPTCHA_SITE_KEY
+    event.token = token
+    assessment = recaptchaenterprise_v1.Assessment()
+    assessment.event = event
+    req = recaptchaenterprise_v1.CreateAssessmentRequest()
+    req.assessment = assessment
+    req.parent = f"projects/{GCP_PROJECT_ID}"
+    response = client.create_assessment(req)
+    logging.info(f"[RECAPTCHA] Assessment response | valid={response.token_properties.valid} | invalid_reason={response.token_properties.invalid_reason} | action={response.token_properties.action} | score={response.risk_analysis.score} | reasons={list(response.risk_analysis.reasons)}")
+    if not response.token_properties.valid:
+        logging.warning(f"[RECAPTCHA] Token INVALID: reason={response.token_properties.invalid_reason}")
+        return False, 0.0
+    if expected_action and response.token_properties.action != expected_action:
+        logging.warning(f"[RECAPTCHA] Action mismatch: expected={expected_action} got={response.token_properties.action}")
+    return True, response.risk_analysis.score
+
+
+def _mint_bounce_token(client_ip, fingerprint, country):
+    payload = {
+        "ip": client_ip,
+        "fp": fingerprint,
+        "co": country,
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(days=1),
+        "type": "elasticBounceTokenScreen",
+    }
+    return jwt.encode(payload, BOUNCE_TOKEN_SECRET, algorithm="HS512")
+
+
+def _get_client_ip():
+    cf_ip = request.headers.get("CF-Connecting-IP", "")
+    if cf_ip:
+        return cf_ip.strip()
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _get_client_country():
+    return request.headers.get("CF-IPCountry", "XX")
+
+
+UNPROTECTED_PATHS = {
+    "/api/bouncetoken/verify",
+    "/api/seo-security-data",
+    "/api/current-security-data",
+}
+
+
+@app.before_request
+def verify_bounce_token():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    if not request.path.startswith("/api/"):
+        return None
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Missing bounce token"}), 401
+    token = auth_header[7:]
+    try:
+        payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
+        request.bounce_claims = payload
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Bounce token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid bounce token"}), 401
+    return None
+
+
+@app.route('/api/bouncetoken/verify', methods=['POST'])
+def bouncetoken_verify():
+    try:
+        data = request.get_json()
+        recaptcha_token = data.get("recaptchaToken")
+        fingerprint = data.get("fingerprint")
+        client_ip = _get_client_ip()
+        country = _get_client_country()
+
+        logging.info(f"[BOUNCE-VERIFY] Request from ip={client_ip} country={country} fp={fingerprint[:12] if fingerprint else 'None'}... token_present={bool(recaptcha_token)}")
+
+        if not recaptcha_token or not fingerprint:
+            logging.warning(f"[BOUNCE-VERIFY] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}")
+            return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
+
+        try:
+            valid, score = _verify_recaptcha_enterprise(recaptcha_token, "bouncetoken_screen")
+            logging.info(f"[BOUNCE-VERIFY] Assessment result: valid={valid} score={score} threshold={RECAPTCHA_SCORE_THRESHOLD}")
+        except Exception as e:
+            logging.error(f"[BOUNCE-VERIFY] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
+            return jsonify({"status": "failure"}), 403
+
+        if not valid:
+            logging.warning(f"[BOUNCE-VERIFY] Token not valid | ip={client_ip}")
+            return jsonify({"status": "failure"}), 403
+
+        if score >= RECAPTCHA_SCORE_THRESHOLD:
+            token = _mint_bounce_token(client_ip, fingerprint, country)
+            logging.info(f"[BOUNCE-VERIFY] GRANTED | ip={client_ip} score={score}")
+            return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
+
+        logging.info(f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}) | ip={client_ip}")
+        return jsonify({"status": "failure"}), 403
+    except Exception as e:
+        logging.error(f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
+        return jsonify({"status": "failure"}), 403
+
 
 @app.route('/api/current-security-data', methods=['GET'])
 def get_current_security_data():
