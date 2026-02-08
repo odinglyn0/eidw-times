@@ -6,7 +6,8 @@ import {
   ResponsiveContainer, ComposedChart, Line, Bar, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts';
-import { monteCarloFlexible } from '@/utils/monteCarlo';
+import { monteCarloDepartureAware } from '@/utils/monteCarlo';
+import type { ObservedPair, DepartureSchedule } from '@/utils/monteCarlo';
 import { parseISO, format, addMinutes, differenceInMinutes } from 'date-fns';
 import { apiClient } from '@/integrations/api/client';
 import { Slider } from '@/components/ui/slider';
@@ -130,19 +131,26 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
     try {
       const s = sliderToDate(range[0]);
       const e = sliderToDate(range[1]);
-      // Only fetch past data (API won't have future)
-      const fetchEnd = e > new Date() ? new Date() : e;
-      if (s < fetchEnd) {
-        const [secRes, depRes] = await Promise.all([
-          apiClient.getRangeSecurityData(s.toISOString(), fetchEnd.toISOString()),
-          apiClient.getRangeDepartureData(terminalId.toString(), s.toISOString(), fetchEnd.toISOString()),
-        ]);
-        setRangeSecData(secRes);
-        setRangeDepData(depRes);
+      const now = new Date();
+      // For security: only fetch past (API won't have future security data)
+      const secFetchEnd = e > now ? now : e;
+      // For departures: fetch the full range including future scheduled flights
+      const depFetchStart = s;
+      const depFetchEnd = e;
+
+      const promises: Promise<any>[] = [];
+      // Security data (past only)
+      if (s < secFetchEnd) {
+        promises.push(apiClient.getRangeSecurityData(s.toISOString(), secFetchEnd.toISOString()));
       } else {
-        setRangeSecData([]);
-        setRangeDepData([]);
+        promises.push(Promise.resolve([]));
       }
+      // Departure data (full range including future)
+      promises.push(apiClient.getRangeDepartureData(terminalId.toString(), depFetchStart.toISOString(), depFetchEnd.toISOString()));
+
+      const [secRes, depRes] = await Promise.all(promises);
+      setRangeSecData(secRes);
+      setRangeDepData(depRes);
     } catch (err) {
       console.error('Error fetching range data:', err);
     } finally {
@@ -204,29 +212,75 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       .filter(d => d[tKey] !== null)
       .map(d => ({ ts: parseISO(d.timestamp), value: d[tKey]! }));
 
-    // Parse departure data
+    // Parse departure data (includes both past and future scheduled)
     const depPoints = rangeDepData
       .filter(d => d.count !== null && d.count > 0)
       .map(d => ({ ts: parseISO(d.timestamp), value: d.count }));
 
-    // Bucketize
+    // Bucketize for chart display
     const secBuckets = bucketize(secPoints, startDate, endDate, granularity);
     const depBuckets = bucketize(depPoints, startDate, endDate, granularity);
 
-    // Monte Carlo projection for future portion
-    const observedValues = secPoints
+    // ── Build inputs for departure-aware Monte Carlo ──
+
+    // Observed security values (past only, chronological)
+    const pastSecPoints = secPoints
       .filter(p => p.ts <= now)
-      .sort((a, b) => a.ts.getTime() - b.ts.getTime())
-      .map(p => p.value);
+      .sort((a, b) => a.ts.getTime() - b.ts.getTime());
+    const observedSecurity = pastSecPoints.map(p => p.value);
+    const lastObserved = observedSecurity.length > 0
+      ? observedSecurity[observedSecurity.length - 1]
+      : null;
 
-    const lastObserved = observedValues.length > 0 ? observedValues[observedValues.length - 1] : null;
+    // Build observed pairs: match each security reading with the departure
+    // count at the same timestamp (±2 min window) for correlation learning
+    const observedPairs: ObservedPair[] = [];
+    for (const sec of pastSecPoints) {
+      // Find the closest departure reading within ±2 minutes
+      let bestDep: { ts: Date; value: number } | null = null;
+      let bestDist = Infinity;
+      for (const dep of depPoints) {
+        if (dep.ts > now) continue; // only past departures for correlation
+        const dist = Math.abs(dep.ts.getTime() - sec.ts.getTime());
+        if (dist < bestDist && dist <= 2 * 60 * 1000) { // 2 min window
+          bestDist = dist;
+          bestDep = dep;
+        }
+      }
+      observedPairs.push({
+        security: sec.value,
+        departures: bestDep ? bestDep.value : 0,
+      });
+    }
 
-    // Build projection if range extends into the future
+    // Build future departure schedule: per-minute counts from now to endDate
+    const futureDepartures: DepartureSchedule[] = [];
+    if (isFuture) {
+      const futureDepPoints = depPoints
+        .filter(p => p.ts > now)
+        .sort((a, b) => a.ts.getTime() - b.ts.getTime());
+
+      for (const dep of futureDepPoints) {
+        const minuteOffset = Math.round(differenceInMinutes(dep.ts, now));
+        if (minuteOffset > 0 && minuteOffset <= MAX_FUTURE_MINUTES) {
+          futureDepartures.push({ minuteOffset, count: dep.value });
+        }
+      }
+    }
+
+    // ── Run projection ──
     let projectionByMinute = new Map<number, { p10: number; p25: number; median: number; p75: number; p90: number }>();
-    if (isFuture && lastObserved !== null && observedValues.length >= 2) {
-      const futureMinutes = differenceInMinutes(endDate, now);
+    if (isFuture && lastObserved !== null && observedSecurity.length >= 2) {
+      const futureMinutes = Math.round(differenceInMinutes(endDate, now));
       if (futureMinutes > 0 && futureMinutes <= MAX_FUTURE_MINUTES) {
-        projectionByMinute = monteCarloFlexible(observedValues, lastObserved, futureMinutes, NUM_SIM_PATHS);
+        projectionByMinute = monteCarloDepartureAware(
+          observedSecurity,
+          observedPairs,
+          lastObserved,
+          futureDepartures,
+          futureMinutes,
+          NUM_SIM_PATHS,
+        );
       }
     }
 
@@ -272,10 +326,15 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
       }
     }
 
-    return { points, hasProjection: projectionByMinute.size > 0 };
+    return {
+      points,
+      hasProjection: projectionByMinute.size > 0,
+      pairCount: observedPairs.length,
+      futureDepCount: futureDepartures.length,
+    };
   }, [rangeSecData, rangeDepData, startDate, endDate, granularity, terminalId, isFuture, spanMinutes]);
 
-  const { points, hasProjection } = chartData;
+  const { points, hasProjection, pairCount, futureDepCount } = chartData;
 
   const allSecValues = points.map(p => p.security).filter((v): v is number => v !== null);
   const allMedianValues = points.map(p => p.median).filter((v): v is number => v !== null);
@@ -561,9 +620,9 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
 
         <p className="text-[10px] text-muted-foreground text-center italic mt-1">
           {allSecValues.length} data points · {granularity}m granularity
-          {isFuture && ` · ${NUM_SIM_PATHS} simulations`}
+          {isFuture && futureDepCount > 0 && ` · ${futureDepCount} scheduled flights`}
           {range[1] > MAX_PAST_MINUTES && (
-            <span className="text-yellow-500/70 ml-1">⚠ Future data is projected</span>
+            <span className="text-yellow-500/70 ml-1">⚠ Future data is departure-weighted projection (AI coming soon!)</span>
           )}
         </p>
       </DialogContent>
