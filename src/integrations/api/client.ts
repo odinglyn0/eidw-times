@@ -89,31 +89,31 @@ export const apiClient = {
     return response.json();
   },
 
-  async simulateGammaMethodB(terminalId: number, numSims: number = 15) {
+  async simulateGammaMethodB(terminalId: number) {
     const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-b`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ terminalId, numSims })
+      body: JSON.stringify({ terminalId })
     });
     if (!response.ok) throw new Error('Failed to run simulation');
     return response.json();
   },
 
-  async simulateTangoMethodA(terminalId: number, hourTimestamp?: string, numSims: number = 200) {
+  async simulateTangoMethodA(terminalId: number, hourTimestamp?: string) {
     const response = await fetch(`${API_BASE_URL}/api/simulate/tango/method-a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ terminalId, hourTimestamp, numSims })
+      body: JSON.stringify({ terminalId, hourTimestamp })
     });
     if (!response.ok) throw new Error('Failed to run simulation');
     return response.json();
   },
 
-  async simulateGammaMethodA(terminalId: number, start: string, end: string, selectedTimeframe: number, numSims: number = 200) {
+  async simulateGammaMethodA(terminalId: number, start: string, end: string, selectedTimeframe: number) {
     const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ terminalId, start, end, selectedTimeframe, numSims })
+      body: JSON.stringify({ terminalId, start, end, selectedTimeframe })
     });
     if (!response.ok) throw new Error('Failed to run simulation');
     return response.json();

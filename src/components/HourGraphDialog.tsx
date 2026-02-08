@@ -20,8 +20,6 @@ interface HourGraphDialogProps {
   currentTime: number | null;
 }
 
-const NUM_SIM_PATHS = 200;
-
 const GRANULARITY_OPTIONS = [
   { label: '1m', value: 1 },
   { label: '5m', value: 5 },
@@ -102,7 +100,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
         const now = new Date();
         const futureMinutes = Math.round(differenceInMinutes(e, now));
         if (futureMinutes > 0) {
-          const simRes = await apiClient.simulateGammaMethodA(terminalId, s.toISOString(), e.toISOString(), spanMinutes, NUM_SIM_PATHS);
+          const simRes = await apiClient.simulateGammaMethodA(terminalId, s.toISOString(), e.toISOString(), spanMinutes);
           setProjectionBands(simRes.bands || {});
         } else {
           setProjectionBands({});

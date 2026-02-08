@@ -1568,7 +1568,7 @@ def simulate_gamma_method_b():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
-        num_sims = data.get('numSims', 15)
+        num_sims = 15
 
         if not terminal_id:
             return jsonify({"error": "Missing terminalId"}), 400
@@ -1602,7 +1602,7 @@ def simulate_tango_method_a():
         data = request.get_json()
         terminal_id = data.get('terminalId')
         hour_timestamp = data.get('hourTimestamp')
-        num_sims = data.get('numSims', 200)
+        num_sims = 200
 
         if not terminal_id:
             return jsonify({"error": "Missing terminalId"}), 400
@@ -1654,7 +1654,7 @@ def simulate_gamma_method_a():
         start_iso = data.get('start')
         end_iso = data.get('end')
         selected_timeframe = data.get('selectedTimeframe', 1440)
-        num_sims = data.get('numSims', 200)
+        num_sims = 200
 
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "Missing terminalId, start, or end"}), 400
