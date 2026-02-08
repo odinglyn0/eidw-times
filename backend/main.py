@@ -36,7 +36,7 @@ DUBLIN_TZ = ZoneInfo("Europe/Dublin")
 RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
 GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
 BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET', hashlib.sha256((RECAPTCHA_SITE_KEY + 'elasticBounce').encode()).hexdigest())
-RECAPTCHA_SCORE_THRESHOLD = 0.85
+RECAPTCHA_SCORE_THRESHOLD = 0.5
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -91,7 +91,6 @@ def _get_client_country():
 
 UNPROTECTED_PATHS = {
     "/api/bouncetoken/verify",
-    "/api/bouncetoken/checkbox-verify",
     "/api/seo-security-data",
     "/api/current-security-data",
 }
@@ -139,56 +138,22 @@ def bouncetoken_verify():
             logging.info(f"[BOUNCE-VERIFY] Assessment result: valid={valid} score={score} threshold={RECAPTCHA_SCORE_THRESHOLD}")
         except Exception as e:
             logging.error(f"[BOUNCE-VERIFY] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
-            return jsonify({"status": "checkbox_required"})
+            return jsonify({"status": "failure"}), 403
 
         if not valid:
-            logging.warning(f"[BOUNCE-VERIFY] Token not valid, falling back to checkbox | ip={client_ip}")
-            return jsonify({"status": "checkbox_required"})
+            logging.warning(f"[BOUNCE-VERIFY] Token not valid | ip={client_ip}")
+            return jsonify({"status": "failure"}), 403
 
         if score >= RECAPTCHA_SCORE_THRESHOLD:
             token = _mint_bounce_token(client_ip, fingerprint, country)
             logging.info(f"[BOUNCE-VERIFY] GRANTED | ip={client_ip} score={score}")
             return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
 
-        logging.info(f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}), checkbox required | ip={client_ip}")
-        return jsonify({"status": "checkbox_required"})
+        logging.info(f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}) | ip={client_ip}")
+        return jsonify({"status": "failure"}), 403
     except Exception as e:
         logging.error(f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
-        return jsonify({"status": "checkbox_required"})
-
-
-@app.route('/api/bouncetoken/checkbox-verify', methods=['POST'])
-def bouncetoken_checkbox_verify():
-    try:
-        data = request.get_json()
-        recaptcha_token = data.get("recaptchaToken")
-        fingerprint = data.get("fingerprint")
-        client_ip = _get_client_ip()
-        country = _get_client_country()
-
-        logging.info(f"[BOUNCE-CHECKBOX] Request from ip={client_ip} country={country} fp={fingerprint[:12] if fingerprint else 'None'}... token_present={bool(recaptcha_token)}")
-
-        if not recaptcha_token or not fingerprint:
-            logging.warning(f"[BOUNCE-CHECKBOX] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}")
-            return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
-
-        try:
-            valid, score = _verify_recaptcha_enterprise(recaptcha_token)
-            logging.info(f"[BOUNCE-CHECKBOX] Assessment result: valid={valid} score={score}")
-        except Exception as e:
-            logging.error(f"[BOUNCE-CHECKBOX] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
-            return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
-
-        if not valid:
-            logging.warning(f"[BOUNCE-CHECKBOX] Token not valid -> FAILURE | ip={client_ip}")
-            return jsonify({"status": "failure", "redirect": "/consentscreen/failure"}), 403
-
-        token = _mint_bounce_token(client_ip, fingerprint, country)
-        logging.info(f"[BOUNCE-CHECKBOX] GRANTED | ip={client_ip} score={score}")
-        return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
-    except Exception as e:
-        logging.error(f"[BOUNCE-CHECKBOX] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "failure"}), 403
 
 
 @app.route('/api/current-security-data', methods=['GET'])

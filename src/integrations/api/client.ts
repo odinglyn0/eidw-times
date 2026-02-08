@@ -1,8 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = { ...extra };
-  const token = sessionStorage.getItem("elasticBounceTokenScreen");
+  const token = getCookie("elasticBounceTokenScreen");
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return headers;
 }
@@ -208,15 +213,6 @@ export const apiClient = {
 
   async verifyBounceToken(recaptchaToken: string, fingerprint: string) {
     const response = await fetch(`${API_BASE_URL}/api/bouncetoken/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recaptchaToken, fingerprint })
-    });
-    return response.json();
-  },
-
-  async checkboxVerifyBounceToken(recaptchaToken: string, fingerprint: string) {
-    const response = await fetch(`${API_BASE_URL}/api/bouncetoken/checkbox-verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recaptchaToken, fingerprint })
