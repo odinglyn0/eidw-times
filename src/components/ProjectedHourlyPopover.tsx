@@ -1,63 +1,37 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TrendingUp, Clock, BarChart3, ArrowUp } from 'lucide-react';
-import { monteCarloMultiPath } from '@/utils/monteCarlo';
-import { parseISO, getMinutes } from 'date-fns';
-
-interface GranularSecurityData {
-  timestamp: string;
-  time: number | null;
-}
+import { apiClient } from '@/integrations/api/client';
 
 interface ProjectedHourlyPopoverProps {
-  granularDataForCurrentHour: GranularSecurityData[];
+  terminalId: 1 | 2;
   currentTime: number | null;
 }
 
 const ProjectedHourlyPopover: React.FC<ProjectedHourlyPopoverProps> = ({
-  granularDataForCurrentHour,
+  terminalId,
   currentTime,
 }) => {
   const [open, setOpen] = useState(false);
+  const [stats, setStats] = useState<{
+    maxTime: number;
+    avgTime: number;
+    peakMinute: number;
+    dataPoints: number;
+  } | null>(null);
 
-  const stats = useMemo(() => {
-    const validData = granularDataForCurrentHour
-      .filter(d => d.time !== null)
-      .sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
+  useEffect(() => {
+    if (currentTime === null) { setStats(null); return; }
+    let cancelled = false;
 
-    if (validData.length === 0 || currentTime === null) return null;
+    apiClient.getProjectedHourlyStats(terminalId)
+      .then(data => {
+        if (!cancelled) setStats(data.stats || null);
+      })
+      .catch(() => { if (!cancelled) setStats(null); });
 
-    const observedValues = validData.map(d => d.time!);
-    const lastEntry = validData[validData.length - 1];
-    const lastMinute = getMinutes(parseISO(lastEntry.timestamp));
-    const lastValue = lastEntry.time!;
-
-    const paths = monteCarloMultiPath(observedValues, lastValue, lastMinute, 500);
-    if (paths.length === 0) return null;
-
-    const numFuture = paths[0].length;
-    const medians: number[] = [];
-    for (let i = 0; i < numFuture; i++) {
-      const vals = paths.map(p => p[i].value).sort((a, b) => a - b);
-      medians.push(vals[Math.floor(vals.length / 2)]);
-    }
-
-    const allValues = [...observedValues, ...medians];
-    const maxTime = Math.max(...medians);
-    const avgTime = Math.round(allValues.reduce((s, v) => s + v, 0) / allValues.length);
-
-    let peakMinute = paths[0]?.[0]?.minute ?? 0;
-    let biggestIncrease = 0;
-    for (let i = 1; i < medians.length; i++) {
-      const inc = medians[i] - medians[i - 1];
-      if (inc > biggestIncrease) {
-        biggestIncrease = inc;
-        peakMinute = paths[0][i].minute;
-      }
-    }
-
-    return { maxTime, avgTime, peakMinute, dataPoints: validData.length };
-  }, [granularDataForCurrentHour, currentTime]);
+    return () => { cancelled = true; };
+  }, [terminalId, currentTime]);
 
   if (!stats || currentTime === null) return null;
 
