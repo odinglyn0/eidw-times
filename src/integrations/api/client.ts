@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const apiClient = {
   async getCurrentSecurityData() {
@@ -68,6 +68,18 @@ export const apiClient = {
       body: JSON.stringify({ start, end })
     });
     if (!response.ok) throw new Error('Failed to fetch range security data');
+    return response.json();
+  },
+
+  async getIrishTime(): Promise<{ time: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/irish-time`);
+    if (!response.ok) throw new Error('Failed to fetch Irish time');
+    return response.json();
+  },
+
+  async getLastDepartures(): Promise<Record<string, string>> {
+    const response = await fetch(`${API_BASE_URL}/api/last-departures`);
+    if (!response.ok) throw new Error('Failed to fetch last departures');
     return response.json();
   },
 

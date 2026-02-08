@@ -788,5 +788,48 @@ def get_range_departure_data():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/irish-time', methods=['GET'])
+def get_irish_time():
+    now = datetime.now(DUBLIN_TZ)
+    return jsonify({"time": now.strftime('%Y-%m-%dT%H:%M:%S.') + f"{now.microsecond // 1000:03d}" + now.strftime('%z')[:3] + ':' + now.strftime('%z')[3:]})
+
+
+@app.route('/api/last-departures', methods=['GET'])
+def get_last_departures():
+    try:
+        now_dublin = datetime.now(DUBLIN_TZ)
+        today_start = now_dublin.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_start = today_start + timedelta(days=1)
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT terminal_name,
+                           MAX(scheduled_datetime) as last_departure
+                    FROM departures
+                    WHERE scheduled_datetime >= %s
+                      AND scheduled_datetime < %s
+                    GROUP BY terminal_name
+                    ORDER BY terminal_name
+                """, (today_start, tomorrow_start))
+
+                results = cur.fetchall()
+
+                response = {}
+                for row in results:
+                    terminal = row['terminal_name']
+                    last_dep = row['last_departure']
+                    if last_dep:
+                        if last_dep.tzinfo is None:
+                            last_dep = last_dep.replace(tzinfo=timezone.utc)
+                        last_dep_dublin = last_dep.astimezone(DUBLIN_TZ)
+                        response[terminal] = last_dep_dublin.isoformat()
+
+                return jsonify(response)
+    except Exception as e:
+        logging.error(f"Error fetching last departures: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))

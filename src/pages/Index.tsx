@@ -1,4 +1,5 @@
 import TerminalSecurityCard from "@/components/TerminalSecurityCard";
+import SecurityOpeningHours from "@/components/SecurityOpeningHours";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/integrations/api/client";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -256,6 +257,8 @@ const Index = () => {
           t2CurrentTime={t2CurrentTime}
         />
       </div>
+
+      <SecurityOpeningHours />
 
       <BottomNotch />
     </div>
