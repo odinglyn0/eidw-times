@@ -24,6 +24,19 @@ interface BounceTokenGateProps {
   children: React.ReactNode;
 }
 
+function waitForRecaptcha(): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (window.grecaptcha?.enterprise?.ready) {
+        window.grecaptcha.enterprise.ready(resolve);
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
+}
+
 const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   const [state, setState] = useState<"loading" | "granted" | "checkbox" | "verifying">("loading");
   const [fingerprint, setFingerprint] = useState<string>("");
@@ -55,31 +68,33 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     attemptedRef.current = true;
 
     const run = async () => {
-      const fp = await FingerprintJS.load();
-      const result = await fp.get();
-      setFingerprint(result.visitorId);
+      try {
+        const [fpResult] = await Promise.all([
+          FingerprintJS.load().then((fp) => fp.get()),
+          waitForRecaptcha(),
+        ]);
 
-      window.grecaptcha.enterprise.ready(async () => {
-        try {
-          const recaptchaToken = await window.grecaptcha.enterprise.execute(
-            RECAPTCHA_SITE_KEY,
-            { action: "bouncetoken_screen" }
-          );
+        setFingerprint(fpResult.visitorId);
 
-          const response = await apiClient.verifyBounceToken(recaptchaToken, result.visitorId);
+        const recaptchaToken = await window.grecaptcha.enterprise.execute(
+          RECAPTCHA_SITE_KEY,
+          { action: "bouncetoken_screen" }
+        );
 
-          if (response.status === "granted" && response.elasticBounceTokenScreen) {
-            sessionStorage.setItem(STORAGE_KEY, response.elasticBounceTokenScreen);
-            setState("granted");
-          } else if (response.status === "checkbox_required") {
-            setState("checkbox");
-          } else {
-            navigate("/consentscreen/failure", { replace: true });
-          }
-        } catch {
+        const response = await apiClient.verifyBounceToken(recaptchaToken, fpResult.visitorId);
+
+        if (response.status === "granted" && response.elasticBounceTokenScreen) {
+          sessionStorage.setItem(STORAGE_KEY, response.elasticBounceTokenScreen);
+          setState("granted");
+        } else if (response.status === "checkbox_required") {
+          setState("checkbox");
+        } else {
           navigate("/consentscreen/failure", { replace: true });
         }
-      });
+      } catch (e) {
+        console.error("BounceTokenGate error:", e);
+        navigate("/consentscreen/failure", { replace: true });
+      }
     };
 
     run();
@@ -88,8 +103,9 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   useEffect(() => {
     if (state !== "checkbox" || !checkboxRef.current || widgetIdRef.current !== null) return;
 
-    window.grecaptcha.enterprise.ready(() => {
-      widgetIdRef.current = window.grecaptcha.enterprise.render(checkboxRef.current!, {
+    waitForRecaptcha().then(() => {
+      if (!checkboxRef.current || widgetIdRef.current !== null) return;
+      widgetIdRef.current = window.grecaptcha.enterprise.render(checkboxRef.current, {
         sitekey: RECAPTCHA_SITE_KEY,
         callback: async (token: string) => {
           setState("verifying");
