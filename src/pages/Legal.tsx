@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, FileText, Download } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Crd";
+import { Button } from "@/components/ui/Btt";
 
 const policies = [
   {

@@ -1,16 +1,16 @@
-import TerminalSecurityCard from "@/components/TerminalSecurityCard";
-import SecurityOpeningHours from "@/components/SecurityOpeningHours";
+import TerminalSecurityCard from "@/components/TSecCard";
+import SecurityOpeningHours from "@/components/SecOpenH";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/integrations/api/client";
 import { Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Btt";
 import { differenceInMinutes, parseISO } from "date-fns";
-import PhoneNotch from "@/components/PhoneNotch";
-import BottomNotch from "@/components/BottomNotch";
-import SettingsPageLink from "@/components/SettingsPageLink";
+import PhoneNotch from "@/components/N";
+import BottomNotch from "@/components/BotN";
+import SettingsPageLink from "@/components/Set";
 import { getAutoPollEnabled, getAutoPollInterval, getShowRecommendation } from '@/lib/cookies';
-import AnnouncementBanner from "@/components/AnnouncementBanner";
-import LaserPulseBorder from "@/components/LaserPulseBorder";
+import AnnouncementBanner from "@/components/AnnounB";
+import LaserPulseBorder from "@/components/LPB";
 
 interface RecommendationData {
   t1: number | null;
