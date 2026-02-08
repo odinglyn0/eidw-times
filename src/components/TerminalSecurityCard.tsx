@@ -165,7 +165,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setLastUpdated(currentSecurityData.last_updated);
 
       const allHistoricalData = await apiClient.getSecurityData();
-      console.log("Client: Processed historical data received from Edge Function:", allHistoricalData);
       
       // Calculate daily averages for the 7-day chart
       const dailyAverages = allHistoricalData.map(dayData => {
@@ -178,62 +177,56 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         return { date: dayData.date, t1Average };
       });
       setHistoricalDailyAverages(dailyAverages);
-      console.log("Client: Calculated daily averages for chart:", dailyAverages);
 
-      // --- Logic for rolling last 24 hours of *existing* data points ---
+      // Build 24-hour tiles AND granular per-poll data from the same response
       const allActualDataPoints: HourlySecurityData[] = [];
+      const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
+
       allHistoricalData.forEach(dayData => {
         dayData.hourlyData.forEach(hourData => {
-          // Only include data points that have a timestamp and a non-null time for the current terminal
+          // Tile data: use the summary t1/t2 (averaged) for the colored tiles
           if (hourData.timestamp && hourData[`t${terminalId}`] !== null) {
             allActualDataPoints.push({
-              hour: hourData.hour, // Keep hour for popover's granular data map key
+              hour: hourData.hour,
               t1: hourData.t1,
               t2: hourData.t2,
-              timestamp: hourData.timestamp, // This is the local time ISO string from Edge Function
+              timestamp: hourData.timestamp,
+            });
+          }
+
+          // Granular data: extract ALL per-poll records for popover graphs
+          const records = (hourData as any).records as { timestamp: string; t1: number | null; t2: number | null }[] | undefined;
+          if (records && records.length > 0) {
+            records.forEach(record => {
+              if (!record.timestamp) return;
+              const recordDate = parseISO(record.timestamp);
+              if (isNaN(recordDate.getTime())) return;
+              const hour = getHours(recordDate);
+              const timeValue = record[`t${terminalId}` as 't1' | 't2'];
+              if (!granularSecurityDataMap.has(hour)) {
+                granularSecurityDataMap.set(hour, []);
+              }
+              granularSecurityDataMap.get(hour)!.push({
+                timestamp: record.timestamp,
+                time: timeValue,
+              });
             });
           }
         });
       });
 
-      // Filter for data points within the last 24 hours from the current local time
+      // Filter for data points within the last 24 hours
       const nowLocal = new Date(); 
       const twentyFourHoursAgoLocal = subHours(nowLocal, 24);
 
       const relevant24HourData = allActualDataPoints.filter(item => {
-        const itemTimestamp = parseISO(item.timestamp!); // Parse the local time ISO string
+        const itemTimestamp = parseISO(item.timestamp!);
         return itemTimestamp.getTime() >= twentyFourHoursAgoLocal.getTime() && itemTimestamp.getTime() <= nowLocal.getTime();
       });
 
-      // Sort by timestamp to ensure chronological order for display and popover calculations
       relevant24HourData.sort((a, b) => parseISO(a.timestamp!).getTime() - parseISO(b.timestamp!).getTime());
 
-      setCurrentDayHourlyData(relevant24HourData); // This now holds all relevant data points, not just one per calendar hour.
-      // --- End of logic for rolling 24 hours ---
-
-      // Fetch granular (per-poll) data and group by calendar hour
-      const granularSecurityDataMap = new Map<number, GranularSecurityData[]>();
-      try {
-        const rawGranularData = await apiClient.getHourlyIntervalSecurityData();
-        // rawGranularData is an array of { timestamp, t1, t2 } (raw poll records)
-        // Group by calendar hour and map to { timestamp, time } for the current terminal
-        (rawGranularData as { timestamp: string; t1: number | null; t2: number | null }[]).forEach(record => {
-          if (!record.timestamp) return; // Skip records with missing timestamps
-          const recordDate = parseISO(record.timestamp);
-          if (isNaN(recordDate.getTime())) return; // Skip invalid dates
-          const hour = getHours(recordDate);
-          const timeValue = record[`t${terminalId}` as 't1' | 't2'];
-          if (!granularSecurityDataMap.has(hour)) {
-            granularSecurityDataMap.set(hour, []);
-          }
-          granularSecurityDataMap.get(hour)!.push({
-            timestamp: record.timestamp,
-            time: timeValue,
-          });
-        });
-      } catch (err) {
-        console.error(`Error fetching granular security data for T${terminalId}:`, err);
-      }
+      setCurrentDayHourlyData(relevant24HourData);
       setHourlyGranularSecurityData(granularSecurityDataMap);
 
     } catch (error) {
