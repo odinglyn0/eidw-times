@@ -11,7 +11,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import numpy as np
 import jwt
-import requests as http_requests
+from google.cloud import recaptchaenterprise_v1
+from google.cloud.recaptchaenterprise_v1 import Assessment
 
 app = Flask(__name__)
 CORS(app)
@@ -32,7 +33,6 @@ app.json = ISOJSONProvider(app)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
 RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
-RECAPTCHA_SECRET_KEY = os.environ.get('RECAPTCHA_SECRET_KEY', '')
 GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
 BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET', hashlib.sha256((RECAPTCHA_SITE_KEY + 'elasticBounce').encode()).hexdigest())
 RECAPTCHA_SCORE_THRESHOLD = 0.85
