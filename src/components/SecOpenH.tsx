@@ -27,36 +27,36 @@ const statusConfig: Record<FacilityStatus, {
   pingColor: string;
 }> = {
   open: {
-    dotColor: "bg-emerald-400",
-    bgColor: "bg-emerald-900/30 dark:bg-emerald-900/40",
-    textColor: "text-emerald-400 dark:text-emerald-300",
-    borderColor: "border-emerald-700/40 dark:border-emerald-600/40",
+    dotColor: "bg-emerald-500",
+    bgColor: "bg-emerald-50 dark:bg-emerald-900/40",
+    textColor: "text-emerald-700 dark:text-emerald-300",
+    borderColor: "border-emerald-300 dark:border-emerald-600/40",
     label: "Open",
-    pingColor: "bg-emerald-400",
+    pingColor: "bg-emerald-500",
   },
   closed: {
-    dotColor: "bg-rose-400",
-    bgColor: "bg-rose-900/30 dark:bg-rose-900/40",
-    textColor: "text-rose-400 dark:text-rose-300",
-    borderColor: "border-rose-700/40 dark:border-rose-600/40",
+    dotColor: "bg-rose-500",
+    bgColor: "bg-rose-50 dark:bg-rose-900/40",
+    textColor: "text-rose-700 dark:text-rose-300",
+    borderColor: "border-rose-300 dark:border-rose-600/40",
     label: "Closed",
-    pingColor: "bg-rose-400",
+    pingColor: "bg-rose-500",
   },
   "opening-soon": {
-    dotColor: "bg-amber-400",
-    bgColor: "bg-amber-900/30 dark:bg-amber-900/40",
-    textColor: "text-amber-400 dark:text-amber-300",
-    borderColor: "border-amber-700/40 dark:border-amber-600/40",
+    dotColor: "bg-amber-500",
+    bgColor: "bg-amber-50 dark:bg-amber-900/40",
+    textColor: "text-amber-700 dark:text-amber-300",
+    borderColor: "border-amber-300 dark:border-amber-600/40",
     label: "Opening Soon",
-    pingColor: "bg-amber-400",
+    pingColor: "bg-amber-500",
   },
   "closing-soon": {
-    dotColor: "bg-orange-400",
-    bgColor: "bg-orange-900/30 dark:bg-orange-900/40",
-    textColor: "text-orange-400 dark:text-orange-300",
-    borderColor: "border-orange-700/40 dark:border-orange-600/40",
+    dotColor: "bg-orange-500",
+    bgColor: "bg-orange-50 dark:bg-orange-900/40",
+    textColor: "text-orange-700 dark:text-orange-300",
+    borderColor: "border-orange-300 dark:border-orange-600/40",
     label: "Closing Soon",
-    pingColor: "bg-orange-400",
+    pingColor: "bg-orange-500",
   },
 };
 
@@ -100,18 +100,18 @@ const FacilityRow: React.FC<{ facility: Facility }> = ({ facility }) => {
         config.borderColor
       )}
     >
-      <div className="flex-shrink-0 text-gray-300">
+      <div className="flex-shrink-0 text-gray-600 dark:text-gray-300">
         {getIcon(facility.iconType)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-100 truncate">
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
             {facility.name}
           </span>
         </div>
         <div className="flex items-center gap-1 mt-0.5">
-          <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
-          <span className="text-xs text-gray-400">
+          <Clock className="h-3 w-3 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {facility.openTime} – {facility.closeDisplayText}
           </span>
         </div>
@@ -123,17 +123,17 @@ const FacilityRow: React.FC<{ facility: Facility }> = ({ facility }) => {
             <span className="text-xs font-semibold">{config.label}</span>
           </div>
           {facility.status === "opening-soon" && facility.opensIn && (
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">
               Opens in {facility.opensIn}
             </span>
           )}
           {facility.status === "closing-soon" && facility.closesIn && (
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">
               Closes in {facility.closesIn}
             </span>
           )}
           {facility.status === "closed" && facility.opensIn && (
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">
               Opens in {facility.opensIn}
             </span>
           )}
@@ -204,15 +204,15 @@ const SecurityOpeningHours: React.FC = () => {
 
   const openRatio = facilities.length > 0 ? openCount / facilities.length : 0;
   const averagedBorderColor = openRatio >= 0.6
-    ? "border-emerald-600/50"
+    ? "border-emerald-400 dark:border-emerald-600/50"
     : openRatio >= 0.3
-    ? "border-amber-600/50"
-    : "border-rose-600/50";
+    ? "border-amber-400 dark:border-amber-600/50"
+    : "border-rose-400 dark:border-rose-600/50";
   const averagedHeaderBg = openRatio >= 0.6
-    ? "bg-emerald-900/60"
+    ? "bg-emerald-700 dark:bg-emerald-900/60"
     : openRatio >= 0.3
-    ? "bg-amber-900/60"
-    : "bg-rose-900/60";
+    ? "bg-amber-700 dark:bg-amber-900/60"
+    : "bg-rose-700 dark:bg-rose-900/60";
 
   return (
     <div className="w-full max-w-5xl mb-8">
@@ -227,19 +227,19 @@ const SecurityOpeningHours: React.FC = () => {
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
               <StatusDot status={summaryStatus} />
-              <CardTitle className="text-lg font-semibold text-gray-100">Facility Hours</CardTitle>
-              <span className="text-xs text-gray-300">
+              <CardTitle className="text-lg font-semibold text-white">Facility Hours</CardTitle>
+              <span className="text-xs text-gray-100 dark:text-gray-300">
                 {summaryText}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-300">
+              <span className="text-[10px] text-gray-100 dark:text-gray-300">
                 Irish Time: {irishTime.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", hour12: false })}
               </span>
               {expanded ? (
-                <ChevronUp className="h-4 w-4 text-gray-300" />
+                <ChevronUp className="h-4 w-4 text-gray-100 dark:text-gray-300" />
               ) : (
-                <ChevronDown className="h-4 w-4 text-gray-300" />
+                <ChevronDown className="h-4 w-4 text-gray-100 dark:text-gray-300" />
               )}
             </div>
           </div>
