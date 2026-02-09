@@ -1,0 +1,9 @@
+modal
+xgboost
+pandas
+pyarrow
+numpy
+scikit-learn
+wandb
+huggingface_hub
+joblib

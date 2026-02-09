@@ -80,3 +80,5 @@ service-account-key.json
 # OS
 Thumbs.db
 desktop.ini
+
+*.parquet
