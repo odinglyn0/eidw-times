@@ -33,22 +33,13 @@ function setCookie(name: string, value: string, days: number) {
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
 }
 
-function hideRecaptchaBadge() {
-  const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null;
-  if (badge) {
-    badge.style.visibility = 'hidden';
-    return;
-  }
-  const observer = new MutationObserver((_mutations, obs) => {
-    const el = document.querySelector('.grecaptcha-badge') as HTMLElement | null;
-    if (el) {
-      el.style.visibility = 'hidden';
-      obs.disconnect();
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  setTimeout(() => observer.disconnect(), 10000);
-}
+(function hideRecaptchaBadge() {
+  if (document.getElementById('hide-recaptcha-badge')) return;
+  const style = document.createElement('style');
+  style.id = 'hide-recaptcha-badge';
+  style.textContent = '.grecaptcha-badge { visibility: hidden !important; opacity: 0 !important; }';
+  document.head.appendChild(style);
+})();
 
 function waitForRecaptcha(timeoutMs = 10000): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -142,7 +133,6 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
 
   useEffect(() => {
     if (hasValidToken()) {
-      hideRecaptchaBadge();
       setState("granted");
       return;
     }
@@ -173,7 +163,6 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
 
         if (response.status === "granted" && response.elasticBounceTokenScreen) {
           setCookie(COOKIE_NAME, response.elasticBounceTokenScreen, 1);
-          hideRecaptchaBadge();
           setState("granted");
           return;
         }
