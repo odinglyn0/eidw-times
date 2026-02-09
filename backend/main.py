@@ -1591,15 +1591,77 @@ def get_hourly_detail_stats():
         return jsonify({"error": str(e)}), 500
 
 
+def _projected_hourly_stats_trition(terminal_id):
+    preds = _trition_predict_all()
+    if not preds:
+        return jsonify({"stats": None})
+
+    t_key = f"t{terminal_id}"
+    h60 = preds.get(f"{t_key}_h60m")
+    if h60 is None:
+        return jsonify({"stats": None})
+
+    now = datetime.now(DUBLIN_TZ)
+    hour_start = now.replace(minute=0, second=0, microsecond=0)
+    hour_end = hour_start + timedelta(hours=1)
+
+    rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
+    observed_values = [r['sec_time'] for r in rows] if rows else []
+
+    last_value = observed_values[-1] if observed_values else h60
+    last_minute = now.minute
+
+    future_minutes = list(range(last_minute + 1, 60))
+    if not future_minutes:
+        return jsonify({"stats": {
+            "maxTime": round(last_value),
+            "avgTime": round(last_value),
+            "peakMinute": last_minute,
+            "dataPoints": len(observed_values),
+        }})
+
+    projected = []
+    current = float(last_value)
+    for m in future_minutes:
+        drift = (h60 - current) * 0.3
+        current = max(0, current + drift)
+        projected.append({"minute": m, "value": round(current)})
+
+    all_values = [round(v) for v in observed_values] + [p["value"] for p in projected]
+    max_time = max(all_values)
+    avg_time = round(sum(all_values) / len(all_values))
+
+    peak_minute = last_minute
+    biggest_increase = 0
+    for i in range(1, len(projected)):
+        inc = projected[i]["value"] - projected[i - 1]["value"]
+        if inc > biggest_increase:
+            biggest_increase = inc
+            peak_minute = projected[i]["minute"]
+
+    return jsonify({
+        "stats": {
+            "maxTime": max_time,
+            "avgTime": avg_time,
+            "peakMinute": peak_minute,
+            "dataPoints": len(observed_values),
+        }
+    })
+
+
 @app.route('/api/projected-hourly-stats', methods=['POST'])
 def get_projected_hourly_stats():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
         num_sims = data.get('numSims', 500)
+        model = data.get('model')
 
         if not terminal_id:
             return jsonify({"error": "Missing terminalId"}), 400
+
+        if model == 'trition':
+            return _projected_hourly_stats_trition(terminal_id)
 
         now = datetime.now(DUBLIN_TZ)
         hour_start = now.replace(minute=0, second=0, microsecond=0)
@@ -1831,8 +1893,7 @@ def _fetch_departures_range(terminal_id, start_utc, end_utc):
             """, (terminal_name, start_utc, end_utc))
             return cur.fetchall()
 
-
-@app.route('/api/simulate/gamma/method-c', methods=['POST'])
+@app.route('/api/simulate/liminal/method-c', methods=['POST'])
 def get_projected_6h():
     try:
         data = request.get_json()
@@ -1929,9 +1990,8 @@ def get_projected_6h():
         logging.error(f"Error in projected-6h: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/gamma/method-b', methods=['POST'])
-def simulate_gamma_method_b():
+@app.route('/api/simulate/liminal/method-b', methods=['POST'])
+def simulate_liminal_method_b():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
@@ -1959,12 +2019,11 @@ def simulate_gamma_method_b():
         paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
         return jsonify({"paths": paths, "dataPoints": len(observed_values)})
     except Exception as e:
-        logging.error(f"Error in gamma/method-b: {e}")
+        logging.error(f"Error in liminal/method-b: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/tango/method-a', methods=['POST'])
-def simulate_tango_method_a():
+@app.route('/api/simulate/liminal/method-d', methods=['POST'])
+def simulate_liminal_method_a():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
@@ -2009,12 +2068,11 @@ def simulate_tango_method_a():
         projected = _run_project(observed_values, last_value, last_minute, num_sims)
         return jsonify({"projected": projected})
     except Exception as e:
-        logging.error(f"Error in tango/method-a: {e}")
+        logging.error(f"Error in liminal/method-a: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/gamma/method-a', methods=['POST'])
-def simulate_gamma_method_a():
+@app.route('/api/simulate/liminal/method-a', methods=['POST'])
+def simulate_liminal_method_a():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
@@ -2097,7 +2155,7 @@ def simulate_gamma_method_a():
         bands_str_keys = {str(k): v for k, v in bands.items()}
         return jsonify({"bands": bands_str_keys})
     except Exception as e:
-        logging.error(f"Error in gamma/method-a: {e}")
+        logging.error(f"Error in liminal/method-a: {e}")
         return jsonify({"error": str(e)}), 500
 
 

@@ -12,14 +12,9 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
   return headers;
 }
 
-function getModelPrefix(): 'gamma' | 'trition' {
+function getModelVersion(): 'liminal' | 'trition' {
   const model = getCookie('forecast_model');
-  return model === 'liminal' ? 'gamma' : 'trition';
-}
-
-function getTangoPrefix(): 'tango' | 'trition' {
-  const model = getCookie('forecast_model');
-  return model === 'liminal' ? 'tango' : 'trition';
+  return model === 'liminal' ? 'liminal' : 'trition';
 }
 
 export const apiClient = {
@@ -128,8 +123,8 @@ export const apiClient = {
   },
 
   async simulateGammaMethodB(terminalId: number) {
-    const prefix = getModelPrefix();
-    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-b`, {
+    const version = getModelVersion();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${version}/method-b`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId })
@@ -139,17 +134,8 @@ export const apiClient = {
   },
 
   async simulateTangoMethodA(terminalId: number, hourTimestamp?: string) {
-    const prefix = getTangoPrefix();
-    if (prefix === 'trition') {
-      const response = await fetch(`${API_BASE_URL}/api/simulate/trition/method-d`, {
-        method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ terminalId, hourTimestamp })
-      });
-      if (!response.ok) throw new Error('Failed to run simulation');
-      return response.json();
-    }
-    const response = await fetch(`${API_BASE_URL}/api/simulate/tango/method-a`, {
+    const version = getModelVersion();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${version}/method-d`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId, hourTimestamp })
@@ -159,8 +145,8 @@ export const apiClient = {
   },
 
   async simulateGammaMethodA(terminalId: number, start: string, end: string, selectedTimeframe: number) {
-    const prefix = getModelPrefix();
-    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-a`, {
+    const version = getModelVersion();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${version}/method-a`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId, start, end, selectedTimeframe })
@@ -224,10 +210,11 @@ export const apiClient = {
   },
 
   async getProjectedHourlyStats(terminalId: number, numSims: number = 500) {
+    const model = getModelVersion();
     const response = await fetch(`${API_BASE_URL}/api/projected-hourly-stats`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ terminalId, numSims })
+      body: JSON.stringify({ terminalId, numSims, model })
     });
     if (!response.ok) throw new Error('Failed to fetch projected hourly stats');
     return response.json();
@@ -243,8 +230,8 @@ export const apiClient = {
   },
 
   async getProjected6h(terminalId: number) {
-    const prefix = getModelPrefix();
-    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-c`, {
+    const version = getModelVersion();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${version}/method-c`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId })
