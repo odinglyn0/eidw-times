@@ -82,3 +82,7 @@ Thumbs.db
 desktop.ini
 
 *.parquet
+
+
+# XGBoost model cache
+.model_cache/

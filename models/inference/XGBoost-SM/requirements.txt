@@ -1,0 +1,6 @@
+xgboost
+pandas
+numpy
+huggingface_hub
+psycopg2-binary
+python-dotenv
