@@ -22,6 +22,8 @@ const HourGraphDialog = lazy(() => import("./HgDi"));
 import LaserPulseBorder from "./LPB";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/PopO";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import SecurityTimeGraph from "./SecurityTimeGraph";
+import { getSecurityViewMode } from "@/lib/cookies";
 
 interface HourlySecurityData {
   hour: number;
@@ -152,6 +154,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [hourGraphOpen, setHourGraphOpen] = useState(false);
   const isMobile = useIsMobile();
+  const [viewMode] = useState<'graph' | 'tiles'>(getSecurityViewMode);
 
   const fetchDepartureData = useCallback(async () => {
     try {
@@ -333,8 +336,12 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             )}
 
             <div className="mb-8 w-full">
-              <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Past 24 / Next 6</h3>
-              {currentDayHourlyData.length > 0 ? (
+              <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">{viewMode === 'graph' ? 'Past 7d / Next 6h' : 'Past 24 / Next 6'}</h3>
+              {viewMode === 'graph' ? (
+                <SecurityTimeGraph
+                  terminalId={terminalId}
+                />
+              ) : currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
                   {currentDayHourlyData.map((dataPoint) => (
                     <HourlyDetailPopover

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/Lbl";
 import { Input } from "@/components/ui/In";
 import { Button } from "@/components/ui/Btt";
 import { useToast } from "@/components/ui/use-toast";
-import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation, getForecastModel, setForecastModel } from '@/lib/cookies';
+import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation, getForecastModel, setForecastModel, getSecurityViewMode, setSecurityViewMode } from '@/lib/cookies';
 import { useCookieConsent } from '@/integrations/cookie-consent/CookieConsentProvider';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Scale } from 'lucide-react';
@@ -20,12 +20,14 @@ const Settings: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showRecommendation, setShowRecommendationState] = useState(true);
   const [forecastModel, setForecastModelState] = useState<'liminal' | 'trition'>('trition');
+  const [securityViewMode, setSecurityViewModeState] = useState<'graph' | 'tiles'>('graph');
 
   useEffect(() => {
     setAutoRefreshEnabled(getAutoPollEnabled());
     setRefreshInterval(getAutoPollInterval());
     setShowRecommendationState(getShowRecommendation());
     setForecastModelState(getForecastModel());
+    setSecurityViewModeState(getSecurityViewMode());
     const cookieDark = getDarkMode();
     if (cookieDark !== null) {
       setIsDarkMode(cookieDark);
@@ -95,6 +97,15 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleSecurityViewModeChange = (mode: 'graph' | 'tiles') => {
+    setSecurityViewModeState(mode);
+    setSecurityViewMode(mode);
+    toast({
+      title: "Security times view updated",
+      description: `Switched to ${mode === 'graph' ? 'Graph' : 'Tiles'} view.`,
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md">
@@ -156,6 +167,33 @@ const Settings: React.FC = () => {
               </div>
               <p className="text-sm text-muted-foreground">
                 Controls which prediction engine is used for forecasts.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-base">Security Times View</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={securityViewMode === 'graph' ? 'default' : 'outline'}
+                  size="sm"
+                  className={securityViewMode === 'graph' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                  onClick={() => handleSecurityViewModeChange('graph')}
+                  disabled={!hasCookieConsent}
+                >
+                  Graph
+                </Button>
+                <Button
+                  variant={securityViewMode === 'tiles' ? 'default' : 'outline'}
+                  size="sm"
+                  className={securityViewMode === 'tiles' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                  onClick={() => handleSecurityViewModeChange('tiles')}
+                  disabled={!hasCookieConsent}
+                >
+                  Tiles
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Choose how security wait times are displayed.
               </p>
             </div>
 
