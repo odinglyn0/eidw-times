@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Crd";
 import { Button } from "@/components/ui/Btt";
 
@@ -7,17 +7,14 @@ const policies = [
   {
     title: "Terms of Service",
     route: "/terms",
-    docx: "/legal/terms.docx",
   },
   {
     title: "Privacy Policy",
     route: "/privacy",
-    docx: "/legal/privacy.docx",
   },
   {
     title: "Cookie Policy",
     route: "/cookies",
-    docx: "/legal/cookies.docx",
   },
 ];
 
@@ -39,11 +36,6 @@ const Legal = () => (
                 <Link to={p.route}>
                   <FileText className="mr-2 h-4 w-4" /> Read Online
                 </Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <a href={p.docx} download>
-                  <Download className="mr-2 h-4 w-4" /> Download .docx
-                </a>
               </Button>
             </CardContent>
           </Card>
