@@ -129,7 +129,7 @@ const Terms = () => (
 
         <h2>13. CONTACT INFORMATION</h2>
         <p>For any questions, concerns, or notices regarding these Terms or the Service, please contact the operator via email at:</p>
-        <p><strong>odin@odinglynn.com</strong></p>
+        <p><strong>eidwtimes@proton.me</strong></p>
         <p>All legal notices, requests, or other formal communications required or permitted under these Terms must be delivered via email to the above address. Notices shall be deemed given upon receipt of electronic confirmation of delivery.</p>
 
         <h2>14. ACKNOWLEDGMENT</h2>

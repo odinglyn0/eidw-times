@@ -14,14 +14,14 @@ const Privacy = () => (
 
         <h2>1. INTRODUCTION</h2>
         <p>This Privacy Policy (hereinafter referred to as the &ldquo;Policy&rdquo;) describes how eidwtimes.xyz (hereinafter referred to as the &ldquo;Service&rdquo;, &ldquo;Website&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) collects, uses, processes, stores, discloses, and protects personal data and information provided by users (hereinafter referred to as &ldquo;you&rdquo;, &ldquo;your&rdquo;, or &ldquo;User&rdquo;) in connection with their access to and use of the Service.</p>
-        <p>The Service is a personal project operated by an individual (contact: odin@odinglynn.com) and is not a commercial business entity. The Service provides real-time and machine learning-predicted security queue wait times for Dublin Airport, offered free of charge to Users.</p>
+        <p>The Service is a personal project operated by an individual (contact: eidwtimes@proton.me) and is not a commercial business entity. The Service provides real-time and machine learning-predicted security queue wait times for Dublin Airport, offered free of charge to Users.</p>
         <p>This Policy has been prepared in accordance with the General Data Protection Regulation (EU) 2016/679 (&ldquo;GDPR&rdquo;) and other applicable data protection legislation within the European Union and the European Economic Area.</p>
         <p>By accessing or using the Service, you acknowledge that you have read, understood, and agree to be bound by the terms of this Privacy Policy. If you do not agree with this Policy, you must immediately discontinue use of the Service.</p>
 
         <h2>2. DATA CONTROLLER</h2>
         <p>For the purposes of the GDPR and applicable data protection legislation, the data controller responsible for your personal data is:</p>
         <p><strong>eidwtimes.xyz</strong></p>
-        <p><strong>Email: odin@odinglynn.com</strong></p>
+        <p><strong>Email: eidwtimes@proton.me</strong></p>
         <p>All inquiries, requests, or concerns regarding the processing of your personal data should be directed to the above email address.</p>
 
         <h2>3. INFORMATION WE COLLECT</h2>
@@ -127,11 +127,11 @@ const Privacy = () => (
         <h3>11.8 Right to Lodge a Complaint</h3>
         <p>You have the right to lodge a complaint with a supervisory authority, in particular in the EU Member State of your habitual residence, place of work, or place of the alleged infringement (GDPR Article 77). In Ireland, the relevant supervisory authority is the Data Protection Commission (www.dataprotection.ie).</p>
         <h3>11.9 Exercising Your Rights</h3>
-        <p>To exercise any of these rights, please contact us at odin@odinglynn.com. We will respond to your request within one month of receipt, though this period may be extended by two further months where necessary, taking into account the complexity and number of requests. We may request specific information from you to help us confirm your identity and ensure your right to access the data.</p>
+        <p>To exercise any of these rights, please contact us at eidwtimes@proton.me. We will respond to your request within one month of receipt, though this period may be extended by two further months where necessary, taking into account the complexity and number of requests. We may request specific information from you to help us confirm your identity and ensure your right to access the data.</p>
 
         <h2>12. CHILDREN&rsquo;S PRIVACY</h2>
         <p>The Service does not impose age restrictions and may be accessed by individuals of any age. However, we do not knowingly collect or solicit personal data from children without appropriate parental or guardian consent where required by applicable law.</p>
-        <p>If we become aware that we have collected personal data from a child without appropriate consent, we will take steps to delete that information as quickly as possible. If you believe that we might have information from or about a child, please contact us at odin@odinglynn.com.</p>
+        <p>If we become aware that we have collected personal data from a child without appropriate consent, we will take steps to delete that information as quickly as possible. If you believe that we might have information from or about a child, please contact us at eidwtimes@proton.me.</p>
 
         <h2>13. CHANGES TO THIS PRIVACY POLICY</h2>
         <p>We reserve the right to modify, amend, or update this Privacy Policy at any time at our sole discretion. When we make changes to this Policy, we will update the &ldquo;Last Updated&rdquo; date at the top of this document.</p>
@@ -144,7 +144,7 @@ const Privacy = () => (
 
         <h2>15. CONTACT INFORMATION</h2>
         <p>If you have any questions, concerns, comments, or requests regarding this Privacy Policy or our data processing practices, or if you wish to exercise any of your rights under the GDPR, please contact us at:</p>
-        <p><strong>Email: odin@odinglynn.com</strong></p>
+        <p><strong>Email: eidwtimes@proton.me</strong></p>
         <p>We will endeavor to respond to all legitimate requests within one month. Occasionally it may take us longer than one month if your request is particularly complex or you have made a number of requests, in which case we will notify you and keep you updated.</p>
 
         <h2>16. ACKNOWLEDGMENT</h2>

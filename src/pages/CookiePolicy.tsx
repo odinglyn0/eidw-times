@@ -105,7 +105,7 @@ const CookiePolicy = () => (
 
         <h2>10. CONTACT INFORMATION</h2>
         <p>If you have any questions, concerns, or requests regarding this Cookie Policy or our use of cookies and similar technologies, please contact us at:</p>
-        <p><strong>Email: odin@odinglynn.com</strong></p>
+        <p><strong>Email: eidwtimes@proton.me</strong></p>
         <p>We will endeavor to respond to all legitimate inquiries in a timely manner.</p>
 
         <h2>11. ADDITIONAL RESOURCES</h2>
