@@ -86,3 +86,5 @@ desktop.ini
 
 # XGBoost model cache
 .model_cache/
+.vercel
+.env*.local
