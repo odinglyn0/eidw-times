@@ -209,7 +209,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       fontFamily: "system-ui, -apple-system, sans-serif",
       gap: "1.5rem",
     }}>
-      <img src={Logo} alt="EIDW Times" style={{ height: 140, marginBottom: "2rem" }} />
+      <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
       <Loader />
       <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
         Verifying you are not an evil hacker
