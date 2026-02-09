@@ -2023,7 +2023,7 @@ def simulate_liminal_method_b():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/simulate/liminal/method-d', methods=['POST'])
-def simulate_liminal_method_a():
+def simulate_liminal_method_d():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
