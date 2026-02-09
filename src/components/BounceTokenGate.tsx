@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
 import Logo from "@/assets/intakeLogo.png";
+
+const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 
 const COOKIE_NAME = "elasticBounceTokenScreen";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
@@ -132,6 +134,17 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const isDebug = isLocalhost && params.get("debug") === "true" && params.get("m") === "btg";
+
+    if (isDebug && params.get("reject") === "true") {
+      setTimeout(() => setState("failed"), 1000 + Math.random() * 1000);
+      return;
+    }
+
+    if (isDebug) return;
+
     if (hasValidToken()) {
       setState("granted");
       return;
@@ -179,7 +192,28 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
 
   useEffect(() => {
     if (state === "failed") {
-      navigate("/consentscreen/failure", { replace: true });
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie.split(";").forEach((c) => {
+          const name = c.split("=")[0].trim();
+          const paths = ["/"];
+          const domains = [
+            "",
+            window.location.hostname,
+            "." + window.location.hostname,
+            ".eidwtimes.xyz",
+            "eidwtimes.xyz",
+          ];
+          for (const d of domains) {
+            for (const p of paths) {
+              const domainPart = d ? `;domain=${d}` : "";
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${p}${domainPart}`;
+            }
+          }
+        });
+      } catch {}
+      navigate(`/error/403?r=${btoa("We were unable to verify your session. Please try again later.")}`, { replace: true });
     }
   }, [state, navigate]);
 
@@ -198,11 +232,14 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       fontFamily: "system-ui, -apple-system, sans-serif",
       gap: "1.5rem",
     }}>
-      <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
-      <Loader />
-      <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
-        Verifying you are not an evil hacker
-      </p>
+      <Suspense fallback={null}><TileBG /></Suspense>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
+        <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
+        <Loader />
+        <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
+          Verifying you are not an evil hacker
+        </p>
+      </div>
     </div>
   );
 };

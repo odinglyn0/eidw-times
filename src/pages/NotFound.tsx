@@ -1,5 +1,9 @@
+import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import Logo from "@/assets/intakeLogo.png";
+
+const WebGLBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 
 const NotFound = () => {
   const location = useLocation();
@@ -12,13 +16,25 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "#000",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 99999,
+      padding: "2rem",
+    }}>
+      <Suspense fallback={null}><WebGLBG /></Suspense>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
+        <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain" }} />
+        <img
+          src="https://http.cat/404"
+          alt="HTTP 404"
+          style={{ maxWidth: "30vw", maxHeight: "30vh", objectFit: "contain" }}
+        />
       </div>
     </div>
   );

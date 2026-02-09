@@ -17,7 +17,7 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const Legal = lazy(() => import("./pages/Legal"));
-const ConsentScreenFailure = lazy(() => import("./pages/ConsentScreenFailure"));
+const ErrorPage = lazy(() => import("./pages/ErrorPage"));
 let _ReactGA: typeof import('react-ga4').default | null = null;
 let _posthog: typeof import('posthog-js').default | null = null;
 
@@ -116,8 +116,8 @@ const App = () => (
             <AnalyticsGate />
             <PageTracker />
             <Routes>
-              <Route path="/consentscreen/failure" element={
-                <Suspense fallback={null}><ConsentScreenFailure /></Suspense>
+              <Route path="/error/:code" element={
+                <Suspense fallback={null}><ErrorPage /></Suspense>
               } />
               <Route path="*" element={
                 <BounceTokenGate>
