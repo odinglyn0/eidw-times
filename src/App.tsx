@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/TlTp";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useRef } from "react";
+import { Analytics } from "@vercel/analytics/react";
 const Index = lazy(() => import("./pages/Index"));
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import { ThemeProvider } from "@/components/TP";
@@ -80,7 +81,7 @@ const AnalyticsGate = () => {
     document.head.appendChild(cfScript);
   }, [hasAnalyticsConsent]);
 
-  return null;
+  return hasAnalyticsConsent ? <Analytics /> : null;
 };
 
 const PageTracker = () => {
