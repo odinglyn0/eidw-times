@@ -75,33 +75,36 @@ def fetch_recent_data(conn, lookback_hours: int = LOOKBACK_HOURS) -> pd.DataFram
 
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df["hour"] = df["timestamp"].dt.hour
-    df["minute"] = df["timestamp"].dt.minute
-    df["second"] = df["timestamp"].dt.second
-    df["time_minutes"] = df["hour"] * 60 + df["minute"] + df["second"] / 60.0
-    df = df.sort_values("time_minutes").reset_index(drop=True)
-    df["band_idx"] = (df["time_minutes"] // BAND_MINUTES).astype(int)
-    
+    df = df.sort_values("timestamp").reset_index(drop=True)
+    df["band_ts"] = df["timestamp"].dt.floor(f"{BAND_MINUTES}min")
     banded = (
-        df.groupby("band_idx")
-        .agg({"t1": "mean", "t2": "mean", "hour": "last", "minute": "last"})
+        df.groupby("band_ts")
+        .agg({"t1": "mean", "t2": "mean"})
         .sort_index()
-        .reset_index(drop=True)
+        .reset_index()
     )
+    banded["hour"] = banded["band_ts"].dt.hour
+    banded["minute"] = banded["band_ts"].dt.minute
+    banded = banded.drop(columns=["band_ts"]).reset_index(drop=True)
+
+    print(f"[data] {len(df)} raw rows → {len(banded)} 5-min bands")
     return banded
 
 def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
     band_count = BAND_COUNT
-    lag_cols_t1 = []
-    lag_cols_t2 = []
-    for lag in range(1, band_count + 1):
-        col_t1 = f"t1_lag_{lag}"
-        col_t2 = f"t2_lag_{lag}"
-        df[col_t1] = df["t1"].shift(lag)
-        df[col_t2] = df["t2"].shift(lag)
-        lag_cols_t1.append(col_t1)
-        lag_cols_t2.append(col_t2)
+    
+    t1_lags = pd.concat(
+        {f"t1_lag_{lag}": df["t1"].shift(lag) for lag in range(1, band_count + 1)},
+        axis=1,
+    )
+    t2_lags = pd.concat(
+        {f"t2_lag_{lag}": df["t2"].shift(lag) for lag in range(1, band_count + 1)},
+        axis=1,
+    )
+    lag_cols_t1 = list(t1_lags.columns)
+    lag_cols_t2 = list(t2_lags.columns)
 
+    df = pd.concat([df, t1_lags, t2_lags], axis=1)
     df = df.dropna().reset_index(drop=True)
 
     if len(df) == 0:
@@ -185,7 +188,7 @@ def run(database_url: str | None = None) -> dict:
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+    load_dotenv(Path(__file__).resolve().parent / ".env")
 
     result = run()
 
