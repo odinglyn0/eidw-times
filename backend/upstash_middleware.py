@@ -67,8 +67,11 @@ def _token_bucket_check(redis_client, key, capacity, refill_rate, window_secs):
     return {allowed, tostring(math.floor(tokens))}
     """
     try:
-        result = redis_client.eval(lua, 1, key, str(capacity), str(refill_rate),
-                                   str(now_ms), str(window_secs))
+        result = redis_client.eval(
+            lua,
+            keys=[key],
+            args=[str(capacity), str(refill_rate), str(now_ms), str(window_secs)]
+        )
         return int(result[0]) == 1
     except Exception as e:
         logger.error(f"[upstash] token bucket error: {e}")
