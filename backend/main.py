@@ -374,6 +374,105 @@ def get_active_announcements():
         return jsonify({"error": str(e)}), 500
 
 
+FORECAST_HORIZONS = [
+    (5, "5 min"),
+    (30, "30 min"),
+    (60, "1 hour"),
+    (120, "2 hours"),
+    (180, "3 hours"),
+    (360, "6 hours"),
+]
+
+
+def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
+    lookback = timedelta(hours=6)
+    sec_rows = _fetch_security_range(terminal_id, now_utc - lookback, now_utc)
+    dep_rows = _fetch_departures_range(terminal_id, now_utc - lookback, now_utc + timedelta(hours=7))
+
+    observed_security = [r['sec_time'] for r in sec_rows if r['sec_time'] is not None]
+    last_value = observed_security[-1] if observed_security else None
+
+    if last_value is None or len(observed_security) < 2:
+        return None
+
+    dep_times = []
+    for r in dep_rows:
+        ts = r['scheduled_datetime']
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        dep_times.append(ts)
+
+    observed_pairs = []
+    for r in sec_rows:
+        ts = r['timestamp']
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        if ts > now_utc or r['sec_time'] is None:
+            continue
+        dep_hour_start = ts.replace(minute=0, second=0, microsecond=0)
+        dep_hour_end = dep_hour_start + timedelta(hours=1)
+        dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+        observed_pairs.append({"security": r['sec_time'], "departures": dep_count})
+
+    future_departures = []
+    for dep_ts in dep_times:
+        if dep_ts <= now_utc:
+            continue
+        minute_offset = int((dep_ts - now_utc).total_seconds() / 60)
+        if 0 < minute_offset <= 360:
+            dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
+            dep_hour_end = dep_hour_start + timedelta(hours=1)
+            count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+            future_departures.append({"minuteOffset": minute_offset, "count": count})
+
+    bands = _run_departure_aware(
+        observed_security, observed_pairs, last_value,
+        future_departures, 360, 300
+    )
+
+    forecasts = []
+    for minutes, label in FORECAST_HORIZONS:
+        band = bands.get(minutes)
+        horizon_time = now_dublin + timedelta(minutes=minutes)
+        horizon_str = horizon_time.strftime('%I:%M %p')
+        horizon_utc = now_utc + timedelta(minutes=minutes)
+        window_start = horizon_utc - timedelta(minutes=30)
+        window_end = horizon_utc + timedelta(minutes=30)
+        dep_count = sum(1 for d in dep_times if window_start <= d <= window_end)
+
+        is_spike = False
+        if dep_count > 0:
+            before_count = sum(1 for d in dep_times
+                               if (horizon_utc - timedelta(minutes=90)) <= d < window_start)
+            after_count = sum(1 for d in dep_times
+                              if window_end < d <= (horizon_utc + timedelta(minutes=90)))
+            if dep_count > before_count and dep_count > after_count:
+                is_spike = True
+
+        if band:
+            forecasts.append({
+                "label": label,
+                "time": horizon_str,
+                "median": band["median"],
+                "p10": band["p10"],
+                "p90": band["p90"],
+                "departures": dep_count,
+                "is_spike": is_spike,
+            })
+        else:
+            forecasts.append({
+                "label": label,
+                "time": horizon_str,
+                "median": None,
+                "p10": None,
+                "p90": None,
+                "departures": dep_count,
+                "is_spike": is_spike,
+            })
+
+    return forecasts
+
+
 @app.route('/api/seo-security-data', methods=['GET'])
 def seo_security_data():
     try:
@@ -401,10 +500,22 @@ def seo_security_data():
                 last_updated = datetime.now(DUBLIN_TZ).isoformat()
 
         now_dublin = datetime.now(DUBLIN_TZ)
+        now_utc = datetime.now(timezone.utc)
         now_iso = now_dublin.isoformat()
 
         t1_str = f"{t1} minutes" if t1 is not None else "No data"
         t2_str = f"{t2} minutes" if t2 is not None else "No data"
+
+        try:
+            t1_forecasts = _seo_build_forecasts(1, now_utc, now_dublin)
+        except Exception as e:
+            logging.error(f"[SEO] T1 forecast error: {e}")
+            t1_forecasts = None
+        try:
+            t2_forecasts = _seo_build_forecasts(2, now_utc, now_dublin)
+        except Exception as e:
+            logging.error(f"[SEO] T2 forecast error: {e}")
+            t2_forecasts = None
 
         if t1 is not None and t2 is not None:
             if t1 < t2:
@@ -419,6 +530,41 @@ def seo_security_data():
             recommendation = f"Only Terminal 2 data available: {t2} minutes."
         else:
             recommendation = "No security time data currently available."
+
+        def _fmt_forecast_row(fc):
+            if fc["median"] is None:
+                return f"<tr><td>{fc['label']}</td><td>{fc['time']}</td><td>—</td><td>—</td><td>{fc['departures']}</td><td></td></tr>"
+            spike_badge = ' <span class="spike">&#9650; departure spike</span>' if fc["is_spike"] else ""
+            return (f"<tr><td>{fc['label']}</td><td>{fc['time']}</td>"
+                    f"<td>{fc['p10']}–{fc['p90']}m</td>"
+                    f"<td><strong>{fc['median']}m</strong></td>"
+                    f"<td>{fc['departures']}</td>"
+                    f"<td>{spike_badge}</td></tr>")
+
+        def _forecast_text(forecasts, terminal_label):
+            if not forecasts:
+                return f"No forecast data available for {terminal_label}."
+            parts = []
+            for fc in forecasts:
+                if fc["median"] is not None:
+                    spike = " (departure spike expected)" if fc["is_spike"] else ""
+                    parts.append(f"In {fc['label']} ({fc['time']}): ~{fc['median']}m (range {fc['p10']}–{fc['p90']}m), {fc['departures']} departures nearby{spike}")
+            return f"{terminal_label} forecast: " + ". ".join(parts) + "." if parts else f"No forecast data for {terminal_label}."
+
+        t1_forecast_text = _forecast_text(t1_forecasts, "Terminal 1")
+        t2_forecast_text = _forecast_text(t2_forecasts, "Terminal 2")
+
+        def _forecast_table_html(forecasts, terminal_label):
+            if not forecasts:
+                return f"<p>No forecast data available for {terminal_label}.</p>"
+            rows = "".join(_fmt_forecast_row(fc) for fc in forecasts)
+            return f"""<table class="forecast-table">
+<thead><tr><th>Horizon</th><th>Time</th><th>Range (p10–p90)</th><th>Predicted</th><th>Departures</th><th></th></tr></thead>
+<tbody>{rows}</tbody>
+</table>"""
+
+        t1_forecast_html = _forecast_table_html(t1_forecasts, "Terminal 1")
+        t2_forecast_html = _forecast_table_html(t2_forecasts, "Terminal 2")
 
         jsonld_faq = json.dumps({
             "@context": "https://schema.org",
@@ -502,6 +648,14 @@ def seo_security_data():
                     "acceptedAnswer": {
                         "@type": "Answer",
                         "text": f"Today ({now_dublin.strftime('%A, %B %d')}), Dublin Airport security is currently T1: {t1_str}, T2: {t2_str}. EIDW Times tracks the full 24-hour breakdown at eidwtimes.xyz."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What will Dublin Airport security times be in the next few hours?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using Monte Carlo simulations correlated with scheduled departure volumes. Check eidwtimes.xyz for live forecasts."
                     }
                 }
             ]
@@ -605,6 +759,13 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 .hero-card .time{{font-size:2.5rem;font-weight:700;color:#4ade80}}
 .hero-card .label{{font-size:.875rem;color:#94a3b8;margin-top:.25rem}}
 .rec{{padding:1rem;background:#164e3a;border-radius:.5rem;margin:1rem 0;font-weight:600;color:#4ade80;text-align:center}}
+.forecast-table{{width:100%;border-collapse:collapse;margin:.75rem 0;font-size:.875rem}}
+.forecast-table th{{text-align:left;padding:.5rem;border-bottom:2px solid #334155;color:#94a3b8;font-weight:500}}
+.forecast-table td{{padding:.5rem;border-bottom:1px solid #1e293b;color:#cbd5e1}}
+.forecast-table strong{{color:#4ade80}}
+.spike{{color:#f59e0b;font-size:.75rem;font-weight:600}}
+.forecast-section{{margin:1.5rem 0}}
+.forecast-section h3{{color:#4ade80;margin-bottom:.5rem}}
 </style>
 </head>
 <body>
@@ -625,6 +786,19 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 
 <div class="rec" id="seo-recommendation">{recommendation}</div>
 <p style="text-align:center;font-size:.875rem">You can use either terminal's security regardless of your departure gate. <a href="https://eidwtimes.xyz/">View full live dashboard &rarr;</a></p>
+
+<section class="forecast-section">
+<h2>Predicted Security Wait Times &amp; Departures</h2>
+<p>Forecasts generated at {now_dublin.strftime('%I:%M %p')} using Monte Carlo simulations correlated with scheduled departure volumes. Ranges show 10th–90th percentile confidence bands.</p>
+
+<h3>Terminal 1 (T1) — Forecast</h3>
+{t1_forecast_html}
+
+<h3>Terminal 2 (T2) — Forecast</h3>
+{t2_forecast_html}
+
+<p style="font-size:.8rem;color:#64748b">&#9650; = departure spike detected (more flights departing in this window than surrounding periods). Spikes typically correlate with longer security queues.</p>
+</section>
 
 <section>
 <h2>Frequently Asked Questions About Dublin Airport Security</h2>
@@ -684,7 +858,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 <p>EU aviation security rules apply: liquids in 100ml containers in a clear bag (max 1 litre), laptops and large electronics removed from bags, coats and belts may need removal.</p>
 
 <h3>Dublin Airport security queue prediction?</h3>
-<p>EIDW Times uses Monte Carlo simulations to project future security queue wait times based on current and historical data.</p>
+<p>EIDW Times uses Monte Carlo simulations correlated with departure volumes to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
 
 <h3>Dublin Airport security times last 7 days?</h3>
 <p>EIDW Times displays a full 7-day history of Dublin Airport security times, broken down by hour for both T1 and T2 at eidwtimes.xyz.</p>
