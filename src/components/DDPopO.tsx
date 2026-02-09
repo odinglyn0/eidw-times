@@ -95,7 +95,18 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
     fluctuationMessage = `No data for fluctuation`;
   }
 
-  const allCountsInGraph = granularDataForHour.map(d => d.count).filter((c): c is number => c !== null);
+  const sortedGranularData = [...granularDataForHour].sort((a, b) => {
+    const dateA = parseISO(a.timestamp).getTime();
+    const dateB = parseISO(b.timestamp).getTime();
+    return dateA - dateB;
+  });
+
+  const chartData = sortedGranularData.map(d => ({
+    ...d,
+    minute: getMinutes(parseISO(d.timestamp)),
+  }));
+
+  const allCountsInGraph = chartData.map(d => d.count).filter((c): c is number => c !== null);
   const minY = allCountsInGraph.length > 0 ? Math.min(...allCountsInGraph) : 0;
   const maxY = allCountsInGraph.length > 0 ? Math.max(...allCountsInGraph) : 5;
   const yAxisDomain = [minY > 0 ? minY - 1 : 0, maxY + 1];
@@ -118,13 +129,14 @@ const DepartureDetailPopover: React.FC<DepartureDetailPopoverProps> = ({
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               Loading graph...
             </div>
-          ) : granularDataForHour.length > 0 && granularDataForHour.some(d => d.count !== null) ? (
+          ) : chartData.length > 0 && chartData.some(d => d.count !== null) ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={granularDataForHour} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
-                  dataKey="timestamp"
-                  tickFormatter={(value) => `${getMinutes(parseISO(value))}m`}
+                  dataKey="minute"
+                  type="category"
+                  tickFormatter={(value) => `${value}m`}
                   axisLine={false}
                   tickLine={false}
                   fontSize={10}

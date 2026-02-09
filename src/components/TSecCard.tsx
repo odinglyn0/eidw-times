@@ -179,6 +179,10 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           if (!hourlyGranularMap.has(hour)) hourlyGranularMap.set(hour, []);
           hourlyGranularMap.get(hour)!.push(record);
         });
+        // Sort each hour's data chronologically
+        hourlyGranularMap.forEach((records) => {
+          records.sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
+        });
         newMap.set(day.date, hourlyGranularMap);
       }
       setHourlyGranularDepartureData(newMap);
