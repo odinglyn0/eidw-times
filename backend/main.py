@@ -375,26 +375,28 @@ def get_active_announcements():
 
 
 FORECAST_HORIZONS = [
-    (5, "5 min"),
-    (30, "30 min"),
     (60, "1 hour"),
     (120, "2 hours"),
     (180, "3 hours"),
-    (360, "6 hours"),
 ]
 
 
 def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
-    lookback = timedelta(hours=6)
-    sec_rows = _fetch_security_range(terminal_id, now_utc - lookback, now_utc)
-    dep_rows = _fetch_departures_range(terminal_id, now_utc - lookback, now_utc + timedelta(hours=7))
-
-    observed_security = [r['sec_time'] for r in sec_rows if r['sec_time'] is not None]
-    last_value = observed_security[-1] if observed_security else None
-
-    if last_value is None or len(observed_security) < 2:
+    preds = _trition_predict_all()
+    if not preds:
         return None
 
+    t_key = f"t{terminal_id}"
+    horizon_preds = {}
+    for key, val in preds.items():
+        if key.startswith(t_key + "_h"):
+            h_min = int(key.split("_h")[1].replace("m", ""))
+            horizon_preds[h_min] = val
+
+    if not horizon_preds:
+        return None
+
+    dep_rows = _fetch_departures_range(terminal_id, now_utc, now_utc + timedelta(hours=4))
     dep_times = []
     for r in dep_rows:
         ts = r['scheduled_datetime']
@@ -402,37 +404,12 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
             ts = ts.replace(tzinfo=timezone.utc)
         dep_times.append(ts)
 
-    observed_pairs = []
-    for r in sec_rows:
-        ts = r['timestamp']
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        if ts > now_utc or r['sec_time'] is None:
-            continue
-        dep_hour_start = ts.replace(minute=0, second=0, microsecond=0)
-        dep_hour_end = dep_hour_start + timedelta(hours=1)
-        dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-        observed_pairs.append({"security": r['sec_time'], "departures": dep_count})
-
-    future_departures = []
-    for dep_ts in dep_times:
-        if dep_ts <= now_utc:
-            continue
-        minute_offset = int((dep_ts - now_utc).total_seconds() / 60)
-        if 0 < minute_offset <= 360:
-            dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
-            dep_hour_end = dep_hour_start + timedelta(hours=1)
-            count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-            future_departures.append({"minuteOffset": minute_offset, "count": count})
-
-    bands = _run_departure_aware(
-        observed_security, observed_pairs, last_value,
-        future_departures, 360, 300
-    )
-
     forecasts = []
     for minutes, label in FORECAST_HORIZONS:
-        band = bands.get(minutes)
+        predicted = horizon_preds.get(minutes)
+        if predicted is None:
+            continue
+
         horizon_time = now_dublin + timedelta(minutes=minutes)
         horizon_str = horizon_time.strftime('%I:%M %p')
         horizon_utc = now_utc + timedelta(minutes=minutes)
@@ -449,28 +426,18 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
             if dep_count > before_count and dep_count > after_count:
                 is_spike = True
 
-        if band:
-            forecasts.append({
-                "label": label,
-                "time": horizon_str,
-                "median": band["median"],
-                "p10": band["p10"],
-                "p90": band["p90"],
-                "departures": dep_count,
-                "is_spike": is_spike,
-            })
-        else:
-            forecasts.append({
-                "label": label,
-                "time": horizon_str,
-                "median": None,
-                "p10": None,
-                "p90": None,
-                "departures": dep_count,
-                "is_spike": is_spike,
-            })
+        spread = max(1, int(predicted * 0.15))
+        forecasts.append({
+            "label": label,
+            "time": horizon_str,
+            "median": round(predicted),
+            "p10": max(0, round(predicted) - spread * 2),
+            "p90": round(predicted) + spread * 2,
+            "departures": dep_count,
+            "is_spike": is_spike,
+        })
 
-    return forecasts
+    return forecasts if forecasts else None
 
 
 @app.route('/api/seo-security-data', methods=['GET'])
@@ -655,7 +622,7 @@ def seo_security_data():
                     "name": "What will Dublin Airport security times be in the next few hours?",
                     "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using simulations correlated with scheduled departure volumes. Check eidwtimes.xyz for live forecasts."
+                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using a machine learning model trained on historical security data. Check eidwtimes.xyz for live forecasts."
                     }
                 }
             ]
@@ -789,7 +756,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 
 <section class="forecast-section">
 <h2>Predicted Security Wait Times &amp; Departures</h2>
-<p>Forecasts generated at {now_dublin.strftime('%I:%M %p')} using simulations correlated with scheduled departure volumes. Ranges show 10th–90th percentile confidence bands.</p>
+<p>Forecasts generated at {now_dublin.strftime('%I:%M %p')} using a machine learning model trained on historical security data. Ranges show estimated confidence bands.</p>
 
 <h3>Terminal 1 (T1) — Forecast</h3>
 {t1_forecast_html}
@@ -858,7 +825,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 <p>EU aviation security rules apply: liquids in 100ml containers in a clear bag (max 1 litre), laptops and large electronics removed from bags, coats and belts may need removal.</p>
 
 <h3>Dublin Airport security queue prediction?</h3>
-<p>EIDW Times uses simulations correlated with departure volumes to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
+<p>EIDW Times uses an XGBoost machine learning model to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
 
 <h3>Dublin Airport security times last 7 days?</h3>
 <p>EIDW Times displays a full 7-day history of Dublin Airport security times, broken down by hour for both T1 and T2 at eidwtimes.xyz.</p>
@@ -1867,7 +1834,6 @@ def _fetch_departures_range(terminal_id, start_utc, end_utc):
 
 @app.route('/api/simulate/gamma/method-c', methods=['POST'])
 def get_projected_6h():
-    """Return 6 future hours of minute-by-minute projected security times."""
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
@@ -2132,6 +2098,404 @@ def simulate_gamma_method_a():
         return jsonify({"bands": bands_str_keys})
     except Exception as e:
         logging.error(f"Error in gamma/method-a: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+import pandas as pd
+import xgboost as xgb
+
+_TRITION_MODEL_KEYS = [
+    "t1_h60m", "t1_h120m", "t1_h180m",
+    "t2_h60m", "t2_h120m", "t2_h180m",
+]
+_TRITION_BAND_MINUTES = 5
+_TRITION_LOOKBACK_HOURS = 24
+_TRITION_BAND_COUNT = (_TRITION_LOOKBACK_HOURS * 60) // _TRITION_BAND_MINUTES
+_trition_models = None
+_trition_meta = None
+
+
+def _trition_load_models():
+    global _trition_models, _trition_meta
+    if _trition_models is not None:
+        return _trition_models, _trition_meta
+
+    model_dir = os.environ.get("MODEL_CACHE_DIR", "/app/models")
+
+    with open(os.path.join(model_dir, "model_meta.json")) as f:
+        _trition_meta = json.load(f)
+
+    _trition_models = {}
+    for key in _TRITION_MODEL_KEYS:
+        booster = xgb.Booster()
+        booster.load_model(os.path.join(model_dir, f"{key}.json"))
+        _trition_models[key] = booster
+
+    logging.info(f"[trition] loaded {len(_trition_models)} models, {len(_trition_meta['feature_cols'])} features")
+    return _trition_models, _trition_meta
+
+
+def _trition_fetch_banded():
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=_TRITION_LOOKBACK_HOURS + 1)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT timestamp, t1, t2 FROM security_times WHERE timestamp >= %s ORDER BY timestamp ASC",
+                (cutoff,),
+            )
+            rows = cur.fetchall()
+
+    if not rows:
+        return None
+
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = df.sort_values("timestamp").reset_index(drop=True)
+    df["band_ts"] = df["timestamp"].dt.floor(f"{_TRITION_BAND_MINUTES}min")
+    banded = (
+        df.groupby("band_ts")
+        .agg({"t1": "mean", "t2": "mean"})
+        .sort_index()
+        .reset_index()
+    )
+    banded["hour"] = banded["band_ts"].dt.hour
+    banded["minute"] = banded["band_ts"].dt.minute
+    banded = banded.drop(columns=["band_ts"]).reset_index(drop=True)
+    return banded
+
+
+def _trition_build_features(df, meta):
+    bc = _TRITION_BAND_COUNT
+    t1_lags = pd.concat(
+        {f"t1_lag_{lag}": df["t1"].shift(lag) for lag in range(1, bc + 1)},
+        axis=1,
+    )
+    t2_lags = pd.concat(
+        {f"t2_lag_{lag}": df["t2"].shift(lag) for lag in range(1, bc + 1)},
+        axis=1,
+    )
+    lag_cols_t1 = list(t1_lags.columns)
+    lag_cols_t2 = list(t2_lags.columns)
+
+    df = pd.concat([df, t1_lags, t2_lags], axis=1)
+    df = df.dropna().reset_index(drop=True)
+
+    if len(df) == 0:
+        return None
+
+    latest = df.iloc[[-1]].copy()
+    hour_sin = np.sin(2 * np.pi * latest["hour"] / 24.0)
+    hour_cos = np.cos(2 * np.pi * latest["hour"] / 24.0)
+    min_sin = np.sin(2 * np.pi * latest["minute"] / 60.0)
+    min_cos = np.cos(2 * np.pi * latest["minute"] / 60.0)
+
+    feature_cols = ["t1", "t2", "hour", "minute"] + lag_cols_t1 + lag_cols_t2
+    X = latest[feature_cols].copy()
+    X["hour_sin"] = hour_sin.values
+    X["hour_cos"] = hour_cos.values
+    X["min_sin"] = min_sin.values
+    X["min_cos"] = min_cos.values
+    X = X[meta["feature_cols"]]
+    return xgb.DMatrix(X)
+
+
+def _trition_predict_all():
+    models, meta = _trition_load_models()
+    df = _trition_fetch_banded()
+    if df is None or len(df) == 0:
+        return None
+    dmatrix = _trition_build_features(df.copy(), meta)
+    if dmatrix is None:
+        return None
+    results = {}
+    for key, booster in models.items():
+        pred = booster.predict(dmatrix)
+        results[key] = round(float(pred[0]), 1)
+    return results
+
+
+@app.route('/api/simulate/trition/method-a', methods=['POST'])
+def simulate_trition_method_a():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        start_iso = data.get('start')
+        end_iso = data.get('end')
+        selected_timeframe = data.get('selectedTimeframe', 1440)
+
+        if not terminal_id or not start_iso or not end_iso:
+            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+
+        preds = _trition_predict_all()
+        if not preds:
+            return jsonify({"bands": {}})
+
+        now = datetime.now(timezone.utc)
+        end_dt = datetime.fromisoformat(end_iso)
+        future_minutes = int((end_dt - now).total_seconds() / 60)
+        future_minutes = max(0, min(future_minutes, 1440))
+        effective_steps = min(future_minutes, selected_timeframe)
+
+        if effective_steps <= 0:
+            return jsonify({"bands": {}})
+
+        t_key = f"t{terminal_id}"
+        horizon_preds = {}
+        for key, val in preds.items():
+            if key.startswith(t_key + "_h"):
+                h_min = int(key.split("_h")[1].replace("m", ""))
+                horizon_preds[h_min] = val
+
+        if not horizon_preds:
+            return jsonify({"bands": {}})
+
+        sorted_horizons = sorted(horizon_preds.keys())
+        bands = {}
+        for minute in range(1, effective_steps + 1):
+            interp_val = None
+            if minute <= sorted_horizons[0]:
+                current_val = preds.get(f"{t_key}_h{sorted_horizons[0]}m")
+                sec_rows = _fetch_security_range(terminal_id, now - timedelta(minutes=5), now)
+                last_obs = sec_rows[-1]['sec_time'] if sec_rows else current_val
+                frac = minute / sorted_horizons[0]
+                interp_val = last_obs + frac * (horizon_preds[sorted_horizons[0]] - last_obs)
+            elif minute >= sorted_horizons[-1]:
+                interp_val = horizon_preds[sorted_horizons[-1]]
+            else:
+                for i in range(len(sorted_horizons) - 1):
+                    if sorted_horizons[i] <= minute <= sorted_horizons[i + 1]:
+                        lo, hi = sorted_horizons[i], sorted_horizons[i + 1]
+                        frac = (minute - lo) / (hi - lo)
+                        interp_val = horizon_preds[lo] + frac * (horizon_preds[hi] - horizon_preds[lo])
+                        break
+
+            if interp_val is not None:
+                v = max(0, round(interp_val))
+                spread = max(1, int(v * 0.15))
+                bands[str(minute)] = {
+                    "p10": max(0, v - spread * 2),
+                    "p25": max(0, v - spread),
+                    "median": v,
+                    "p75": v + spread,
+                    "p90": v + spread * 2,
+                }
+
+        return jsonify({"bands": bands})
+    except Exception as e:
+        logging.error(f"Error in trition/method-a: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/simulate/trition/method-b', methods=['POST'])
+def simulate_trition_method_b():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        preds = _trition_predict_all()
+        if not preds:
+            return jsonify({"paths": []})
+
+        now = datetime.now(DUBLIN_TZ)
+        last_minute = now.minute
+        t_key = f"t{terminal_id}"
+
+        sec_rows = _fetch_security_for_hour(terminal_id,
+            now.replace(minute=0, second=0, microsecond=0),
+            now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+        observed_values = [r['sec_time'] for r in sec_rows] if sec_rows else []
+        last_value = observed_values[-1] if observed_values else None
+
+        h60_pred = preds.get(f"{t_key}_h60m")
+        if last_value is None or h60_pred is None:
+            return jsonify({"paths": [], "dataPoints": len(observed_values)})
+
+        future_minutes = list(range(last_minute + 1, 60))
+        if not future_minutes:
+            return jsonify({"paths": [], "dataPoints": len(observed_values)})
+
+        paths = []
+        for _ in range(15):
+            path = []
+            current = float(last_value)
+            target = h60_pred
+            remaining = len(future_minutes)
+            for idx, m in enumerate(future_minutes):
+                frac = (idx + 1) / remaining
+                drift = (target - current) * 0.3
+                noise = np.random.randn() * 0.5
+                current = max(0, current + drift + noise)
+                path.append({"minute": m, "value": max(0, round(current))})
+            paths.append(path)
+
+        return jsonify({"paths": paths, "dataPoints": len(observed_values)})
+    except Exception as e:
+        logging.error(f"Error in trition/method-b: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/simulate/trition/method-d', methods=['POST'])
+def simulate_trition_method_d():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        hour_timestamp = data.get('hourTimestamp')
+
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        preds = _trition_predict_all()
+        if not preds:
+            return jsonify({"projected": []})
+
+        if hour_timestamp:
+            ref_time = datetime.fromisoformat(hour_timestamp)
+            if ref_time.tzinfo is None:
+                ref_time = ref_time.replace(tzinfo=DUBLIN_TZ)
+        else:
+            ref_time = datetime.now(DUBLIN_TZ)
+
+        current_minute = ref_time.minute
+        t_key = f"t{terminal_id}"
+
+        sec_rows = _fetch_security_for_hour(terminal_id,
+            ref_time.replace(minute=0, second=0, microsecond=0),
+            ref_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+
+        observed = []
+        for r in sec_rows:
+            ts = r['timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            m = ts.astimezone(DUBLIN_TZ).minute
+            if m <= current_minute:
+                observed.append((m, r['sec_time']))
+
+        if not observed:
+            return jsonify({"projected": []})
+
+        observed.sort(key=lambda x: x[0])
+        last_value = observed[-1][1]
+        last_minute = observed[-1][0]
+
+        h60_pred = preds.get(f"{t_key}_h60m")
+        if h60_pred is None:
+            return jsonify({"projected": []})
+
+        future_minutes = list(range(last_minute + 1, 60))
+        if not future_minutes:
+            return jsonify({"projected": []})
+
+        projected = []
+        current = float(last_value)
+        remaining = len(future_minutes)
+        for idx, m in enumerate(future_minutes):
+            frac = (idx + 1) / remaining
+            drift = (h60_pred - current) * 0.3
+            current = max(0, current + drift)
+            projected.append({"minute": m, "value": max(0, round(current))})
+
+        return jsonify({"projected": projected})
+    except Exception as e:
+        logging.error(f"Error in trition/method-d: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/simulate/trition/method-c', methods=['POST'])
+def simulate_trition_method_c():
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        preds = _trition_predict_all()
+        if not preds:
+            return jsonify({"hours": []})
+
+        now_utc = datetime.now(timezone.utc)
+        now_dublin = datetime.now(DUBLIN_TZ)
+        t_key = f"t{terminal_id}"
+
+        horizon_preds = {}
+        for key, val in preds.items():
+            if key.startswith(t_key + "_h"):
+                h_min = int(key.split("_h")[1].replace("m", ""))
+                horizon_preds[h_min] = val
+
+        if not horizon_preds:
+            return jsonify({"hours": []})
+
+        sec_rows = _fetch_security_range(terminal_id, now_utc - timedelta(minutes=5), now_utc)
+        last_obs = sec_rows[-1]['sec_time'] if sec_rows else horizon_preds.get(60, 5)
+
+        dep_rows = _fetch_departures_range(terminal_id, now_utc, now_utc + timedelta(hours=7))
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        sorted_horizons = sorted(horizon_preds.keys())
+
+        hours_result = []
+        for h in range(6):
+            hour_start_min = h * 60 + 1
+            hour_end_min = (h + 1) * 60
+            hour_time = now_dublin + timedelta(hours=h + 1)
+            hour_label = hour_time.strftime('%I %p').lstrip('0')
+
+            minutes_data = []
+            medians = []
+            for m in range(hour_start_min, hour_end_min + 1):
+                interp_val = None
+                if m <= sorted_horizons[0]:
+                    frac = m / sorted_horizons[0]
+                    interp_val = last_obs + frac * (horizon_preds[sorted_horizons[0]] - last_obs)
+                elif m >= sorted_horizons[-1]:
+                    interp_val = horizon_preds[sorted_horizons[-1]]
+                else:
+                    for i in range(len(sorted_horizons) - 1):
+                        if sorted_horizons[i] <= m <= sorted_horizons[i + 1]:
+                            lo, hi = sorted_horizons[i], sorted_horizons[i + 1]
+                            frac = (m - lo) / (hi - lo)
+                            interp_val = horizon_preds[lo] + frac * (horizon_preds[hi] - horizon_preds[lo])
+                            break
+
+                if interp_val is not None:
+                    v = max(0, round(interp_val))
+                    spread = max(1, int(v * 0.12))
+                    minutes_data.append({
+                        "minute": m - hour_start_min,
+                        "median": v,
+                        "p10": max(0, v - spread * 2),
+                        "p25": max(0, v - spread),
+                        "p75": v + spread,
+                        "p90": v + spread * 2,
+                    })
+                    medians.append(v)
+
+            avg_median = round(sum(medians) / len(medians)) if medians else None
+            hour_utc_start = now_utc + timedelta(hours=h)
+            hour_utc_end = now_utc + timedelta(hours=h + 1)
+            dep_count = sum(1 for d in dep_times if hour_utc_start <= d < hour_utc_end)
+
+            hours_result.append({
+                "hourLabel": hour_label,
+                "hourOffset": h + 1,
+                "timestamp": hour_time.isoformat(),
+                "avgMedian": avg_median,
+                "departures": dep_count,
+                "minutes": minutes_data,
+            })
+
+        return jsonify({"hours": hours_result})
+    except Exception as e:
+        logging.error(f"Error in trition/method-c: {e}")
         return jsonify({"error": str(e)}), 500
 
 

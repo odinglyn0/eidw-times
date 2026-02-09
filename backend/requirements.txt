@@ -6,3 +6,7 @@ numpy
 PyJWT==2.9.0
 google-cloud-recaptcha-enterprise==1.23.0
 upstash-redis>=1.1.0
+xgboost
+pandas
+pyarrow
+huggingface_hub

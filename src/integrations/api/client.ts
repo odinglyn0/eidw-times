@@ -12,6 +12,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
   return headers;
 }
 
+function getModelPrefix(): 'gamma' | 'trition' {
+  const model = getCookie('forecast_model');
+  return model === 'liminal' ? 'gamma' : 'trition';
+}
+
+function getTangoPrefix(): 'tango' | 'trition' {
+  const model = getCookie('forecast_model');
+  return model === 'liminal' ? 'tango' : 'trition';
+}
+
 export const apiClient = {
   async getCurrentSecurityData() {
     const response = await fetch(`${API_BASE_URL}/api/current-security-data`, {
@@ -118,7 +128,8 @@ export const apiClient = {
   },
 
   async simulateGammaMethodB(terminalId: number) {
-    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-b`, {
+    const prefix = getModelPrefix();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-b`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId })
@@ -128,6 +139,16 @@ export const apiClient = {
   },
 
   async simulateTangoMethodA(terminalId: number, hourTimestamp?: string) {
+    const prefix = getTangoPrefix();
+    if (prefix === 'trition') {
+      const response = await fetch(`${API_BASE_URL}/api/simulate/trition/method-d`, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ terminalId, hourTimestamp })
+      });
+      if (!response.ok) throw new Error('Failed to run simulation');
+      return response.json();
+    }
     const response = await fetch(`${API_BASE_URL}/api/simulate/tango/method-a`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -138,7 +159,8 @@ export const apiClient = {
   },
 
   async simulateGammaMethodA(terminalId: number, start: string, end: string, selectedTimeframe: number) {
-    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-a`, {
+    const prefix = getModelPrefix();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-a`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId, start, end, selectedTimeframe })
@@ -221,7 +243,8 @@ export const apiClient = {
   },
 
   async getProjected6h(terminalId: number) {
-    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-c`, {
+    const prefix = getModelPrefix();
+    const response = await fetch(`${API_BASE_URL}/api/simulate/${prefix}/method-c`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ terminalId })

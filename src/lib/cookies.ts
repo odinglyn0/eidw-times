@@ -6,6 +6,7 @@ const AUTO_POLL_ENABLED_KEY = 'auto_poll_enabled';
 const AUTO_POLL_INTERVAL_KEY = 'auto_poll_interval';
 const DARK_MODE_KEY = 'dark_mode_enabled';
 const SHOW_RECOMMENDATION_KEY = 'show_recommendation';
+const FORECAST_MODEL_KEY = 'forecast_model';
 
 const readCookie = (key: string): string | undefined => {
   const match = document.cookie
@@ -94,4 +95,14 @@ export const getShowRecommendation = (): boolean => {
   const value = Cookies.get(SHOW_RECOMMENDATION_KEY);
   if (value === undefined) return true;
   return value === 'true';
+};
+
+export const setForecastModel = (model: 'liminal' | 'trition') => {
+  Cookies.set(FORECAST_MODEL_KEY, model, { expires: COOKIE_EXPIRATION_DAYS });
+};
+
+export const getForecastModel = (): 'liminal' | 'trition' => {
+  const value = Cookies.get(FORECAST_MODEL_KEY);
+  if (value === 'liminal') return 'liminal';
+  return 'trition';
 };

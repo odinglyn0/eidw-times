@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/Lbl";
 import { Input } from "@/components/ui/In";
 import { Button } from "@/components/ui/Btt";
 import { useToast } from "@/components/ui/use-toast";
-import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation } from '@/lib/cookies';
+import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation, getForecastModel, setForecastModel } from '@/lib/cookies';
 import { useCookieConsent } from '@/integrations/cookie-consent/CookieConsentProvider';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Scale } from 'lucide-react';
@@ -19,11 +19,13 @@ const Settings: React.FC = () => {
   const [refreshInterval, setRefreshInterval] = useState(30);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showRecommendation, setShowRecommendationState] = useState(true);
+  const [forecastModel, setForecastModelState] = useState<'liminal' | 'trition'>('trition');
 
   useEffect(() => {
     setAutoRefreshEnabled(getAutoPollEnabled());
     setRefreshInterval(getAutoPollInterval());
     setShowRecommendationState(getShowRecommendation());
+    setForecastModelState(getForecastModel());
     const cookieDark = getDarkMode();
     if (cookieDark !== null) {
       setIsDarkMode(cookieDark);
@@ -84,6 +86,15 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleForecastModelChange = (model: 'liminal' | 'trition') => {
+    setForecastModelState(model);
+    setForecastModel(model);
+    toast({
+      title: "Forecast model updated",
+      description: `Switched to ${model === 'trition' ? 'v2 Trition' : 'v1 Liminal'}.`,
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md">
@@ -119,6 +130,33 @@ const Settings: React.FC = () => {
                 onCheckedChange={handleShowRecommendationToggle}
                 disabled={!hasCookieConsent}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-base">Forecast Model</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={forecastModel === 'trition' ? 'default' : 'outline'}
+                  size="sm"
+                  className={forecastModel === 'trition' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                  onClick={() => handleForecastModelChange('trition')}
+                  disabled={!hasCookieConsent}
+                >
+                  v2 Trition
+                </Button>
+                <Button
+                  variant={forecastModel === 'liminal' ? 'default' : 'outline'}
+                  size="sm"
+                  className={forecastModel === 'liminal' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                  onClick={() => handleForecastModelChange('liminal')}
+                  disabled={!hasCookieConsent}
+                >
+                  v1 Liminal
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Controls which prediction engine is used for forecasts.
+              </p>
             </div>
 
             <div className="flex items-center justify-between">
