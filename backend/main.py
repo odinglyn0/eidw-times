@@ -18,8 +18,6 @@ from upstash_middleware import rate_limit_middleware, response_cache_middleware
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-rate_limit_middleware(app)
-response_cache_middleware(app)
 
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):
@@ -119,6 +117,9 @@ def verify_bounce_token():
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid bounce token"}), 401
     return None
+
+rate_limit_middleware(app)
+response_cache_middleware(app)
 
 
 @app.route('/api/bouncetoken/verify', methods=['POST'])
