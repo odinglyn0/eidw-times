@@ -292,6 +292,7 @@ def get_hourly_interval_security_data():
                     ORDER BY timestamp ASC
                 """)
                 
+                results = cur.fetchall()
                 rows = []
                 for row in results:
                     r = dict(row)
@@ -825,7 +826,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 <p>EU aviation security rules apply: liquids in 100ml containers in a clear bag (max 1 litre), laptops and large electronics removed from bags, coats and belts may need removal.</p>
 
 <h3>Dublin Airport security queue prediction?</h3>
-<p>EIDW Times uses an XGBoost machine learning model to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
+<p>EIDW Times uses a machine learning model to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
 
 <h3>Dublin Airport security times last 7 days?</h3>
 <p>EIDW Times displays a full 7-day history of Dublin Airport security times, broken down by hour for both T1 and T2 at eidwtimes.xyz.</p>
