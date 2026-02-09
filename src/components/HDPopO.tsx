@@ -5,6 +5,9 @@ import { format, parseISO, getMinutes, getHours } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/integrations/api/client';
 
+const simulationCache = new Map<string, { data: { projected: { minute: number; value: number }[] }; expiry: number }>();
+const CACHE_TTL_MS = 2 * 60 * 1000;
+
 interface HourlySecurityData {
   hour: number;
   t1: number | null;
@@ -43,29 +46,65 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
 
   const currentTime = currentDataPoint.displayValue ?? currentDataPoint[`t${terminalId}` as 't1' | 't2'];
 
-  const [stats, setStats] = useState<{
-    changeFromPrev: string | null;
-    changeToNext: string | null;
-    fluctuationMessage: string | null;
-  } | null>(null);
+  const stats = useMemo(() => {
+    const currentTime = currentDataPoint.displayValue ?? currentDataPoint[`t${terminalId}` as 't1' | 't2'];
+    const prevTime = prevDataPoint
+      ? (prevDataPoint.displayValue ?? prevDataPoint[`t${terminalId}` as 't1' | 't2'])
+      : null;
+    const nextTime = nextDataPoint
+      ? (nextDataPoint.displayValue ?? nextDataPoint[`t${terminalId}` as 't1' | 't2'])
+      : null;
 
-  useEffect(() => {
-    if (!isPopoverOpen || !currentDataPoint.timestamp) return;
-    let cancelled = false;
+    let changeFromPrev: string | null = null;
+    if (currentTime !== null && currentTime !== undefined && prevTime !== null && prevTime !== undefined) {
+      if (prevTime === 0 && currentTime === 0) {
+        changeFromPrev = "No change from previous point (0m)";
+      } else if (prevTime === 0) {
+        changeFromPrev = `Increased from 0m to ${currentTime}m`;
+      } else {
+        const pct = ((currentTime - prevTime) / prevTime) * 100;
+        changeFromPrev = `${pct > 0 ? 'Up' : 'Down'} ${Math.abs(pct).toFixed(0)}% from previous point`;
+      }
+    } else if (currentTime !== null && currentTime !== undefined && (prevTime === null || prevTime === undefined)) {
+      changeFromPrev = "No data for previous point";
+    }
 
-    apiClient.getHourlyDetailStats(
-      terminalId,
-      currentDataPoint.timestamp,
-      prevDataPoint?.timestamp || undefined,
-      nextDataPoint?.timestamp || undefined,
-    ).then(data => {
-      if (!cancelled) setStats(data);
-    }).catch(() => {
-      if (!cancelled) setStats(null);
-    });
+    let changeToNext: string | null = null;
+    if (currentTime !== null && currentTime !== undefined && nextTime !== null && nextTime !== undefined) {
+      if (currentTime === 0 && nextTime === 0) {
+        changeToNext = "No change to next point (0m)";
+      } else if (currentTime === 0) {
+        changeToNext = `Increased from 0m to ${nextTime}m`;
+      } else {
+        const pct = ((nextTime - currentTime) / currentTime) * 100;
+        changeToNext = `${pct > 0 ? 'Up' : 'Down'} ${Math.abs(pct).toFixed(0)}% to next point`;
+      }
+    } else if (currentTime !== null && currentTime !== undefined && (nextTime === null || nextTime === undefined)) {
+      changeToNext = "No data for next point";
+    }
 
-    return () => { cancelled = true; };
-  }, [isPopoverOpen, currentDataPoint.timestamp, prevDataPoint?.timestamp, nextDataPoint?.timestamp, terminalId]);
+    let fluctuationMessage: string | null = null;
+    const validTimes = granularDataForHour.map(d => d.time).filter((t): t is number => t !== null);
+    if (validTimes.length > 1) {
+      const minT = Math.min(...validTimes);
+      const maxT = Math.max(...validTimes);
+      const range = maxT - minT;
+      if (minT === 0 && maxT === 0) {
+        fluctuationMessage = "No fluctuation (0m)";
+      } else if (minT === 0) {
+        fluctuationMessage = `Fluctuated by ${range}m (from 0m)`;
+      } else {
+        const pct = (range / minT) * 100;
+        fluctuationMessage = `Fluctuated by ${range}m (${pct.toFixed(0)}%) within the hour`;
+      }
+    } else if (validTimes.length === 1) {
+      fluctuationMessage = `Only one data point (${validTimes[0]}m)`;
+    } else {
+      fluctuationMessage = "No data for fluctuation";
+    }
+
+    return { changeFromPrev, changeToNext, fluctuationMessage };
+  }, [currentDataPoint, prevDataPoint, nextDataPoint, terminalId, granularDataForHour]);
 
   const isCurrentHour = currentDataPoint.timestamp
     ? getHours(parseISO(currentDataPoint.timestamp)) === getHours(new Date())
@@ -108,12 +147,27 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
       setChartData(staticChartData.points);
       return;
     }
-    let cancelled = false;
+    if (!isPopoverOpen) return;
+
     const hourTimestamp = currentDataPoint.timestamp || undefined;
+    const cacheKey = `${terminalId}_${hourTimestamp}`;
+    const cached = simulationCache.get(cacheKey);
+
+    if (cached && cached.expiry > Date.now()) {
+      const projected = cached.data.projected;
+      const points = [...staticChartData.points];
+      if (points.length > 0) points[points.length - 1].projected = points[points.length - 1].actual;
+      projected.forEach(p => { points.push({ minute: p.minute, actual: null, projected: p.value }); });
+      setChartData(points);
+      return;
+    }
+
+    let cancelled = false;
 
     apiClient.simulateTangoMethodA(terminalId, hourTimestamp)
       .then(data => {
         if (cancelled) return;
+        simulationCache.set(cacheKey, { data, expiry: Date.now() + CACHE_TTL_MS });
         const projected = data.projected as { minute: number; value: number }[];
         const points = [...staticChartData.points];
         if (points.length > 0) points[points.length - 1].projected = points[points.length - 1].actual;
@@ -123,7 +177,7 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
       .catch(() => { if (!cancelled) setChartData(staticChartData.points); });
 
     return () => { cancelled = true; };
-  }, [staticChartData]);
+  }, [staticChartData, isPopoverOpen]);
 
   const allChartValues = chartData.flatMap(d => [d.actual, d.projected]).filter((v): v is number => v !== null);
   const minY = allChartValues.length > 0 ? Math.min(...allChartValues) : 0;
@@ -170,16 +224,12 @@ const HourlyDetailPopover: React.FC<HourlyDetailPopoverProps> = ({ children, all
           <p className="text-xs text-muted-foreground text-center mb-1 italic">Dashed line = Simulated</p>
         )}
         <div className="space-y-1 text-gray-700 dark:text-gray-300">
-          {stats ? (
             <>
               {stats.changeFromPrev && <p>{stats.changeFromPrev}</p>}
               {stats.changeToNext && <p>{stats.changeToNext}</p>}
               {stats.fluctuationMessage && <p>{stats.fluctuationMessage}</p>}
               {(!stats.changeFromPrev && !stats.changeToNext && !stats.fluctuationMessage) && <p>No comparative data available.</p>}
             </>
-          ) : (
-            <p className="text-muted-foreground text-xs">Loading stats...</p>
-          )}
         </div>
         </>
         )}
