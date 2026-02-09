@@ -133,6 +133,7 @@ CACHEABLE_ENDPOINTS = {
     "/api/range-security-data":      {"method": "POST", "key_from": "body"},
     "/api/range-departure-data":     {"method": "POST", "key_from": "body"},
     "/api/chart-data":               {"method": "POST", "key_from": "body"},
+    "/api/simulate/gamma/method-c":             {"method": "POST", "key_from": "body"},
 }
 
 

@@ -20,6 +20,8 @@ import DepartureDetailPopover from "./DDPopO";
 import ProjectedHourlyPopover from "./PHPopO";
 const HourGraphDialog = lazy(() => import("./HgDi"));
 import LaserPulseBorder from "./LPB";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/PopO";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface HourlySecurityData {
   hour: number;
@@ -45,6 +47,22 @@ interface GranularDepartureData {
   count: number | null;
 }
 
+interface ProjectedHourData {
+  hourLabel: string;
+  hourOffset: number;
+  timestamp: string;
+  avgMedian: number | null;
+  departures: number;
+  minutes: {
+    minute: number;
+    median: number;
+    p10: number;
+    p25: number;
+    p75: number;
+    p90: number;
+  }[];
+}
+
 interface TerminalSecurityCardProps {
   terminalId: 1 | 2;
   globalMaxTime?: number | null;
@@ -52,6 +70,72 @@ interface TerminalSecurityCardProps {
   t1CurrentTime: number | null;
   t2CurrentTime: number | null;
 }
+
+function projectedColorClass(value: number | null): string {
+  if (value === null) return "bg-gray-500";
+  if (value <= 5) return "bg-blue-500";
+  if (value <= 10) return "bg-blue-600";
+  if (value <= 20) return "bg-indigo-500";
+  if (value <= 30) return "bg-indigo-600";
+  if (value <= 45) return "bg-purple-600";
+  return "bg-purple-800";
+}
+
+const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
+  const [open, setOpen] = useState(false);
+  const colorCls = projectedColorClass(hour.avgMedian);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <div
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          className={cn(
+            "flex flex-col items-center justify-center p-1 rounded-sm text-white font-bold cursor-pointer",
+            "hover:scale-105 hover:shadow-lg transition-all duration-200 border border-dashed border-white/30",
+            colorCls
+          )}
+        >
+          <span className="text-xs">{hour.hourLabel}</span>
+          <span className="text-xs">{hour.avgMedian !== null ? `~${hour.avgMedian}m` : "—"}</span>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
+        <h4 className="font-semibold mb-1 text-center">{hour.hourLabel} (projected)</h4>
+        <p className="text-xs text-muted-foreground text-center mb-2">
+          {hour.departures} departures nearby · median ~{hour.avgMedian ?? "—"}m
+        </p>
+        {hour.minutes.length > 0 ? (
+          <div className="h-28 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={hour.minutes} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="minute" tickFormatter={(v) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
+                <YAxis tickFormatter={(v) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
+                <Tooltip
+                  formatter={(value: number, name: string) => {
+                    const labels: Record<string, string> = { median: "Median", p10: "P10", p90: "P90" };
+                    return [`${value}m`, labels[name] || name];
+                  }}
+                  labelFormatter={(l) => `Minute ${l}`}
+                />
+                <Area type="monotone" dataKey="p90" stroke="none" fill="#7c3aed" fillOpacity={0.1} />
+                <Area type="monotone" dataKey="p75" stroke="none" fill="#7c3aed" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="median" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.05} strokeDasharray="4 3" />
+                <Area type="monotone" dataKey="p25" stroke="none" fill="transparent" />
+                <Area type="monotone" dataKey="p10" stroke="none" fill="transparent" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground text-xs py-4">No minute data.</p>
+        )}
+        <p className="text-xs text-muted-foreground text-center mt-1 italic">Dashed = projected median · shaded = confidence band</p>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
@@ -63,6 +147,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
   const [granularByHour, setGranularByHour] = useState<Record<number, GranularSecurityData[]>>({});
   const [departureData, setDepartureData] = useState<HourlyDepartureDisplayData[]>([]);
   const [hourlyGranularDepartureData, setHourlyGranularDepartureData] = useState<Map<string, Map<number, GranularDepartureData[]>>>(new Map());
+  const [projected6h, setProjected6h] = useState<ProjectedHourData[]>([]);
   const [loading, setLoading] = useState(true);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [hourGraphOpen, setHourGraphOpen] = useState(false);
@@ -111,6 +196,14 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setHistoricalDailyAverages(processed.dailyAverages || []);
       setCurrentDayHourlyData(processed.last24HourData || []);
       setGranularByHour(processed.granularByHour || {});
+
+      try {
+        const proj = await apiClient.getProjected6h(terminalId);
+        setProjected6h(proj.hours || []);
+      } catch (err) {
+        console.error(`Error fetching projected 6h for T${terminalId}:`, err);
+        setProjected6h([]);
+      }
     } catch (error) {
       console.error(`Error fetching data for Terminal ${terminalId}:`, error);
       showError(`Failed to load data for Terminal ${terminalId}.`);
@@ -119,6 +212,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       setHistoricalDailyAverages([]);
       setCurrentDayHourlyData([]);
       setGranularByHour({});
+      setProjected6h([]);
     }
   }, [terminalId]);
 
@@ -239,7 +333,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             )}
 
             <div className="mb-8 w-full">
-              <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Last 24 Hours Security Times</h3>
+              <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">Past 24 / Next 6</h3>
               {currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
                   {currentDayHourlyData.map((dataPoint) => (
@@ -262,6 +356,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         <span>{dataPoint.displayValue !== null && dataPoint.displayValue !== undefined ? `${dataPoint.displayValue}m` : "N/A"}</span>
                       </div>
                     </HourlyDetailPopover>
+                  ))}
+                  {projected6h.map((hour) => (
+                    <ProjectedHourCard key={`proj-${hour.hourOffset}`} hour={hour} />
                   ))}
                 </div>
               ) : (

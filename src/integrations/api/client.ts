@@ -218,5 +218,15 @@ export const apiClient = {
       body: JSON.stringify({ recaptchaToken, fingerprint })
     });
     return response.json();
+  },
+
+  async getProjected6h(terminalId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/simulate/gamma/method-c`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ terminalId })
+    });
+    if (!response.ok) throw new Error('Failed to fetch projected 6h data');
+    return response.json();
   }
 };

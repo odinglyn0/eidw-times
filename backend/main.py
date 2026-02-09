@@ -655,7 +655,7 @@ def seo_security_data():
                     "name": "What will Dublin Airport security times be in the next few hours?",
                     "acceptedAnswer": {
                         "@type": "Answer",
-                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using Monte Carlo simulations correlated with scheduled departure volumes. Check eidwtimes.xyz for live forecasts."
+                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using simulations correlated with scheduled departure volumes. Check eidwtimes.xyz for live forecasts."
                     }
                 }
             ]
@@ -789,7 +789,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 
 <section class="forecast-section">
 <h2>Predicted Security Wait Times &amp; Departures</h2>
-<p>Forecasts generated at {now_dublin.strftime('%I:%M %p')} using Monte Carlo simulations correlated with scheduled departure volumes. Ranges show 10th–90th percentile confidence bands.</p>
+<p>Forecasts generated at {now_dublin.strftime('%I:%M %p')} using simulations correlated with scheduled departure volumes. Ranges show 10th–90th percentile confidence bands.</p>
 
 <h3>Terminal 1 (T1) — Forecast</h3>
 {t1_forecast_html}
@@ -858,7 +858,7 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 <p>EU aviation security rules apply: liquids in 100ml containers in a clear bag (max 1 litre), laptops and large electronics removed from bags, coats and belts may need removal.</p>
 
 <h3>Dublin Airport security queue prediction?</h3>
-<p>EIDW Times uses Monte Carlo simulations correlated with departure volumes to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
+<p>EIDW Times uses simulations correlated with departure volumes to predict security wait times. {t1_forecast_text} {t2_forecast_text}</p>
 
 <h3>Dublin Airport security times last 7 days?</h3>
 <p>EIDW Times displays a full 7-day history of Dublin Airport security times, broken down by hour for both T1 and T2 at eidwtimes.xyz.</p>
@@ -1863,6 +1863,105 @@ def _fetch_departures_range(terminal_id, start_utc, end_utc):
                 ORDER BY scheduled_datetime ASC
             """, (terminal_name, start_utc, end_utc))
             return cur.fetchall()
+
+
+@app.route('/api/simulate/gamma/method-c', methods=['POST'])
+def get_projected_6h():
+    """Return 6 future hours of minute-by-minute projected security times."""
+    try:
+        data = request.get_json()
+        terminal_id = data.get('terminalId')
+        if not terminal_id:
+            return jsonify({"error": "Missing terminalId"}), 400
+
+        now_utc = datetime.now(timezone.utc)
+        now_dublin = datetime.now(DUBLIN_TZ)
+        lookback = timedelta(hours=6)
+
+        sec_rows = _fetch_security_range(terminal_id, now_utc - lookback, now_utc)
+        dep_rows = _fetch_departures_range(terminal_id, now_utc - lookback, now_utc + timedelta(hours=7))
+
+        observed_security = [r['sec_time'] for r in sec_rows if r['sec_time'] is not None]
+        last_value = observed_security[-1] if observed_security else None
+
+        if last_value is None or len(observed_security) < 2:
+            return jsonify({"hours": []})
+
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        observed_pairs = []
+        for r in sec_rows:
+            ts = r['timestamp']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts > now_utc or r['sec_time'] is None:
+                continue
+            dep_hour_start = ts.replace(minute=0, second=0, microsecond=0)
+            dep_hour_end = dep_hour_start + timedelta(hours=1)
+            dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+            observed_pairs.append({"security": r['sec_time'], "departures": dep_count})
+
+        future_departures = []
+        for dep_ts in dep_times:
+            if dep_ts <= now_utc:
+                continue
+            minute_offset = int((dep_ts - now_utc).total_seconds() / 60)
+            if 0 < minute_offset <= 360:
+                dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
+                dep_hour_end = dep_hour_start + timedelta(hours=1)
+                count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
+                future_departures.append({"minuteOffset": minute_offset, "count": count})
+
+        bands = _run_departure_aware(
+            observed_security, observed_pairs, last_value,
+            future_departures, 360, 300
+        )
+
+        hours_result = []
+        for h in range(6):
+            hour_start_min = h * 60 + 1
+            hour_end_min = (h + 1) * 60
+            hour_time = now_dublin + timedelta(hours=h + 1)
+            hour_label = hour_time.strftime('%I %p').lstrip('0')
+
+            minutes_data = []
+            medians = []
+            for m in range(hour_start_min, hour_end_min + 1):
+                band = bands.get(m)
+                if band:
+                    minutes_data.append({
+                        "minute": m - hour_start_min,
+                        "median": band["median"],
+                        "p10": band["p10"],
+                        "p25": band["p25"],
+                        "p75": band["p75"],
+                        "p90": band["p90"],
+                    })
+                    medians.append(band["median"])
+
+            avg_median = round(sum(medians) / len(medians)) if medians else None
+            hour_utc_start = now_utc + timedelta(hours=h)
+            hour_utc_end = now_utc + timedelta(hours=h + 1)
+            dep_count = sum(1 for d in dep_times if hour_utc_start <= d < hour_utc_end)
+
+            hours_result.append({
+                "hourLabel": hour_label,
+                "hourOffset": h + 1,
+                "timestamp": hour_time.isoformat(),
+                "avgMedian": avg_median,
+                "departures": dep_count,
+                "minutes": minutes_data,
+            })
+
+        return jsonify({"hours": hours_result})
+    except Exception as e:
+        logging.error(f"Error in projected-6h: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/simulate/gamma/method-b', methods=['POST'])
