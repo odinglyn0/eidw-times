@@ -117,7 +117,7 @@ def rate_limit_middleware(app):
         return None
 
 
-CACHE_TTL = 300
+CACHE_TTL = 60
 
 CACHEABLE_ENDPOINTS = {
     "/api/current-security-data":    {"method": "GET",  "key_from": "path"},
