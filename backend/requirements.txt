@@ -5,3 +5,4 @@ gunicorn==21.2.0
 numpy
 PyJWT==2.9.0
 google-cloud-recaptcha-enterprise==1.23.0
+upstash-redis>=1.1.0

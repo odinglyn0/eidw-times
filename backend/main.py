@@ -13,10 +13,13 @@ import numpy as np
 import jwt
 from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
+from upstash_middleware import rate_limit_middleware, response_cache_middleware
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+rate_limit_middleware(app)
+response_cache_middleware(app)
 
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):

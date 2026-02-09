@@ -127,6 +127,16 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "BOUNCE_TOKEN_SECRET"
         value = var.bounce_token_secret
       }
+
+      env {
+        name  = "UPSTASH_REDIS_REST_URL"
+        value = var.upstash_redis_rest_url
+      }
+
+      env {
+        name  = "UPSTASH_REDIS_REST_TOKEN"
+        value = var.upstash_redis_rest_token
+      }
     }
   }
 
