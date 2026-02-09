@@ -98,7 +98,7 @@ const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
           )}
         >
           <span className="text-xs">{hour.hourLabel}</span>
-          <span className="text-xs">{hour.avgMedian !== null ? `~${hour.avgMedian}m` : "—"}</span>
+          <span className="text-xs">{hour.avgMedian !== null ? `${hour.avgMedian}m` : "—"}</span>
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg text-sm">
