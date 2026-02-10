@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getAutoPollEnabled, setAutoPollEnabled, getAutoPollInterval, setAutoPollInterval, getDarkMode, setDarkMode, getShowRecommendation, setShowRecommendation, getForecastModel, setForecastModel, getSecurityViewMode, setSecurityViewMode } from '@/lib/cookies';
 import { useCookieConsent } from '@/integrations/cookie-consent/CookieConsentProvider';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Scale } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 const Settings: React.FC = () => {
@@ -226,12 +226,6 @@ const Settings: React.FC = () => {
                 Data will automatically refresh every specified seconds. Minimum 5 seconds.
               </p>
             </div>
-
-            <Link to="/legal">
-              <Button variant="outline" className="w-full">
-                <Scale className="mr-2 h-4 w-4" /> Legal
-              </Button>
-            </Link>
 
           </CardContent>
         </Card>
