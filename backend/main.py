@@ -234,49 +234,49 @@ def verify_bounce_token():
             return None
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return jsonify({"error": "Missing bounce token"}), 401
+            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
         token = auth_header[7:]
         try:
             payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
         except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Bounce token expired"}), 401
+            return jsonify({"error": "TICK::4011 — SEC_LAPSE: BT Exprd"}), 401
         except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid bounce token"}), 401
+            return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
         session_fp = request.headers.get("X-Session-Fingerprint", "")
         token_fp = payload.get("fp", "")
         if not session_fp or session_fp != token_fp:
             logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
-            return jsonify({"error": "Session fingerprint mismatch"}), 403
+            return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
 
         request.bounce_claims = payload
         return None
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Missing bounce token"}), 401
+        return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
     token = auth_header[7:]
     try:
         payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
     except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Bounce token expired"}), 401
+        return jsonify({"error": "TICK::4011 — SEC_LAPSE: BT Exprd"}), 401
     except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid bounce token"}), 401
+        return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
     session_fp = request.headers.get("X-Session-Fingerprint", "")
     token_fp = payload.get("fp", "")
     if not session_fp or session_fp != token_fp:
         logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
-        return jsonify({"error": "Session fingerprint mismatch"}), 403
+        return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
 
     request.bounce_claims = payload
     dg_valid, dg_reason, resolved_route = _verify_datagram_headers()
     if not dg_valid:
         logging.warning(f"[DATAGRAM] Verification failed: {dg_reason} | ip={_get_client_ip()}")
-        return jsonify({"error": "Datagram verification failed"}), 403
+        return jsonify({"error": "TICK::4031 — DG_SEAL: Vrfy Fail"}), 403
 
     if not resolved_route:
-        return jsonify({"error": "Could not resolve datagram route"}), 403
+        return jsonify({"error": "TICK::4032 — DG_NULL: Rte Unresolvd"}), 403
 
     g._datagram_resolved_route = resolved_route
     return None
@@ -292,18 +292,18 @@ def datagram_catchall(fp_prefix, hashed_path):
 
     resolved = getattr(g, '_datagram_resolved_route', None)
     if not resolved:
-        return jsonify({"error": "No resolved datagram route"}), 403
+        return jsonify({"error": "TICK::4033 — DG_VOID: No Rte Bind"}), 403
 
     handler = _ROUTE_DISPATCH.get(resolved)
     if not handler:
         logging.error(f"[DATAGRAM] No handler for resolved route: {resolved}")
-        return jsonify({"error": "Datagram dispatch error"}), 500
+        return jsonify({"error": "TICK::5001 — DG_ORPHAN: Dspch Err"}), 500
 
     try:
         return handler()
     except Exception as e:
         logging.error(f"[DATAGRAM] Dispatch to {resolved} failed: {e}")
-        return jsonify({"error": "Datagram dispatch error"}), 500
+        return jsonify({"error": "TICK::5002 — DG_FAULT: Dspch Abrt"}), 500
 
 
 @app.route('/api/bouncetoken/verify', methods=['POST'])
@@ -319,18 +319,18 @@ def bouncetoken_verify():
 
         if not recaptcha_token or not fingerprint:
             logging.warning(f"[BOUNCE-VERIFY] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}")
-            return jsonify({"error": "Missing recaptchaToken or fingerprint"}), 400
+            return jsonify({"error": "TICK::4001 — PARAM_VOID: RC/FP Absent"}), 400
 
         try:
             valid, score = _verify_recaptcha_enterprise(recaptcha_token, "bouncetoken_screen")
             logging.info(f"[BOUNCE-VERIFY] Assessment result: valid={valid} score={score} threshold={RECAPTCHA_SCORE_THRESHOLD}")
         except Exception as e:
             logging.error(f"[BOUNCE-VERIFY] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
-            return jsonify({"status": "failure"}), 403
+            return jsonify({"status": "TICK::4034 — CAPT_ERR: Assmnt Flt"}), 403
 
         if not valid:
             logging.warning(f"[BOUNCE-VERIFY] Token not valid | ip={client_ip}")
-            return jsonify({"status": "failure"}), 403
+            return jsonify({"status": "TICK::4035 — CAPT_INV: Tkn Void"}), 403
 
         if score >= RECAPTCHA_SCORE_THRESHOLD:
             token = _mint_bounce_token(client_ip, fingerprint, country)
@@ -338,10 +338,10 @@ def bouncetoken_verify():
             return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
 
         logging.info(f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}) | ip={client_ip}")
-        return jsonify({"status": "failure"}), 403
+        return jsonify({"status": "TICK::4036 — CAPT_LOW: Scr Thresh"}), 403
     except Exception as e:
         logging.error(f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
-        return jsonify({"status": "failure"}), 403
+        return jsonify({"status": "TICK::5000 — SYS_HALT: Unhdl Exc"}), 403
 
 
 DATAGRAM_HOST = "romeo-api-b.eidwtimes.xyz"
@@ -357,7 +357,7 @@ def datagram_mint():
         data = request.get_json()
         fp = data.get("fp") if data else None
         if not fp or not isinstance(fp, str):
-            return jsonify({"error": "missing fp"}), 400
+            return jsonify({"error": "TICK::4002 — PARAM_VOID: FP Absent"}), 400
 
         fp_hmac_prefix = _hmac_sha512(DATAGRAM_SIGNING_KEY, fp)[:16]
         route_key = _sha512(fp)
@@ -388,7 +388,7 @@ def datagram_mint():
         })
     except Exception as e:
         logging.error(f"[DATAGRAM-MINT] Error: {type(e).__name__}: {e}", exc_info=True)
-        return jsonify({"error": "internal"}), 500
+        return jsonify({"error": "TICK::5003 — MINT_FAULT: Intrnl Err"}), 500
 
 
 @app.route('/api/current-security-data', methods=['GET'])
@@ -400,12 +400,12 @@ def get_current_security_data():
                 result = cur.fetchone()
                 
                 if not result:
-                    return jsonify({"error": "No current data found"}), 404
+                    return jsonify({"error": "TICK::4040 — QRY_NULL: No Curr Rec"}), 404
                 
                 return jsonify(dict(result))
     except Exception as e:
         logging.error(f"Error fetching current security data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5010 — QRY_FAULT: CSD Err"}), 500
 
 def get_security_data():
     try:
@@ -475,16 +475,14 @@ def get_security_data():
                 return jsonify(historical_data)
     except Exception as e:
         logging.error(f"Error fetching security data: {e}")
-        return jsonify({"error": str(e)}), 500
-
-def get_departure_data():
+        return jsonify({"error": "TICK::5011 — QRY_FAULT: SD Err"}), 500
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
         three_days_ago = data.get('threeDaysAgo')
         
         if not terminal_id or not three_days_ago:
-            return jsonify({"error": "Missing terminalId or threeDaysAgo"}), 400
+            return jsonify({"error": "TICK::4003 — PARAM_VOID: TID/3DA Absent"}), 400
         
         terminal_name = f"T{terminal_id}"
         
@@ -504,7 +502,7 @@ def get_departure_data():
                 return jsonify([dict(row) for row in results])
     except Exception as e:
         logging.error(f"Error fetching departure data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5012 — QRY_FAULT: DD Err"}), 500
 
 def get_hourly_interval_security_data():
     try:
@@ -533,7 +531,7 @@ def get_hourly_interval_security_data():
                 return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching hourly interval security data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5013 — QRY_FAULT: HISD Err"}), 500
 
 def get_hourly_interval_departure_data():
     try:
@@ -541,7 +539,7 @@ def get_hourly_interval_departure_data():
         terminal_id = data.get('terminalId')
         
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4004 — PARAM_VOID: TID Absent"}), 400
         
         terminal_name = f"T{terminal_id}"
         
@@ -580,7 +578,7 @@ def get_hourly_interval_departure_data():
                 return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5014 — QRY_FAULT: HIDD Err"}), 500
 
 def get_active_announcements():
     try:
@@ -598,7 +596,7 @@ def get_active_announcements():
                 return jsonify([dict(row) for row in results])
     except Exception as e:
         logging.error(f"Error fetching active announcements: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5015 — QRY_FAULT: ANN Err"}), 500
 
 
 FORECAST_HORIZONS = [
@@ -1113,7 +1111,7 @@ def get_range_security_data():
         start_iso = data.get('start')
         end_iso = data.get('end')
         if not start_iso or not end_iso:
-            return jsonify({"error": "Missing start or end"}), 400
+            return jsonify({"error": "TICK::4005 — PARAM_VOID: Rng Absent"}), 400
 
         start_dt = datetime.fromisoformat(start_iso)
         end_dt = datetime.fromisoformat(end_iso)
@@ -1143,7 +1141,7 @@ def get_range_security_data():
                 return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching range security data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5016 — QRY_FAULT: RSD Err"}), 500
 
 def get_range_departure_data():
     try:
@@ -1152,7 +1150,7 @@ def get_range_departure_data():
         start_iso = data.get('start')
         end_iso = data.get('end')
         if not terminal_id or not start_iso or not end_iso:
-            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+            return jsonify({"error": "TICK::4006 — PARAM_VOID: TID/Rng Absent"}), 400
 
         terminal_name = f"T{terminal_id}"
         start_dt = datetime.fromisoformat(start_iso)
@@ -1192,7 +1190,7 @@ def get_range_departure_data():
                 return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching range departure data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5017 — QRY_FAULT: RDD Err"}), 500
 
 def get_irish_time():
     now = datetime.now(DUBLIN_TZ)
@@ -1324,7 +1322,7 @@ def get_facility_hours():
         })
     except Exception as e:
         logging.error(f"Error fetching facility hours: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5018 — QRY_FAULT: FH Err"}), 500
 
 def get_last_departures():
     try:
@@ -1359,7 +1357,7 @@ def get_last_departures():
                 return jsonify(response)
     except Exception as e:
         logging.error(f"Error fetching last departures: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5019 — QRY_FAULT: LD Err"}), 500
 
 
 def _color_class_for_value(value):
@@ -1391,7 +1389,7 @@ def get_recommendation():
                 current = cur.fetchone()
 
         if not current:
-            return jsonify({"error": "No data"}), 404
+            return jsonify({"error": "TICK::4041 — QRY_NULL: No Rec"}), 404
 
         t1 = current.get('t1')
         t2 = current.get('t2')
@@ -1454,13 +1452,13 @@ def get_recommendation():
         })
     except Exception as e:
         logging.error(f"Error in recommendation: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5020 — QRY_FAULT: REC Err"}), 500
 
 def get_processed_security_data():
     try:
         terminal_id = request.args.get('terminalId', type=int)
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         t_key = f"t{terminal_id}"
 
@@ -1558,13 +1556,13 @@ def get_processed_security_data():
         })
     except Exception as e:
         logging.error(f"Error in processed-security-data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5021 — QRY_FAULT: PSD Err"}), 500
 
 def get_processed_departure_data():
     try:
         terminal_id = request.args.get('terminalId', type=int)
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         terminal_name = f"T{terminal_id}"
         now_dublin = datetime.now(DUBLIN_TZ)
@@ -1617,7 +1615,7 @@ def get_processed_departure_data():
         return jsonify({'days': processed})
     except Exception as e:
         logging.error(f"Error in processed-departure-data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5022 — QRY_FAULT: PDD Err"}), 500
 
 
 def _ordinal(n):
@@ -1636,7 +1634,7 @@ def get_chart_data():
         granularity_minutes = data.get('granularity', 1)
 
         if not terminal_id or not start_iso or not end_iso:
-            return jsonify({"error": "Missing params"}), 400
+            return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
 
         t_key = f"t{terminal_id}"
         start_dt = datetime.fromisoformat(start_iso)
@@ -1701,7 +1699,7 @@ def get_chart_data():
         return jsonify({'points': buckets})
     except Exception as e:
         logging.error(f"Error in chart-data: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5023 — QRY_FAULT: CHD Err"}), 500
 
 def get_hourly_detail_stats():
     try:
@@ -1712,7 +1710,7 @@ def get_hourly_detail_stats():
         next_timestamp = data.get('nextTimestamp')
 
         if not terminal_id or not current_timestamp:
-            return jsonify({"error": "Missing params"}), 400
+            return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
 
         t_key = f"t{terminal_id}"
 
@@ -1795,7 +1793,7 @@ def get_hourly_detail_stats():
         })
     except Exception as e:
         logging.error(f"Error in hourly-detail-stats: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5024 — QRY_FAULT: HDS Err"}), 500
 
 
 def _projected_hourly_stats_trition(terminal_id):
@@ -1863,7 +1861,7 @@ def get_projected_hourly_stats():
         model = data.get('model')
 
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         if model == 'trition':
             return _projected_hourly_stats_trition(terminal_id)
@@ -1918,7 +1916,7 @@ def get_projected_hourly_stats():
         })
     except Exception as e:
         logging.error(f"Error in projected-hourly-stats: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5025 — QRY_FAULT: PHS Err"}), 500
 
 
 def _linear_regression(xs, ys):
@@ -2103,7 +2101,7 @@ def get_projected_6h():
         data = request.get_json()
         terminal_id = data.get('terminalId')
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         now_utc = datetime.now(timezone.utc)
         now_dublin = datetime.now(DUBLIN_TZ)
@@ -2192,7 +2190,7 @@ def get_projected_6h():
         return jsonify({"hours": hours_result})
     except Exception as e:
         logging.error(f"Error in projected-6h: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5026 — QRY_FAULT: P6H Err"}), 500
 
 def simulate_liminal_method_b():
     try:
@@ -2201,7 +2199,7 @@ def simulate_liminal_method_b():
         num_sims = 15
 
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         now = datetime.now(DUBLIN_TZ)
         hour_start = now.replace(minute=0, second=0, microsecond=0)
@@ -2223,7 +2221,7 @@ def simulate_liminal_method_b():
         return jsonify({"paths": paths, "dataPoints": len(observed_values)})
     except Exception as e:
         logging.error(f"Error in liminal/method-b: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5030 — SIM_FAULT: LMB Err"}), 500
 
 def simulate_liminal_method_d():
     try:
@@ -2233,7 +2231,7 @@ def simulate_liminal_method_d():
         num_sims = 200
 
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         if hour_timestamp:
             ref_time = datetime.fromisoformat(hour_timestamp)
@@ -2271,7 +2269,7 @@ def simulate_liminal_method_d():
         return jsonify({"projected": projected})
     except Exception as e:
         logging.error(f"Error in liminal/method-a: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5031 — SIM_FAULT: LMA Err"}), 500
 
 def simulate_liminal_method_a():
     try:
@@ -2283,7 +2281,7 @@ def simulate_liminal_method_a():
         num_sims = 200
 
         if not terminal_id or not start_iso or not end_iso:
-            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+            return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
 
         start_dt = datetime.fromisoformat(start_iso)
         end_dt = datetime.fromisoformat(end_iso)
@@ -2357,7 +2355,7 @@ def simulate_liminal_method_a():
         return jsonify({"bands": bands_str_keys})
     except Exception as e:
         logging.error(f"Error in liminal/method-a: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5031 — SIM_FAULT: LMA Err"}), 500
 
 
 import pandas as pd
@@ -2481,7 +2479,7 @@ def simulate_trition_method_a():
         selected_timeframe = data.get('selectedTimeframe', 1440)
 
         if not terminal_id or not start_iso or not end_iso:
-            return jsonify({"error": "Missing terminalId, start, or end"}), 400
+            return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -2540,7 +2538,7 @@ def simulate_trition_method_a():
         return jsonify({"bands": bands})
     except Exception as e:
         logging.error(f"Error in trition/method-a: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5032 — SIM_FAULT: TRA Err"}), 500
 
 def simulate_trition_method_b():
     try:
@@ -2548,7 +2546,7 @@ def simulate_trition_method_b():
         terminal_id = data.get('terminalId')
 
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -2589,7 +2587,7 @@ def simulate_trition_method_b():
         return jsonify({"paths": paths, "dataPoints": len(observed_values)})
     except Exception as e:
         logging.error(f"Error in trition/method-b: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5033 — SIM_FAULT: TRB Err"}), 500
 
 def simulate_trition_method_d():
     try:
@@ -2598,7 +2596,7 @@ def simulate_trition_method_d():
         hour_timestamp = data.get('hourTimestamp')
 
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -2654,14 +2652,14 @@ def simulate_trition_method_d():
         return jsonify({"projected": projected})
     except Exception as e:
         logging.error(f"Error in trition/method-d: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5034 — SIM_FAULT: TRD Err"}), 500
 
 def simulate_trition_method_c():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
         if not terminal_id:
-            return jsonify({"error": "Missing terminalId"}), 400
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -2747,7 +2745,7 @@ def simulate_trition_method_c():
         return jsonify({"hours": hours_result})
     except Exception as e:
         logging.error(f"Error in trition/method-c: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "TICK::5035 — SIM_FAULT: TRC Err"}), 500
 
 
 _ROUTE_DISPATCH = {

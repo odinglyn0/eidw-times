@@ -101,18 +101,18 @@ def rate_limit_middleware(app):
 
         redis_client = _get_redis()
         if not redis_client:
-            return jsonify({"error": "Service unavailable"}), 503
+            return jsonify({"error": "TICK::5030 — SVC_DOWN: RL Unavail"}), 503
 
         token_hash = _get_token_hash()
         endpoint = request.path
 
         if not _token_bucket_check(redis_client, f"rl:ep:{token_hash}:{endpoint}", 24, 1, 30):
             logger.warning(f"[rate-limit] Per-endpoint limit: {token_hash} -> {endpoint}")
-            return jsonify({"error": "Rate limit exceeded"}), 429
+            return jsonify({"error": "TICK::4290 — RL_ENGAGED: EP Thresh"}), 429
 
         if not _token_bucket_check(redis_client, f"rl:global:{token_hash}", 100, 10, 60):
             logger.warning(f"[rate-limit] Global limit: {token_hash}")
-            return jsonify({"error": "Rate limit exceeded"}), 429
+            return jsonify({"error": "TICK::4291 — RL_ENGAGED: Glbl Thresh"}), 429
 
         return None
 
