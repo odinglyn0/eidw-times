@@ -91,7 +91,8 @@ function findMatchingRoute(
 }
 
 export async function mintDatagram(fingerprint: string): Promise<DatagramManifest> {
-  const resp = await fetch("/dgrmV2-fp", {
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+  const resp = await fetch(`${apiBase}/api/dgrmV2-fp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fp: fingerprint }),

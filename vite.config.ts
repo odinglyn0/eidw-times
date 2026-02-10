@@ -5,7 +5,6 @@ import path from "path";
 import fs from "fs";
 import Sitemap from "vite-plugin-sitemap";
 import viteCompression from "vite-plugin-compression";
-import datagramMintPlugin from "./src/vite-plugins/datagram-mint";
 
 function appendExternalSitemapUrls(urls: { loc: string; changefreq: string; priority: number }[]): Plugin {
   return {
@@ -57,7 +56,6 @@ export default defineConfig(() => ({
     chunkSizeWarningLimit: 500,
   },
   plugins: [
-    datagramMintPlugin(),
     dyadComponentTagger(),
     react(),
     viteCompression({

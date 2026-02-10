@@ -209,6 +209,7 @@ UNPROTECTED_PATHS = {
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
     "/api/current-security-data",
+    "/api/dgrmV2-fp",
 }
 
 
@@ -338,6 +339,53 @@ def bouncetoken_verify():
     except Exception as e:
         logging.error(f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
         return jsonify({"status": "failure"}), 403
+
+
+DATAGRAM_HOST = "romeo-api-b.eidwtimes.xyz"
+COOKIE_PREFIXES = [
+    "_ga_", "_gid_", "__ut", "_fbp_", "_dc_", "mp_", "ajs_", "_hp2_",
+    "__hs", "_ce_", "_pk_", "ss_c", "ln_o", "_tt_", "ab_t", "ck_v",
+]
+
+
+@app.route('/api/dgrmV2-fp', methods=['POST'])
+def datagram_mint():
+    try:
+        data = request.get_json()
+        fp = data.get("fp") if data else None
+        if not fp or not isinstance(fp, str):
+            return jsonify({"error": "missing fp"}), 400
+
+        fp_hmac_prefix = _hmac_sha512(DATAGRAM_SIGNING_KEY, fp)[:16]
+        route_key = _sha512(fp)
+        exp = int(datetime.now(timezone.utc).timestamp()) + 86400
+
+        routes = {}
+        for i, route in enumerate(ALL_KNOWN_ROUTES):
+            hashed_path = _hmac_sha512(route_key, route)[:24]
+            per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, route_key + "|" + route)
+            sign_payload = f"{DATAGRAM_HOST}/{fp_hmac_prefix}/{hashed_path}|{exp}"
+            cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
+            prefix_idx = (i + int(hashed_path[:2], 16)) % len(COOKIE_PREFIXES)
+            cookie_name = COOKIE_PREFIXES[prefix_idx] + hashed_path[:6]
+
+            routes[route] = {
+                "path": hashed_path,
+                "cookieName": cookie_name,
+                "cookieValue": cookie_value,
+                "hsKey": per_route_hs_key[:32],
+            }
+
+        return jsonify({
+            "host": DATAGRAM_HOST,
+            "fpPrefix": fp_hmac_prefix,
+            "routes": routes,
+            "exp": exp,
+            "routeKey": route_key[:32],
+        })
+    except Exception as e:
+        logging.error(f"[DATAGRAM-MINT] Error: {type(e).__name__}: {e}", exc_info=True)
+        return jsonify({"error": "internal"}), 500
 
 
 @app.route('/api/current-security-data', methods=['GET'])
