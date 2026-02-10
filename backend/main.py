@@ -13,7 +13,7 @@ import numpy as np
 import jwt
 from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
-from upstash_middleware import rate_limit_middleware, response_cache_middleware
+from upstash_middleware import rate_limit_middleware, response_cache_middleware, ban_bounce_token, is_bounce_token_banned
 
 import hmac as hmac_mod
 
@@ -210,6 +210,7 @@ UNPROTECTED_PATHS = {
     "/api/seo-security-data",
     "/api/current-security-data",
     "/api/dgrmV2-fp",
+    "/api/sec-integrity-report",
 }
 
 
@@ -243,6 +244,11 @@ def verify_bounce_token():
         except jwt.InvalidTokenError:
             return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
+        bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+        if is_bounce_token_banned(bt_hash):
+            logging.warning(f"[INTEGRITY] Banned token attempted access: {bt_hash}")
+            return jsonify({"error": "TICK::4037 — SEC_BAN: Intgr Fail"}), 403
+
         session_fp = request.headers.get("X-Session-Fingerprint", "")
         token_fp = payload.get("fp", "")
         if not session_fp or session_fp != token_fp:
@@ -262,6 +268,11 @@ def verify_bounce_token():
         return jsonify({"error": "TICK::4011 — SEC_LAPSE: BT Exprd"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
+
+    bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
+    if is_bounce_token_banned(bt_hash):
+        logging.warning(f"[INTEGRITY] Banned token on datagram: {bt_hash}")
+        return jsonify({"error": "TICK::4037 — SEC_BAN: Intgr Fail"}), 403
 
     session_fp = request.headers.get("X-Session-Fingerprint", "")
     token_fp = payload.get("fp", "")
@@ -476,6 +487,9 @@ def get_security_data():
     except Exception as e:
         logging.error(f"Error fetching security data: {e}")
         return jsonify({"error": "TICK::5011 — QRY_FAULT: SD Err"}), 500
+
+
+def get_departure_data():
     try:
         data = request.get_json()
         terminal_id = data.get('terminalId')
@@ -2746,6 +2760,41 @@ def simulate_trition_method_c():
     except Exception as e:
         logging.error(f"Error in trition/method-c: {e}")
         return jsonify({"error": "TICK::5035 — SIM_FAULT: TRC Err"}), 500
+
+
+VALID_INTEGRITY_REASONS = {"dt_inspect", "dt_resize", "js_inject", "dt_debugger"}
+
+
+@app.route('/api/sec-integrity-report', methods=['POST'])
+def sec_integrity_report():
+    try:
+        auth_header = request.headers.get("Authorization", "")
+        raw_token = None
+        if auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:]
+
+        data = request.get_json(silent=True) or {}
+        reason = data.get("r", "unknown")
+        fp = data.get("fp", "")
+
+        if not raw_token:
+            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
+
+        try:
+            jwt.decode(raw_token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
+
+        if reason not in VALID_INTEGRITY_REASONS:
+            return jsonify({"error": "TICK::4003 — PARAM_VOID: Reason Inv"}), 400
+
+        bt_hash = hashlib.sha256(raw_token.encode()).hexdigest()[:16]
+        ban_bounce_token(bt_hash, reason)
+        logging.warning(f"[INTEGRITY] Report received: reason={reason} bt={bt_hash} fp={fp[:12] if fp else 'N/A'} ip={_get_client_ip()}")
+        return jsonify({"status": "acknowledged"}), 200
+    except Exception as e:
+        logging.error(f"[INTEGRITY] Report error: {e}")
+        return jsonify({"status": "acknowledged"}), 200
 
 
 _ROUTE_DISPATCH = {
