@@ -356,7 +356,6 @@ def get_current_security_data():
         logging.error(f"Error fetching current security data: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/security-data', methods=['GET'])
 def get_security_data():
     try:
         with get_db_connection() as conn:
@@ -427,7 +426,6 @@ def get_security_data():
         logging.error(f"Error fetching security data: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/departure-data', methods=['POST'])
 def get_departure_data():
     try:
         data = request.get_json()
@@ -457,7 +455,6 @@ def get_departure_data():
         logging.error(f"Error fetching departure data: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/hourly-interval-security-data', methods=['GET'])
 def get_hourly_interval_security_data():
     try:
         with get_db_connection() as conn:
@@ -487,7 +484,6 @@ def get_hourly_interval_security_data():
         logging.error(f"Error fetching hourly interval security data: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/hourly-interval-departure-data', methods=['POST'])
 def get_hourly_interval_departure_data():
     try:
         data = request.get_json()
@@ -535,7 +531,6 @@ def get_hourly_interval_departure_data():
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/active-announcements', methods=['GET'])
 def get_active_announcements():
     try:
         with get_db_connection() as conn:
@@ -619,7 +614,6 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
         })
 
     return forecasts if forecasts else None
-
 
 @app.route('/api/seo-security-data', methods=['GET'])
 def seo_security_data():
@@ -1062,7 +1056,6 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
         logging.error(f"Error generating SEO page: {e}")
         return make_response("Internal Server Error", 500)
 
-@app.route('/api/range-security-data', methods=['POST'])
 def get_range_security_data():
     try:
         data = request.get_json()
@@ -1101,8 +1094,6 @@ def get_range_security_data():
         logging.error(f"Error fetching range security data: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/range-departure-data', methods=['POST'])
 def get_range_departure_data():
     try:
         data = request.get_json()
@@ -1152,8 +1143,6 @@ def get_range_departure_data():
         logging.error(f"Error fetching range departure data: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/irish-time', methods=['GET'])
 def get_irish_time():
     now = datetime.now(DUBLIN_TZ)
     return jsonify({"time": now.strftime('%Y-%m-%dT%H:%M:%S.') + f"{now.microsecond // 1000:03d}" + now.strftime('%z')[:3] + ':' + now.strftime('%z')[3:]})
@@ -1237,8 +1226,6 @@ def _resolve_last_departures():
     except Exception:
         return {}
 
-
-@app.route('/api/facility-hours', methods=['GET'])
 def get_facility_hours():
     try:
         now_dublin = datetime.now(DUBLIN_TZ)
@@ -1288,8 +1275,6 @@ def get_facility_hours():
         logging.error(f"Error fetching facility hours: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/last-departures', methods=['GET'])
 def get_last_departures():
     try:
         now_dublin = datetime.now(DUBLIN_TZ)
@@ -1347,8 +1332,6 @@ def _color_class_for_value(value):
         return "bg-departure-red-deep"
     return "bg-black"
 
-
-@app.route('/api/recommendation', methods=['GET'])
 def get_recommendation():
     try:
         with get_db_connection() as conn:
@@ -1422,8 +1405,6 @@ def get_recommendation():
         logging.error(f"Error in recommendation: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/processed-security-data', methods=['GET'])
 def get_processed_security_data():
     try:
         terminal_id = request.args.get('terminalId', type=int)
@@ -1528,8 +1509,6 @@ def get_processed_security_data():
         logging.error(f"Error in processed-security-data: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/processed-departure-data', methods=['GET'])
 def get_processed_departure_data():
     try:
         terminal_id = request.args.get('terminalId', type=int)
@@ -1597,8 +1576,6 @@ def _ordinal(n):
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
     return f"{n}{suffix}"
 
-
-@app.route('/api/chart-data', methods=['POST'])
 def get_chart_data():
     try:
         data = request.get_json()
@@ -1675,8 +1652,6 @@ def get_chart_data():
         logging.error(f"Error in chart-data: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/hourly-detail-stats', methods=['POST'])
 def get_hourly_detail_stats():
     try:
         data = request.get_json()
@@ -1829,8 +1804,6 @@ def _projected_hourly_stats_trition(terminal_id):
         }
     })
 
-
-@app.route('/api/projected-hourly-stats', methods=['POST'])
 def get_projected_hourly_stats():
     try:
         data = request.get_json()
@@ -2074,7 +2047,6 @@ def _fetch_departures_range(terminal_id, start_utc, end_utc):
             """, (terminal_name, start_utc, end_utc))
             return cur.fetchall()
 
-@app.route('/api/simulate/liminal/method-c', methods=['POST'])
 def get_projected_6h():
     try:
         data = request.get_json()
@@ -2171,7 +2143,6 @@ def get_projected_6h():
         logging.error(f"Error in projected-6h: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/simulate/liminal/method-b', methods=['POST'])
 def simulate_liminal_method_b():
     try:
         data = request.get_json()
@@ -2203,7 +2174,6 @@ def simulate_liminal_method_b():
         logging.error(f"Error in liminal/method-b: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/simulate/liminal/method-d', methods=['POST'])
 def simulate_liminal_method_d():
     try:
         data = request.get_json()
@@ -2252,7 +2222,6 @@ def simulate_liminal_method_d():
         logging.error(f"Error in liminal/method-a: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/simulate/liminal/method-a', methods=['POST'])
 def simulate_liminal_method_a():
     try:
         data = request.get_json()
@@ -2452,8 +2421,6 @@ def _trition_predict_all():
         results[key] = round(float(pred[0]), 1)
     return results
 
-
-@app.route('/api/simulate/trition/method-a', methods=['POST'])
 def simulate_trition_method_a():
     try:
         data = request.get_json()
@@ -2524,8 +2491,6 @@ def simulate_trition_method_a():
         logging.error(f"Error in trition/method-a: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/trition/method-b', methods=['POST'])
 def simulate_trition_method_b():
     try:
         data = request.get_json()
@@ -2575,8 +2540,6 @@ def simulate_trition_method_b():
         logging.error(f"Error in trition/method-b: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/trition/method-d', methods=['POST'])
 def simulate_trition_method_d():
     try:
         data = request.get_json()
@@ -2642,8 +2605,6 @@ def simulate_trition_method_d():
         logging.error(f"Error in trition/method-d: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/simulate/trition/method-c', methods=['POST'])
 def simulate_trition_method_c():
     try:
         data = request.get_json()
