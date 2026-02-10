@@ -16,6 +16,7 @@ from google.cloud.recaptchaenterprise_v1 import Assessment
 from upstash_middleware import rate_limit_middleware, response_cache_middleware
 
 import hmac as hmac_mod
+import gzip
 
 app = Flask(__name__)
 CORS(app, origins=[
@@ -27,7 +28,8 @@ CORS(app, origins=[
 ], supports_credentials=True, allow_headers=[
     "Content-Type", "Authorization", "X-Session-Fingerprint",
     "X-Datagram-Cookie", "X-Datagram-Exp", "X-Datagram-RK", "X-Datagram-CV",
-])
+    "X-Datacrane",
+], expose_headers=["X-Datacrane"])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 class ISOJSONProvider(app.json_provider_class):
@@ -288,7 +290,41 @@ def verify_bounce_token():
     g._datagram_resolved_route = resolved_route
     return None
 
+@app.before_request
+def datacrane_decompress():
+    if request.headers.get("X-Datacrane") != "1":
+        return None
+    if not request.data:
+        return None
+    try:
+        raw_json = gzip.decompress(request.data)
+        request._datacrane_body = raw_json
+        request.get_json = lambda force=False, silent=False, cache=True: json.loads(raw_json)
+    except Exception:
+        return jsonify({"error": "TICK::4000 — DC_FAULT: Decompress Fail"}), 400
+    return None
+
 rate_limit_middleware(app)
+
+@app.after_request
+def datacrane_compress(response):
+    if request.method == "OPTIONS":
+        return response
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+    ct = response.content_type or ""
+    if "json" not in ct and "text/html" not in ct:
+        return response
+    raw = response.get_data()
+    if len(raw) < 64:
+        return response
+    compressed = gzip.compress(raw, compresslevel=6)
+    response.set_data(compressed)
+    response.headers["Content-Type"] = "application/octet-stream"
+    response.headers["X-Datacrane"] = "1"
+    response.headers["Content-Length"] = str(len(compressed))
+    return response
+
 response_cache_middleware(app)
 
 

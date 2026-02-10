@@ -1,4 +1,5 @@
 import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
+import { datacraneFetch } from "./datacrane";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -43,14 +44,14 @@ async function dgramFetch(
     const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
     const existing = (init?.headers as Record<string, string>) || {};
     const merged = { ...authHeaders(), ...extraHeaders, ...existing };
-    return fetch(url, { ...init, headers: merged });
+    return datacraneFetch(url, { ...init, headers: merged });
   } catch (e) {
     if (e instanceof DatagramMissingError) {
       await _ensureDatagram();
       const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
       const existing = (init?.headers as Record<string, string>) || {};
       const merged = { ...authHeaders(), ...extraHeaders, ...existing };
-      return fetch(url, { ...init, headers: merged });
+      return datacraneFetch(url, { ...init, headers: merged });
     }
     throw e;
   }
@@ -243,7 +244,7 @@ export const apiClient = {
   },
 
   async verifyBounceToken(recaptchaToken: string, fingerprint: string) {
-    const response = await fetch(`${API_BASE_URL}/api/bouncetoken/verify`, {
+    const response = await datacraneFetch(`${API_BASE_URL}/api/bouncetoken/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recaptchaToken, fingerprint })

@@ -1,3 +1,5 @@
+import { datacraneFetch } from "./datacrane";
+
 const STORAGE_KEY = "_dgrm_v2";
 
 export interface DatagramRouteEntry {
@@ -99,7 +101,7 @@ function findMatchingRoute(
 
 export async function mintDatagram(fingerprint: string): Promise<DatagramManifest> {
   const apiBase = import.meta.env.VITE_API_BASE_URL || "";
-  const resp = await fetch(`${apiBase}/api/dgrmV2-fp`, {
+  const resp = await datacraneFetch(`${apiBase}/api/dgrmV2-fp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fp: fingerprint }),
