@@ -2755,8 +2755,6 @@ _ROUTE_DISPATCH = {
     "/api/departure-data": get_departure_data,
     "/api/hourly-interval-security-data": get_hourly_interval_security_data,
     "/api/hourly-interval-departure-data": get_hourly_interval_departure_data,
-    "/api/feature-requests": submit_feature_request if 'submit_feature_request' in dir() else None,
-    "/api/acknowledged-feature-requests": get_acknowledged_feature_requests,
     "/api/active-announcements": get_active_announcements,
     "/api/range-security-data": get_range_security_data,
     "/api/irish-time": get_irish_time,
