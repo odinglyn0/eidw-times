@@ -13,7 +13,7 @@ import numpy as np
 import jwt
 from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
-from upstash_middleware import rate_limit_middleware, response_cache_middleware
+from redis_middleware import rate_limit_middleware, response_cache_middleware
 
 import hmac as hmac_mod
 import gzip

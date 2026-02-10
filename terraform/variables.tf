@@ -38,12 +38,8 @@ variable "datagram_signing_key" {
   sensitive   = true
 }
 
-variable "upstash_redis_rest_url" {
-  type      = string
-  sensitive = true
-}
-
-variable "upstash_redis_rest_token" {
-  type      = string
-  sensitive = true
+variable "redis_url" {
+  description = "Redis connection string (redis://user:pass@host:port/db)"
+  type        = string
+  sensitive   = true
 }

@@ -4,16 +4,11 @@ import json
 import hashlib
 import logging
 from flask import request, jsonify, g
-
-try:
-    from upstash_redis import Redis
-except ImportError:
-    Redis = None
+import redis
 
 logger = logging.getLogger(__name__)
 
-UPSTASH_REDIS_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "")
-UPSTASH_REDIS_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
+REDIS_URL = os.environ.get("REDIS_URL", "")
 
 _redis = None
 
@@ -22,59 +17,72 @@ def _get_redis():
     global _redis
     if _redis is not None:
         return _redis
-    if not Redis:
-        return None
-    if not UPSTASH_REDIS_URL or not UPSTASH_REDIS_TOKEN:
+    if not REDIS_URL:
         return None
     try:
-        _redis = Redis(url=UPSTASH_REDIS_URL, token=UPSTASH_REDIS_TOKEN)
+        _redis = redis.from_url(REDIS_URL, decode_responses=True)
+        _redis.ping()
         return _redis
     except Exception as e:
-        logger.error(f"[upstash] Failed to connect: {e}")
+        logger.error(f"[redis] Failed to connect: {e}")
+        _redis = None
         return None
+
+
+_TOKEN_BUCKET_LUA = """
+local key       = KEYS[1]
+local capacity  = tonumber(ARGV[1])
+local refill    = tonumber(ARGV[2])
+local now_ms    = tonumber(ARGV[3])
+local ttl_s     = tonumber(ARGV[4])
+
+local data = redis.call('HMGET', key, 'tokens', 'last_ms')
+local tokens  = tonumber(data[1])
+local last_ms = tonumber(data[2])
+
+if tokens == nil then
+    tokens  = capacity
+    last_ms = now_ms
+end
+
+local elapsed = math.max(0, now_ms - last_ms)
+tokens = math.min(capacity, tokens + (elapsed / 1000.0) * refill)
+
+local allowed = 0
+if tokens >= 1 then
+    tokens = tokens - 1
+    allowed = 1
+end
+
+redis.call('HMSET', key, 'tokens', tostring(tokens), 'last_ms', tostring(now_ms))
+redis.call('EXPIRE', key, ttl_s)
+
+return {allowed, tostring(math.floor(tokens))}
+"""
+
+_lua_sha = None
 
 
 def _token_bucket_check(redis_client, key, capacity, refill_rate, window_secs):
+    global _lua_sha
     now_ms = int(time.time() * 1000)
-    lua = """
-    local key       = KEYS[1]
-    local capacity  = tonumber(ARGV[1])
-    local refill    = tonumber(ARGV[2])
-    local now_ms    = tonumber(ARGV[3])
-    local ttl_s     = tonumber(ARGV[4])
-
-    local data = redis.call('HMGET', key, 'tokens', 'last_ms')
-    local tokens  = tonumber(data[1])
-    local last_ms = tonumber(data[2])
-
-    if tokens == nil then
-        tokens  = capacity
-        last_ms = now_ms
-    end
-
-    local elapsed = math.max(0, now_ms - last_ms)
-    tokens = math.min(capacity, tokens + (elapsed / 1000.0) * refill)
-
-    local allowed = 0
-    if tokens >= 1 then
-        tokens = tokens - 1
-        allowed = 1
-    end
-
-    redis.call('HMSET', key, 'tokens', tostring(tokens), 'last_ms', tostring(now_ms))
-    redis.call('EXPIRE', key, ttl_s)
-
-    return {allowed, tostring(math.floor(tokens))}
-    """
     try:
-        result = redis_client.eval(
-            lua,
-            keys=[key],
-            args=[str(capacity), str(refill_rate), str(now_ms), str(window_secs)]
+        if _lua_sha is None:
+            _lua_sha = redis_client.script_load(_TOKEN_BUCKET_LUA)
+        result = redis_client.evalsha(
+            _lua_sha, 1, key,
+            str(capacity), str(refill_rate), str(now_ms), str(window_secs)
+        )
+        return int(result[0]) == 1
+    except redis.exceptions.NoScriptError:
+        _lua_sha = redis_client.script_load(_TOKEN_BUCKET_LUA)
+        result = redis_client.evalsha(
+            _lua_sha, 1, key,
+            str(capacity), str(refill_rate), str(now_ms), str(window_secs)
         )
         return int(result[0]) == 1
     except Exception as e:
-        logger.error(f"[upstash] token bucket error: {e}")
+        logger.error(f"[redis] token bucket error: {e}")
         return False
 
 
@@ -174,8 +182,6 @@ def response_cache_middleware(app):
         try:
             cached = redis_client.get(cache_key)
             if cached:
-                if isinstance(cached, bytes):
-                    cached = cached.decode("utf-8")
                 resp = jsonify(json.loads(cached))
                 resp.headers["X-Cache"] = "HIT"
                 return resp
