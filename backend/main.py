@@ -26,7 +26,7 @@ CORS(app, origins=[
     r"http://localhost:3000",
 ], supports_credentials=True, allow_headers=[
     "Content-Type", "Authorization", "X-Session-Fingerprint",
-    "X-Datagram-Cookie", "X-Datagram-Exp", "X-Datagram-RK",
+    "X-Datagram-Cookie", "X-Datagram-Exp", "X-Datagram-RK", "X-Datagram-CV",
 ])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
@@ -161,6 +161,8 @@ def _verify_datagram_headers() -> tuple[bool, str]:
     expected_cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
 
     actual_cookie_value = request.cookies.get(dg_cookie_name, "")
+    if not actual_cookie_value:
+        actual_cookie_value = request.headers.get("X-Datagram-CV", "")
     if not actual_cookie_value:
         return False, f"Datagram cookie '{dg_cookie_name}' not found", ""
 

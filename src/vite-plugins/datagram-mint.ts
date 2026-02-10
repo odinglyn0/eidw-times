@@ -1,4 +1,4 @@
-import { type Plugin } from "vite";
+import { type Plugin, loadEnv } from "vite";
 import crypto from "crypto";
 
 const API_ROUTES = [
@@ -45,12 +45,18 @@ function sha512(data: string): string {
 }
 
 export default function datagramMintPlugin(): Plugin {
-  const DATAGRAM_KEY = process.env.DATAGRAM_SIGNING_KEY || "dgrm-default-dev-key-change-me";
+  let DATAGRAM_KEY = "dgrm-default-dev-key-change-me";
   // change to datagram once its propogated
   const DATAGRAM_HOST = "romeo-api-b.eidwtimes.xyz";
 
   return {
     name: "datagram-mint",
+    config(_, { mode }) {
+      const env = loadEnv(mode, process.cwd(), '');
+      if (env.DATAGRAM_SIGNING_KEY) {
+        DATAGRAM_KEY = env.DATAGRAM_SIGNING_KEY;
+      }
+    },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (req.url !== "/dgrmV2-fp" || req.method !== "POST") return next();
@@ -68,7 +74,7 @@ export default function datagramMintPlugin(): Plugin {
 
             const fpHmacPrefix = hmacSha512(DATAGRAM_KEY, fp).slice(0, 16);
             const routeKey = sha512(fp);
-            const exp = Math.floor(Date.now() / 1000) + 86400; // 24h
+            const exp = Math.floor(Date.now() / 1000) + 86400;
             const COOKIE_PREFIXES = [
               "_ga_", "_gid_", "__ut", "_fbp_", "_dc_", "mp_", "ajs_", "_hp2_",
               "__hs", "_ce_", "_pk_", "ss_c", "ln_o", "_tt_", "ab_t", "ck_v",

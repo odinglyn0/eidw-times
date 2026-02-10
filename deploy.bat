@@ -15,9 +15,6 @@ docker push gcr.io/%PROJECT_ID%/eidw-security-poller:latest
 docker build -t gcr.io/%PROJECT_ID%/eidw-departure-poller:latest -f pysrc/Dockerfile.departures ./pysrc
 docker push gcr.io/%PROJECT_ID%/eidw-departure-poller:latest
 
-docker build -t gcr.io/%PROJECT_ID%/eidw-travel-times-poller:latest -f pysrc/Dockerfile.travel_times ./pysrc
-docker push gcr.io/%PROJECT_ID%/eidw-travel-times-poller:latest
-
 for /f "tokens=1,2 delims==" %%a in (backend\.env) do (
     if "%%a"=="HF_TOKEN" set HF_TOKEN=%%b
 )

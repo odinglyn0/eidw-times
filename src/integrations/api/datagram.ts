@@ -21,10 +21,12 @@ export function storeDatagramManifest(manifest: DatagramManifest): void {
   } catch { /* quota */ }
 
   const expDate = new Date(manifest.exp * 1000).toUTCString();
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
   for (const entry of Object.values(manifest.routes)) {
-    document.cookie =
-      `${entry.cookieName}=${encodeURIComponent(entry.cookieValue)};` +
-      `expires=${expDate};path=/;SameSite=Lax`;
+    const base = `${entry.cookieName}=${encodeURIComponent(entry.cookieValue)};expires=${expDate};path=/`;
+    document.cookie = isLocalhost
+      ? `${base};SameSite=Lax`
+      : `${base};domain=.eidwtimes.xyz;SameSite=None;Secure`;
   }
 }
 
@@ -47,22 +49,27 @@ export function resolveDatagramUrl(
   originalRoute: string,
   apiBaseUrl: string
 ): { url: string; extraHeaders: Record<string, string> } {
+  const qIdx = originalRoute.indexOf("?");
+  const pathOnly = qIdx >= 0 ? originalRoute.slice(0, qIdx) : originalRoute;
+  const queryString = qIdx >= 0 ? originalRoute.slice(qIdx) : "";
+
   const manifest = getDatagramManifest();
   if (!manifest) {
     return { url: `${apiBaseUrl}${originalRoute}`, extraHeaders: {} };
   }
 
-  const entry = manifest.routes[originalRoute] ?? findMatchingRoute(originalRoute, manifest.routes);
+  const entry = manifest.routes[pathOnly] ?? findMatchingRoute(pathOnly, manifest.routes);
   if (!entry) {
     return { url: `${apiBaseUrl}${originalRoute}`, extraHeaders: {} };
   }
 
   return {
-    url: `https://${manifest.host}/${manifest.fpPrefix}/${entry.path}`,
+    url: `https://${manifest.host}/${manifest.fpPrefix}/${entry.path}${queryString}`,
     extraHeaders: {
       "X-Datagram-Cookie": entry.cookieName,
       "X-Datagram-Exp": String(manifest.exp),
       "X-Datagram-RK": manifest.routeKey,
+      "X-Datagram-CV": entry.cookieValue,
     },
   };
 }
