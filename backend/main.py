@@ -264,9 +264,6 @@ def verify_bounce_token():
         return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
     bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
-    if is_bounce_token_banned(bt_hash):
-        logging.warning(f"[INTEGRITY] Banned token on datagram: {bt_hash}")
-        return jsonify({"error": "TICK::4037 — SEC_BAN: Intgr Fail"}), 403
 
     session_fp = request.headers.get("X-Session-Fingerprint", "")
     token_fp = payload.get("fp", "")
