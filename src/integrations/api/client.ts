@@ -9,6 +9,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = { ...extra };
   const token = getCookie("elasticBounceTokenScreen");
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  const fp = sessionStorage.getItem("_ebfp");
+  if (fp) headers["X-Session-Fingerprint"] = fp;
   return headers;
 }
 

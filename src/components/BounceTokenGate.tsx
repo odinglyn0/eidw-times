@@ -127,7 +127,10 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       const parts = token.split(".");
       if (parts.length !== 3) return false;
       const payload = JSON.parse(atob(parts[1]));
-      return payload.exp * 1000 > Date.now();
+      if (payload.exp * 1000 <= Date.now()) return false;
+      const storedFp = sessionStorage.getItem("_ebfp");
+      if (!storedFp) return false;
+      return true;
     } catch {
       return false;
     }
@@ -176,6 +179,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
 
         if (response.status === "granted" && response.elasticBounceTokenScreen) {
           setCookie(COOKIE_NAME, response.elasticBounceTokenScreen, 1);
+          try { sessionStorage.setItem("_ebfp", visitorId); } catch {}
           setState("granted");
           return;
         }

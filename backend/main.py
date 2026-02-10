@@ -111,11 +111,18 @@ def verify_bounce_token():
     token = auth_header[7:]
     try:
         payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
-        request.bounce_claims = payload
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Bounce token expired"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid bounce token"}), 401
+
+    session_fp = request.headers.get("X-Session-Fingerprint", "")
+    token_fp = payload.get("fp", "")
+    if not session_fp or session_fp != token_fp:
+        logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
+        return jsonify({"error": "Session fingerprint mismatch"}), 403
+
+    request.bounce_claims = payload
     return None
 
 rate_limit_middleware(app)
