@@ -157,7 +157,6 @@ def _verify_datagram_headers() -> tuple[bool, str]:
         return False, "No known route matches hashed path", ""
 
     per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, full_route_key + "|" + matched_route)
-    # change to datagram once its propogated
     sign_payload = f"datagram.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{dg_exp}"
     expected_cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
 
@@ -1454,22 +1453,48 @@ def get_recommendation():
                 last_updated = last_updated.replace(tzinfo=timezone.utc)
             last_updated = last_updated.isoformat()
 
+        now_dublin = datetime.now(DUBLIN_TZ)
+        now_mins = now_dublin.hour * 60 + now_dublin.minute
+        last_deps = _resolve_last_departures()
+
+        t1_open = False
+        t2_open = False
+        for defn in FACILITY_DEFINITIONS:
+            if defn["name"] == "Security":
+                close_time = defn["closeTime"]
+                if close_time == "last-flight":
+                    terminal_key = f"T{defn['terminal']}"
+                    last_dep_dt = last_deps.get(terminal_key)
+                    if last_dep_dt:
+                        close_time = f"{last_dep_dt.hour:02d}:{last_dep_dt.minute:02d}"
+                    else:
+                        close_time = "23:59"
+                status_info = _compute_status(now_mins, defn["openTime"], close_time)
+                is_available = status_info["status"] in ("open", "opening-soon", "closing-soon")
+                if defn["terminal"] == 1:
+                    t1_open = is_available
+                elif defn["terminal"] == 2:
+                    t2_open = is_available
+
+        eff_t1 = t1 if (t1 is not None and t1_open) else None
+        eff_t2 = t2 if (t2 is not None and t2_open) else None
+
         rec = None
-        if t1 is not None and t2 is not None:
-            if t1 < t2:
-                rec = {"id": 1, "time": t1}
-            elif t2 < t1:
-                rec = {"id": 2, "time": t2}
+        if eff_t1 is not None and eff_t2 is not None:
+            if eff_t1 < eff_t2:
+                rec = {"id": 1, "time": eff_t1}
+            elif eff_t2 < eff_t1:
+                rec = {"id": 2, "time": eff_t2}
             else:
-                rec = {"id": "either", "time": t1}
-        elif t1 is not None:
-            rec = {"id": 1, "time": t1}
-        elif t2 is not None:
-            rec = {"id": 2, "time": t2}
+                rec = {"id": "either", "time": eff_t1}
+        elif eff_t1 is not None:
+            rec = {"id": 1, "time": eff_t1}
+        elif eff_t2 is not None:
+            rec = {"id": 2, "time": eff_t2}
 
         time_diff_msg = None
-        if t1 is not None and t2 is not None and rec and rec["id"] != "either":
-            diff = abs(t1 - t2)
+        if eff_t1 is not None and eff_t2 is not None and rec and rec["id"] != "either":
+            diff = abs(eff_t1 - eff_t2)
             if 0 < diff < 3:
                 time_diff_msg = f"But it doesn't really matter because it's only a ~{diff} min difference"
 
@@ -1504,6 +1529,8 @@ def get_recommendation():
             "timeDifferenceMessage": time_diff_msg,
             "additionalTip": tip,
             "globalMaxSecurityTime": global_max,
+            "t1SecurityOpen": t1_open,
+            "t2SecurityOpen": t2_open,
         })
     except Exception as e:
         logging.error(f"Error in recommendation: {e}")

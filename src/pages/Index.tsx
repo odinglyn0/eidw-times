@@ -20,6 +20,8 @@ interface RecommendationData {
   timeDifferenceMessage: string | null;
   additionalTip: string;
   globalMaxSecurityTime: number;
+  t1SecurityOpen: boolean;
+  t2SecurityOpen: boolean;
 }
 
 const Index = () => {
@@ -136,6 +138,16 @@ const Index = () => {
               {timeSinceRecommendationUpdate !== null ? `${timeSinceRecommendationUpdate} minutes ago` : "N/A"}.
             </p>
           </>
+        ) : recData && !recData.t1SecurityOpen && !recData.t2SecurityOpen ? (
+          <p className="text-lg font-semibold py-4">
+            Security is currently closed at both terminals. Check back closer to opening time for a recommendation.
+          </p>
+        ) : recData && !recData.recommended && (!recData.t1SecurityOpen || !recData.t2SecurityOpen) ? (
+          <p className="text-lg font-semibold py-4">
+            {!recData.t1SecurityOpen
+              ? "Terminal 1 security is closed for the evening. Terminal 2 is open."
+              : "Terminal 2 security is closed for the evening. Terminal 1 is open."}
+          </p>
         ) : (
           <p className="text-lg font-semibold py-4">
             Could not load security time recommendations. Please try refreshing.
