@@ -310,6 +310,8 @@ rate_limit_middleware(app)
 def datacrane_compress(response):
     if request.method == "OPTIONS":
         return response
+    if request.path == "/api/seo-security-data":
+        return response
     if response.status_code < 200 or response.status_code >= 300:
         return response
     ct = response.content_type or ""
