@@ -5,7 +5,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify, make_response, g
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -275,10 +275,7 @@ def verify_bounce_token():
     if not resolved_route:
         return jsonify({"error": "Could not resolve datagram route"}), 403
 
-    request.environ['PATH_INFO'] = resolved_route
-    request.environ['REQUEST_URI'] = resolved_route
-    if request.query_string:
-        request.environ['PATH_INFO'] = resolved_route
+    g._datagram_resolved_route = resolved_route
     return None
 
 rate_limit_middleware(app)
@@ -287,12 +284,19 @@ response_cache_middleware(app)
 
 @app.route('/<fp_prefix>/<hashed_path>', methods=['GET', 'POST', 'OPTIONS'])
 def datagram_catchall(fp_prefix, hashed_path):
+    if request.method == "OPTIONS":
+        return "", 200
+
+    resolved = getattr(g, '_datagram_resolved_route', None)
+    if not resolved:
+        return jsonify({"error": "No resolved datagram route"}), 403
+
     adapter = app.url_map.bind('')
     try:
-        endpoint, values = adapter.match(request.environ['PATH_INFO'], method=request.method)
+        endpoint, values = adapter.match(resolved, method=request.method)
         return app.view_functions[endpoint](**values)
     except Exception as e:
-        logging.error(f"[DATAGRAM] Re-dispatch failed: {e}")
+        logging.error(f"[DATAGRAM] Dispatch to {resolved} failed: {e}")
         return jsonify({"error": "Datagram dispatch error"}), 500
 
 
