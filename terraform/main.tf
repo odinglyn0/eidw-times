@@ -143,33 +143,6 @@ resource "google_cloud_run_v2_service" "backend" {
   depends_on = [google_sql_database_instance.postgres]
 }
 
-resource "google_cloud_run_v2_job" "travel_times_poller" {
-  name     = "eidw-travel-times-poller"
-  location = var.region
-
-  template {
-    template {
-      containers {
-        image = "gcr.io/${var.project_id}/eidw-travel-times-poller:latest"
-
-        env {
-          name  = "DATABASE_URL"
-          value = local.database_url
-        }
-
-        env {
-          name  = "GOOGLE_MAPS_API_KEY"
-          value = var.google_maps_api_key
-        }
-      }
-      timeout     = "300s"
-      max_retries = 1
-    }
-  }
-
-  depends_on = [google_sql_database_instance.postgres]
-}
-
 resource "google_service_account" "scheduler_sa" {
   account_id   = "eidw-scheduler-sa"
   display_name = "Cloud Scheduler SA"
@@ -243,25 +216,6 @@ resource "google_cloud_scheduler_job" "departure_poller_schedule" {
   }
 
   depends_on = [google_cloud_run_v2_job.departure_poller]
-}
-
-resource "google_cloud_scheduler_job" "travel_times_poller_schedule" {
-  name             = "eidw-travel-times-poller-schedule"
-  description      = "Poll Google Maps travel times every 5 minutes"
-  schedule         = "*/5 * * * *"
-  time_zone        = "Europe/Dublin"
-  attempt_deadline = "300s"
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/eidw-travel-times-poller:run"
-
-    oauth_token {
-      service_account_email = google_service_account.scheduler_sa.email
-    }
-  }
-
-  depends_on = [google_cloud_run_v2_job.travel_times_poller]
 }
 
 output "database_connection_string" {
