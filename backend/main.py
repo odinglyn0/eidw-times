@@ -202,6 +202,7 @@ ALL_KNOWN_ROUTES = [
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
     "/api/current-security-data",
+    "/api/sec-integrity-report",
 ]
 
 
@@ -210,7 +211,6 @@ UNPROTECTED_PATHS = {
     "/api/seo-security-data",
     "/api/current-security-data",
     "/api/dgrmV2-fp",
-    "/api/sec-integrity-report",
 }
 
 
@@ -2765,28 +2765,19 @@ def simulate_trition_method_c():
 VALID_INTEGRITY_REASONS = {"dt_inspect", "dt_resize", "js_inject", "dt_debugger"}
 
 
-@app.route('/api/sec-integrity-report', methods=['POST'])
 def sec_integrity_report():
     try:
-        auth_header = request.headers.get("Authorization", "")
-        raw_token = None
-        if auth_header.startswith("Bearer "):
-            raw_token = auth_header[7:]
-
         data = request.get_json(silent=True) or {}
         reason = data.get("r", "unknown")
         fp = data.get("fp", "")
 
-        if not raw_token:
-            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
-
-        try:
-            jwt.decode(raw_token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
-
         if reason not in VALID_INTEGRITY_REASONS:
             return jsonify({"error": "TICK::4003 — PARAM_VOID: Reason Inv"}), 400
+
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
+        raw_token = auth_header[7:]
 
         bt_hash = hashlib.sha256(raw_token.encode()).hexdigest()[:16]
         ban_bounce_token(bt_hash, reason)
@@ -2825,6 +2816,7 @@ _ROUTE_DISPATCH = {
     "/api/bouncetoken/verify": bouncetoken_verify,
     "/api/seo-security-data": seo_security_data,
     "/api/current-security-data": get_current_security_data,
+    "/api/sec-integrity-report": sec_integrity_report,
 }
 
 

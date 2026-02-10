@@ -58,6 +58,13 @@ export default defineConfig(() => ({
   plugins: [
     dyadComponentTagger(),
     react(),
+    {
+      name: "ensure-dist",
+      buildStart() {
+        const dist = path.resolve(__dirname, "dist");
+        if (!fs.existsSync(dist)) fs.mkdirSync(dist, { recursive: true });
+      },
+    },
     viteCompression({
       algorithm: "brotliCompress",
       ext: ".br",
