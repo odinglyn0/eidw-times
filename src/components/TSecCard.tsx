@@ -71,6 +71,8 @@ interface TerminalSecurityCardProps {
   isAutoRefreshing: boolean;
   t1CurrentTime: number | null;
   t2CurrentTime: number | null;
+  isSecurityOpen?: boolean;
+  isOtherTerminalOpen?: boolean;
 }
 
 function projectedColorClass(value: number | null): string {
@@ -139,7 +141,7 @@ const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
   );
 };
 
-const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime }) => {
+const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime, isSecurityOpen = true, isOtherTerminalOpen = true }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [historicalDailyAverages, setHistoricalDailyAverages] = useState<
@@ -254,23 +256,25 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                               (terminalId === 1 && isT1Quicker) ||
                               (terminalId === 2 && isT2Quicker);
 
-  const cardBorderColorClass = shouldBeGreenStyled ? "border-custom-green" : "border-departure-orange";
-  const cardHeaderBgClass = shouldBeGreenStyled ? "bg-custom-green" : "bg-departure-orange";
-  const currentTimeColorClass = shouldBeGreenStyled ? "text-custom-green" : "text-departure-orange";
+  const cardBorderColorClass = !isSecurityOpen ? "border-red-600" : shouldBeGreenStyled ? "border-custom-green" : "border-departure-orange";
+  const cardHeaderBgClass = !isSecurityOpen ? "bg-red-600" : shouldBeGreenStyled ? "bg-custom-green" : "bg-departure-orange";
+  const currentTimeColorClass = !isSecurityOpen ? "text-red-600" : shouldBeGreenStyled ? "text-custom-green" : "text-departure-orange";
+
+  const isOnlyTerminalOpen = isSecurityOpen && !isOtherTerminalOpen;
 
   if (areTimesEqual) {
     if (terminalId === 1) { chatBubbleMessage = "Pick me!"; chatBubbleEmoji = "😃"; chatBubbleClassName += " animate-bounce-twice"; }
     else { chatBubbleMessage = "It doesn't even matter"; chatBubbleEmoji = "🤷‍♂️"; }
   } else if (isT1Quicker && terminalId === 1) { chatBubbleMessage = "Pick me!"; chatBubbleEmoji = "😃"; chatBubbleClassName += " animate-bounce-twice"; }
   else if (isT2Quicker && terminalId === 2) { chatBubbleMessage = "Pick me!"; chatBubbleEmoji = "😃"; chatBubbleClassName += " animate-bounce-twice"; }
-  else if (isT1Quicker && terminalId === 2) { chatBubbleMessage = "Ah sure, I'm usually the fast one"; chatBubbleEmoji = "🥲"; chatBubbleClassName += " bg-red-600 before:border-t-red-600"; }
-  else if (isT2Quicker && terminalId === 1) { chatBubbleMessage = "Feck sake..."; chatBubbleEmoji = "🥲"; chatBubbleClassName += " bg-red-600 before:border-t-red-600"; }
+  else if (isT1Quicker && terminalId === 2 && !isOnlyTerminalOpen) { chatBubbleMessage = "Ah sure, I'm usually the fast one"; chatBubbleEmoji = "🥲"; chatBubbleClassName += " bg-red-600 before:border-t-red-600"; }
+  else if (isT2Quicker && terminalId === 1 && !isOnlyTerminalOpen) { chatBubbleMessage = "Feck sake..."; chatBubbleEmoji = "🥲"; chatBubbleClassName += " bg-red-600 before:border-t-red-600"; }
 
   return (
     <LaserPulseBorder
       active={manualRefreshing || isAutoRefreshing}
       config={{
-        color: shouldBeGreenStyled ? "#4CAF50" : "#FF8000",
+        color: !isSecurityOpen ? "#DC2626" : shouldBeGreenStyled ? "#4CAF50" : "#FF8000",
         duration: 600,
         pulseWidth: 50,
         bulgeAmount: 4,
@@ -280,6 +284,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
       className="w-full"
     >
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
+      {!isSecurityOpen && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm font-semibold px-4 py-1 rounded-full shadow-lg whitespace-nowrap z-10">
+          Im closed rn
+        </div>
+      )}
       {chatBubbleMessage && (
         <ChatBubble message={chatBubbleMessage} emoji={chatBubbleEmoji!} className={chatBubbleClassName} />
       )}

@@ -178,6 +178,8 @@ const Index = () => {
           isAutoRefreshing={isAutoRefreshing}
           t1CurrentTime={recData?.t1 ?? null}
           t2CurrentTime={recData?.t2 ?? null}
+          isSecurityOpen={recData?.t1SecurityOpen ?? true}
+          isOtherTerminalOpen={recData?.t2SecurityOpen ?? true}
         />
         <TerminalSecurityCard
           terminalId={2}
@@ -185,6 +187,8 @@ const Index = () => {
           isAutoRefreshing={isAutoRefreshing}
           t1CurrentTime={recData?.t1 ?? null}
           t2CurrentTime={recData?.t2 ?? null}
+          isSecurityOpen={recData?.t2SecurityOpen ?? true}
+          isOtherTerminalOpen={recData?.t1SecurityOpen ?? true}
         />
       </div>
 
