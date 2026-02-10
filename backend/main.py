@@ -13,7 +13,7 @@ import numpy as np
 import jwt
 from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
-from upstash_middleware import rate_limit_middleware, response_cache_middleware, ban_bounce_token, is_bounce_token_banned
+from upstash_middleware import rate_limit_middleware, response_cache_middleware
 
 import hmac as hmac_mod
 
@@ -202,7 +202,6 @@ ALL_KNOWN_ROUTES = [
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
     "/api/current-security-data",
-    "/api/sec-integrity-report",
 ]
 
 
@@ -243,11 +242,6 @@ def verify_bounce_token():
             return jsonify({"error": "TICK::4011 — SEC_LAPSE: BT Exprd"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
-
-        bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
-        if is_bounce_token_banned(bt_hash):
-            logging.warning(f"[INTEGRITY] Banned token attempted access: {bt_hash}")
-            return jsonify({"error": "TICK::4037 — SEC_BAN: Intgr Fail"}), 403
 
         session_fp = request.headers.get("X-Session-Fingerprint", "")
         token_fp = payload.get("fp", "")

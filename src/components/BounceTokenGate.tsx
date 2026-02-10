@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
-import { initIntegrityMonitor } from "@/lib/integrityMonitor";
 import Logo from "@/assets/intakeLogo.png";
 
 const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
@@ -237,10 +236,6 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       navigate(`/error/403?r=${btoa("We were unable to verify your session. Please try again later.")}`, { replace: true });
     }
   }, [state, navigate]);
-
-  useEffect(() => {
-    if (state === "granted") initIntegrityMonitor();
-  }, [state]);
 
   if (state === "granted") return <>{children}</>;
 
