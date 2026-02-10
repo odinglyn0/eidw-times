@@ -285,11 +285,9 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
     >
     <Card className={cn("w-full border-2 rounded-lg shadow-lg relative", cardBorderColorClass)}>
       {!isSecurityOpen && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-red-600 text-white text-sm font-semibold px-4 py-1 rounded-full shadow-lg whitespace-nowrap z-10">
-          Im closed rn
-        </div>
+        <ChatBubble message="Im closed rn" emoji="🚫" className="-top-12 bg-red-600 before:border-t-red-600" />
       )}
-      {chatBubbleMessage && (
+      {isSecurityOpen && chatBubbleMessage && (
         <ChatBubble message={chatBubbleMessage} emoji={chatBubbleEmoji!} className={chatBubbleClassName} />
       )}
       <CardHeader className={cn("p-4 text-white text-center relative", cardHeaderBgClass)}>
