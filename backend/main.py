@@ -294,10 +294,13 @@ def datagram_catchall(fp_prefix, hashed_path):
     if not resolved:
         return jsonify({"error": "No resolved datagram route"}), 403
 
-    adapter = app.url_map.bind('')
+    handler = _ROUTE_DISPATCH.get(resolved)
+    if not handler:
+        logging.error(f"[DATAGRAM] No handler for resolved route: {resolved}")
+        return jsonify({"error": "Datagram dispatch error"}), 500
+
     try:
-        endpoint, values = adapter.match(resolved, method=request.method)
-        return app.view_functions[endpoint](**values)
+        return handler()
     except Exception as e:
         logging.error(f"[DATAGRAM] Dispatch to {resolved} failed: {e}")
         return jsonify({"error": "Datagram dispatch error"}), 500
