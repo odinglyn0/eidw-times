@@ -129,6 +129,11 @@ resource "google_cloud_run_v2_service" "backend" {
       }
 
       env {
+        name  = "DATAGRAM_SIGNING_KEY"
+        value = var.datagram_signing_key
+      }
+
+      env {
         name  = "UPSTASH_REDIS_REST_URL"
         value = var.upstash_redis_rest_url
       }

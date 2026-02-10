@@ -32,6 +32,12 @@ variable "bounce_token_secret" {
   sensitive   = true
 }
 
+variable "datagram_signing_key" {
+  description = "Secret key for datagram v2 HMAC-SHA512 route obfuscation and cookie signing"
+  type        = string
+  sensitive   = true
+}
+
 variable "upstash_redis_rest_url" {
   type      = string
   sensitive = true

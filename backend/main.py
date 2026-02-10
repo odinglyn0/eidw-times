@@ -15,8 +15,19 @@ from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
 from upstash_middleware import rate_limit_middleware, response_cache_middleware
 
+import hmac as hmac_mod
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    r"https://datagram\.eidwtimes\.xyz",
+    r"https://eidwtimes\.xyz",
+    r"https://romeo-api-b\.eidwtimes\.xyz",
+    r"http://localhost:8080",
+    r"http://localhost:3000",
+], supports_credentials=True, allow_headers=[
+    "Content-Type", "Authorization", "X-Session-Fingerprint",
+    "X-Datagram-Cookie", "X-Datagram-Exp", "X-Datagram-RK",
+])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 class ISOJSONProvider(app.json_provider_class):
@@ -36,7 +47,8 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
 RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
 GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
-BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET', hashlib.sha256((RECAPTCHA_SITE_KEY + 'elasticBounce').encode()).hexdigest())
+BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET')
+DATAGRAM_SIGNING_KEY = os.environ.get('DATAGRAM_SIGNING_KEY')
 RECAPTCHA_SCORE_THRESHOLD = 0.5
 
 def get_db_connection():
@@ -90,6 +102,107 @@ def _get_client_country():
     return request.headers.get("CF-IPCountry", "XX")
 
 
+def _hmac_sha512(key: str, data: str) -> str:
+    return hmac_mod.new(key.encode(), data.encode(), hashlib.sha512).hexdigest()
+
+
+def _sha512(data: str) -> str:
+    return hashlib.sha512(data.encode()).hexdigest()
+
+
+def _verify_datagram_headers() -> tuple[bool, str]:
+    dg_cookie_name = request.headers.get("X-Datagram-Cookie", "")
+    dg_exp = request.headers.get("X-Datagram-Exp", "")
+    dg_rk = request.headers.get("X-Datagram-RK", "")
+
+    if not all([dg_cookie_name, dg_exp, dg_rk]):
+        return True, "", ""
+
+    try:
+        exp_ts = int(dg_exp)
+        if exp_ts < int(datetime.now(timezone.utc).timestamp()):
+            return False, "Datagram expired", ""
+    except ValueError:
+        return False, "Invalid datagram expiry", ""
+
+    path_parts = request.path.strip("/").split("/")
+    if len(path_parts) < 2:
+        return False, "Invalid datagram path structure", ""
+    fp_hmac_prefix = path_parts[0]
+    hashed_path = path_parts[1]
+    if len(fp_hmac_prefix) != 16 or len(hashed_path) != 24:
+        return False, "Invalid datagram path segment lengths", ""
+
+    fp_from_token = getattr(request, 'bounce_claims', {}).get('fp', '')
+    if not fp_from_token:
+        return True, "", ""
+
+    full_route_key = _sha512(fp_from_token)
+    if not full_route_key.startswith(dg_rk):
+        return False, "Route key mismatch with bounce token fingerprint", ""
+
+    expected_prefix = _hmac_sha512(DATAGRAM_SIGNING_KEY, fp_from_token)[:16]
+    if not hmac_mod.compare_digest(fp_hmac_prefix, expected_prefix):
+        return False, "Fingerprint HMAC prefix mismatch", ""
+
+    matched_route = ""
+    for route in ALL_KNOWN_ROUTES:
+        candidate = _hmac_sha512(full_route_key, route)[:24]
+        if hmac_mod.compare_digest(candidate, hashed_path):
+            matched_route = route
+            break
+
+    if not matched_route:
+        return False, "No known route matches hashed path", ""
+
+    per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, full_route_key + "|" + matched_route)
+    # change to datagram once its propogated
+    sign_payload = f"romeo-api-b.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{dg_exp}"
+    expected_cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
+
+    actual_cookie_value = request.cookies.get(dg_cookie_name, "")
+    if not actual_cookie_value:
+        return False, f"Datagram cookie '{dg_cookie_name}' not found", ""
+
+    if not hmac_mod.compare_digest(actual_cookie_value, expected_cookie_value):
+        return False, "Datagram cookie signature mismatch", ""
+
+    return True, "", matched_route
+
+
+ALL_KNOWN_ROUTES = [
+    "/api/security-data",
+    "/api/departure-data",
+    "/api/hourly-interval-security-data",
+    "/api/hourly-interval-departure-data",
+    "/api/feature-requests",
+    "/api/acknowledged-feature-requests",
+    "/api/active-announcements",
+    "/api/range-security-data",
+    "/api/irish-time",
+    "/api/last-departures",
+    "/api/facility-hours",
+    "/api/simulate/trition/method-b",
+    "/api/simulate/liminal/method-b",
+    "/api/simulate/trition/method-d",
+    "/api/simulate/liminal/method-d",
+    "/api/simulate/trition/method-a",
+    "/api/simulate/liminal/method-a",
+    "/api/simulate/trition/method-c",
+    "/api/simulate/liminal/method-c",
+    "/api/range-departure-data",
+    "/api/recommendation",
+    "/api/processed-security-data",
+    "/api/processed-departure-data",
+    "/api/chart-data",
+    "/api/hourly-detail-stats",
+    "/api/projected-hourly-stats",
+    "/api/bouncetoken/verify",
+    "/api/seo-security-data",
+    "/api/current-security-data",
+]
+
+
 UNPROTECTED_PATHS = {
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
@@ -101,10 +214,41 @@ UNPROTECTED_PATHS = {
 def verify_bounce_token():
     if request.method == "OPTIONS":
         return None
-    if request.path in UNPROTECTED_PATHS:
+
+    path_parts = request.path.strip("/").split("/")
+    is_datagram = (
+        len(path_parts) == 2
+        and len(path_parts[0]) == 16
+        and len(path_parts[1]) == 24
+        and all(c in "0123456789abcdef" for c in path_parts[0])
+        and all(c in "0123456789abcdef" for c in path_parts[1])
+    )
+
+    if not is_datagram:
+        if request.path in UNPROTECTED_PATHS:
+            return None
+        if not request.path.startswith("/api/"):
+            return None
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Missing bounce token"}), 401
+        token = auth_header[7:]
+        try:
+            payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Bounce token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid bounce token"}), 401
+
+        session_fp = request.headers.get("X-Session-Fingerprint", "")
+        token_fp = payload.get("fp", "")
+        if not session_fp or session_fp != token_fp:
+            logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
+            return jsonify({"error": "Session fingerprint mismatch"}), 403
+
+        request.bounce_claims = payload
         return None
-    if not request.path.startswith("/api/"):
-        return None
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return jsonify({"error": "Missing bounce token"}), 401
@@ -123,10 +267,33 @@ def verify_bounce_token():
         return jsonify({"error": "Session fingerprint mismatch"}), 403
 
     request.bounce_claims = payload
+    dg_valid, dg_reason, resolved_route = _verify_datagram_headers()
+    if not dg_valid:
+        logging.warning(f"[DATAGRAM] Verification failed: {dg_reason} | ip={_get_client_ip()}")
+        return jsonify({"error": "Datagram verification failed"}), 403
+
+    if not resolved_route:
+        return jsonify({"error": "Could not resolve datagram route"}), 403
+
+    request.environ['PATH_INFO'] = resolved_route
+    request.environ['REQUEST_URI'] = resolved_route
+    if request.query_string:
+        request.environ['PATH_INFO'] = resolved_route
     return None
 
 rate_limit_middleware(app)
 response_cache_middleware(app)
+
+
+@app.route('/<fp_prefix>/<hashed_path>', methods=['GET', 'POST', 'OPTIONS'])
+def datagram_catchall(fp_prefix, hashed_path):
+    adapter = app.url_map.bind('')
+    try:
+        endpoint, values = adapter.match(request.environ['PATH_INFO'], method=request.method)
+        return app.view_functions[endpoint](**values)
+    except Exception as e:
+        logging.error(f"[DATAGRAM] Re-dispatch failed: {e}")
+        return jsonify({"error": "Datagram dispatch error"}), 500
 
 
 @app.route('/api/bouncetoken/verify', methods=['POST'])
