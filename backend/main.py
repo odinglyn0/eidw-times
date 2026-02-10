@@ -2750,5 +2750,38 @@ def simulate_trition_method_c():
         return jsonify({"error": str(e)}), 500
 
 
+_ROUTE_DISPATCH = {
+    "/api/security-data": get_security_data,
+    "/api/departure-data": get_departure_data,
+    "/api/hourly-interval-security-data": get_hourly_interval_security_data,
+    "/api/hourly-interval-departure-data": get_hourly_interval_departure_data,
+    "/api/feature-requests": submit_feature_request if 'submit_feature_request' in dir() else None,
+    "/api/acknowledged-feature-requests": get_acknowledged_feature_requests,
+    "/api/active-announcements": get_active_announcements,
+    "/api/range-security-data": get_range_security_data,
+    "/api/irish-time": get_irish_time,
+    "/api/last-departures": get_last_departures,
+    "/api/facility-hours": get_facility_hours,
+    "/api/simulate/trition/method-b": simulate_trition_method_b,
+    "/api/simulate/liminal/method-b": simulate_liminal_method_b,
+    "/api/simulate/trition/method-d": simulate_trition_method_d,
+    "/api/simulate/liminal/method-d": simulate_liminal_method_d,
+    "/api/simulate/trition/method-a": simulate_trition_method_a,
+    "/api/simulate/liminal/method-a": simulate_liminal_method_a,
+    "/api/simulate/trition/method-c": simulate_trition_method_c,
+    "/api/simulate/liminal/method-c": get_projected_6h,
+    "/api/range-departure-data": get_range_departure_data,
+    "/api/recommendation": get_recommendation,
+    "/api/processed-security-data": get_processed_security_data,
+    "/api/processed-departure-data": get_processed_departure_data,
+    "/api/chart-data": get_chart_data,
+    "/api/hourly-detail-stats": get_hourly_detail_stats,
+    "/api/projected-hourly-stats": get_projected_hourly_stats,
+    "/api/bouncetoken/verify": bouncetoken_verify,
+    "/api/seo-security-data": seo_security_data,
+    "/api/current-security-data": get_current_security_data,
+}
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
