@@ -1,4 +1,4 @@
-import { resolveDatagramUrl } from "./datagram";
+import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -18,14 +18,42 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
   return headers;
 }
 
-function dgramFetch(
+let _remintPromise: Promise<void> | null = null;
+
+async function _ensureDatagram(): Promise<void> {
+  if (_remintPromise) return _remintPromise;
+  _remintPromise = (async () => {
+    try {
+      const fp = sessionStorage.getItem("_ebfp");
+      if (!fp) throw new Error("No fingerprint");
+      const manifest = await mintDatagram(fp);
+      storeDatagramManifest(manifest);
+    } finally {
+      _remintPromise = null;
+    }
+  })();
+  return _remintPromise;
+}
+
+async function dgramFetch(
   originalRoute: string,
   init?: RequestInit
 ): Promise<Response> {
-  const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
-  const existing = (init?.headers as Record<string, string>) || {};
-  const merged = { ...authHeaders(), ...extraHeaders, ...existing };
-  return fetch(url, { ...init, headers: merged });
+  try {
+    const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
+    const existing = (init?.headers as Record<string, string>) || {};
+    const merged = { ...authHeaders(), ...extraHeaders, ...existing };
+    return fetch(url, { ...init, headers: merged });
+  } catch (e) {
+    if (e instanceof DatagramMissingError) {
+      await _ensureDatagram();
+      const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
+      const existing = (init?.headers as Record<string, string>) || {};
+      const merged = { ...authHeaders(), ...extraHeaders, ...existing };
+      return fetch(url, { ...init, headers: merged });
+    }
+    throw e;
+  }
 }
 
 function getModelVersion(): 'liminal' | 'trition' {

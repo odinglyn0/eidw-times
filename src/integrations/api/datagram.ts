@@ -55,12 +55,12 @@ export function resolveDatagramUrl(
 
   const manifest = getDatagramManifest();
   if (!manifest) {
-    return { url: `${apiBaseUrl}${originalRoute}`, extraHeaders: {} };
+    throw new DatagramMissingError("No datagram manifest");
   }
 
   const entry = manifest.routes[pathOnly] ?? findMatchingRoute(pathOnly, manifest.routes);
   if (!entry) {
-    return { url: `${apiBaseUrl}${originalRoute}`, extraHeaders: {} };
+    throw new DatagramMissingError(`No datagram route for ${pathOnly}`);
   }
 
   return {
@@ -72,6 +72,13 @@ export function resolveDatagramUrl(
       "X-Datagram-CV": entry.cookieValue,
     },
   };
+}
+
+export class DatagramMissingError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "DatagramMissingError";
+  }
 }
 
 function findMatchingRoute(

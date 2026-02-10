@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } fro
 import { useNavigate } from "react-router-dom";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
-import { mintDatagram, storeDatagramManifest } from "@/integrations/api/datagram";
+import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
 import Logo from "@/assets/intakeLogo.png";
 
 const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
@@ -150,7 +150,15 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     if (isDebug) return;
 
     if (hasValidToken()) {
-      setState("granted");
+      const fp = sessionStorage.getItem("_ebfp");
+      if (fp && !getDatagramManifest()) {
+        mintDatagram(fp)
+          .then(m => storeDatagramManifest(m))
+          .catch(() => {})
+          .finally(() => setState("granted"));
+      } else {
+        setState("granted");
+      }
       return;
     }
 
