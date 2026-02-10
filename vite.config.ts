@@ -85,7 +85,7 @@ export default defineConfig(() => ({
       robots: [{ userAgent: "*", allow: "/" }],
     }),
     appendExternalSitemapUrls([
-      { loc: "https://romeo-api-b.eidwtimes.xyz/api/seo-security-data", changefreq: "always", priority: 0.9 },
+      { loc: "https://datagram.eidwtimes.xyz/api/seo-security-data", changefreq: "always", priority: 0.9 },
       { loc: "https://eidwtimes.xyz/legal/privacy.docx", changefreq: "monthly", priority: 0.5 },
       { loc: "https://eidwtimes.xyz/legal/terms.docx", changefreq: "monthly", priority: 0.5 },
       { loc: "https://eidwtimes.xyz/legal/cookies.docx", changefreq: "monthly", priority: 0.5 },
