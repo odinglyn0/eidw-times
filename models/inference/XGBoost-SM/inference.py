@@ -20,6 +20,13 @@ BAND_MINUTES = 5
 LOOKBACK_HOURS = 24
 BAND_COUNT = (LOOKBACK_HOURS * 60) // BAND_MINUTES
 
+DEP_FEATURE_COLS = [
+    "dep_count_t1", "dep_count_t2",
+    "dep_next_1h_t1", "dep_next_1h_t2",
+    "dep_next_2h_t1", "dep_next_2h_t2",
+    "dep_next_3h_t1", "dep_next_3h_t2",
+]
+
 CACHE_DIR = Path(__file__).parent / ".model_cache"
 
 def download_models(cache_dir: Path = CACHE_DIR) -> dict[str, xgb.Booster]:
@@ -60,6 +67,36 @@ def get_db_connection(database_url: str | None = None):
     return psycopg2.connect(url, cursor_factory=RealDictCursor)
 
 
+def fetch_departures_for_bands(conn, band_timestamps):
+    if not band_timestamps:
+        return {}
+    earliest = min(band_timestamps) - timedelta(minutes=30)
+    latest = max(band_timestamps) + timedelta(hours=3, minutes=30)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT scheduled_datetime, terminal_name FROM departures "
+            "WHERE scheduled_datetime >= %s AND scheduled_datetime <= %s "
+            "ORDER BY scheduled_datetime ASC",
+            (earliest, latest),
+        )
+        rows = cur.fetchall()
+
+    t1_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T1"])
+    t2_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T2"])
+    return {"t1": t1_deps, "t2": t2_deps}
+
+
+def count_deps_in_window(dep_list, start, end):
+    count = 0
+    for d in dep_list:
+        if d < start:
+            continue
+        if d > end:
+            break
+        count += 1
+    return count
+
+
 def fetch_recent_data(conn, lookback_hours: int = LOOKBACK_HOURS) -> pd.DataFrame:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours + 1)
     with conn.cursor() as cur:
@@ -83,16 +120,42 @@ def fetch_recent_data(conn, lookback_hours: int = LOOKBACK_HOURS) -> pd.DataFram
         .sort_index()
         .reset_index()
     )
+
+    band_timestamps = list(banded["band_ts"].dt.to_pydatetime())
+    dep_data = fetch_departures_for_bands(conn, band_timestamps)
+
+    dep_features = {c: [] for c in DEP_FEATURE_COLS}
+    for ts in band_timestamps:
+        ts_aware = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts
+        for terminal, key in [("t1", "t1"), ("t2", "t2")]:
+            deps = dep_data.get(key, [])
+            dep_features[f"dep_count_{terminal}"].append(
+                count_deps_in_window(deps, ts_aware - timedelta(minutes=30), ts_aware + timedelta(minutes=30))
+            )
+            dep_features[f"dep_next_1h_{terminal}"].append(
+                count_deps_in_window(deps, ts_aware + timedelta(minutes=30), ts_aware + timedelta(minutes=90))
+            )
+            dep_features[f"dep_next_2h_{terminal}"].append(
+                count_deps_in_window(deps, ts_aware + timedelta(minutes=90), ts_aware + timedelta(minutes=150))
+            )
+            dep_features[f"dep_next_3h_{terminal}"].append(
+                count_deps_in_window(deps, ts_aware + timedelta(minutes=150), ts_aware + timedelta(minutes=210))
+            )
+
+    for col in DEP_FEATURE_COLS:
+        banded[col] = dep_features[col]
+
     banded["hour"] = banded["band_ts"].dt.hour
     banded["minute"] = banded["band_ts"].dt.minute
     banded = banded.drop(columns=["band_ts"]).reset_index(drop=True)
 
-    print(f"[data] {len(df)} raw rows → {len(banded)} 5-min bands")
+    print(f"[data] {len(df)} raw rows -> {len(banded)} 5-min bands")
     return banded
 
 def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
     band_count = BAND_COUNT
-    
+    dep_lag_bands = meta.get("dep_lag_bands", 12)
+
     t1_lags = pd.concat(
         {f"t1_lag_{lag}": df["t1"].shift(lag) for lag in range(1, band_count + 1)},
         axis=1,
@@ -104,7 +167,15 @@ def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
     lag_cols_t1 = list(t1_lags.columns)
     lag_cols_t2 = list(t2_lags.columns)
 
-    df = pd.concat([df, t1_lags, t2_lags], axis=1)
+    dep_lag_frames = {}
+    for dep_col in ["dep_count_t1", "dep_count_t2"]:
+        for lag in range(1, dep_lag_bands + 1):
+            lag_name = f"{dep_col}_lag_{lag}"
+            dep_lag_frames[lag_name] = df[dep_col].shift(lag)
+    dep_lags_df = pd.DataFrame(dep_lag_frames)
+    dep_lag_cols = list(dep_lags_df.columns)
+
+    df = pd.concat([df, t1_lags, t2_lags, dep_lags_df], axis=1)
     df = df.dropna().reset_index(drop=True)
 
     if len(df) == 0:
@@ -120,7 +191,13 @@ def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
     min_sin = np.sin(2 * np.pi * latest["minute"] / 60.0)
     min_cos = np.cos(2 * np.pi * latest["minute"] / 60.0)
 
-    feature_cols = ["t1", "t2", "hour", "minute"] + lag_cols_t1 + lag_cols_t2
+    feature_cols = (
+        ["t1", "t2", "hour", "minute"]
+        + lag_cols_t1
+        + lag_cols_t2
+        + DEP_FEATURE_COLS
+        + dep_lag_cols
+    )
     X = latest[feature_cols].copy()
     X["hour_sin"] = hour_sin.values
     X["hour_cos"] = hour_cos.values
@@ -201,6 +278,6 @@ if __name__ == "__main__":
     for terminal, forecasts in result["predictions"].items():
         print(f"  {terminal.upper()}:")
         for fc in forecasts:
-            print(f"    +{fc['horizon_minutes']:>3}min  →  {fc['predicted_wait_minutes']:.1f} min  "
+            print(f"    +{fc['horizon_minutes']:>3}min  ->  {fc['predicted_wait_minutes']:.1f} min  "
                   f"(at {fc['forecast_time_utc'][:19]}Z)")
     print()
