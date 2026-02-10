@@ -327,7 +327,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                 {!isSecurityOpen && currentTime === 0 ? "C" : currentTime !== null ? currentTime : "N/A"}
               </p>
               <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>
-                {!isSecurityOpen && currentTime === 0 ? "Closed" : "minutes"}
+                {!isSecurityOpen && currentTime === 0 ? "closed" : "minutes"}
               </p>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
