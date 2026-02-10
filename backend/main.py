@@ -232,6 +232,11 @@ def verify_bounce_token():
             return None
         if not request.path.startswith("/api/"):
             return None
+
+        if request.path in ALL_KNOWN_ROUTES and request.path not in UNPROTECTED_PATHS:
+            logging.warning(f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}")
+            return jsonify({"error": "TICK::4033 — DG_REQUIRED: Use signed URL"}), 403
+
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
