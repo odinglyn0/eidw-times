@@ -326,9 +326,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
               title="Click for detailed hour graph"
             >
               <p className={cn("text-7xl font-extrabold mb-2", currentTimeColorClass)}>
-                {currentTime !== null ? currentTime : "N/A"}
+                {!isSecurityOpen && currentTime === 0 ? "C" : currentTime !== null ? currentTime : "N/A"}
               </p>
-              <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>minutes</p>
+              <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>
+                {!isSecurityOpen && currentTime === 0 ? "Closed" : "minutes"}
+              </p>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
               Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
