@@ -22,7 +22,6 @@ app = Flask(__name__)
 CORS(app, origins=[
     r"https://datagram\.eidwtimes\.xyz",
     r"https://eidwtimes\.xyz",
-    r"https://romeo-api-b\.eidwtimes\.xyz",
     r"http://localhost:8080",
     r"http://localhost:3000",
 ], supports_credentials=True, allow_headers=[
@@ -159,7 +158,7 @@ def _verify_datagram_headers() -> tuple[bool, str]:
 
     per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, full_route_key + "|" + matched_route)
     # change to datagram once its propogated
-    sign_payload = f"romeo-api-b.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{dg_exp}"
+    sign_payload = f"datagram.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{dg_exp}"
     expected_cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
 
     actual_cookie_value = request.cookies.get(dg_cookie_name, "")
@@ -389,7 +388,7 @@ def bouncetoken_verify():
         return jsonify({"status": "TICK::5000 — SYS_HALT: Unhdl Exc"}), 403
 
 
-DATAGRAM_HOST = "romeo-api-b.eidwtimes.xyz"
+DATAGRAM_HOST = "datagram.eidwtimes.xyz"
 COOKIE_PREFIXES = [
     "_ga_", "_gid_", "__ut", "_fbp_", "_dc_", "mp_", "ajs_", "_hp2_",
     "__hs", "_ce_", "_pk_", "ss_c", "ln_o", "_tt_", "ab_t", "ck_v",
@@ -669,13 +668,15 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
     if not horizon_preds:
         return None
 
-    dep_rows = _fetch_departures_range(terminal_id, now_utc, now_utc + timedelta(hours=4))
+    dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=4))
     dep_times = []
     for r in dep_rows:
         ts = r['scheduled_datetime']
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         dep_times.append(ts)
+
+    baseline_rate = _trition_baseline_dep_rate(dep_times, now_utc)
 
     forecasts = []
     for minutes, label in FORECAST_HORIZONS:
@@ -690,6 +691,10 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
         window_end = horizon_utc + timedelta(minutes=30)
         dep_count = sum(1 for d in dep_times if window_start <= d <= window_end)
 
+        dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+        pressure = (dep_ratio - 1.0) * 0.4
+        adjusted = predicted * (1.0 + pressure * 0.15)
+
         is_spike = False
         if dep_count > 0:
             before_count = sum(1 for d in dep_times
@@ -699,13 +704,15 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
             if dep_count > before_count and dep_count > after_count:
                 is_spike = True
 
-        spread = max(1, int(predicted * 0.15))
+        base_spread = max(1, int(adjusted * 0.12))
+        vol_mult = 1.0 + 0.5 * max(pressure, 0)
+        spread = max(1, int(base_spread * vol_mult))
         forecasts.append({
             "label": label,
             "time": horizon_str,
-            "median": round(predicted),
-            "p10": max(0, round(predicted) - spread * 2),
-            "p90": round(predicted) + spread * 2,
+            "median": round(adjusted),
+            "p10": max(0, round(adjusted) - spread * 2),
+            "p90": round(adjusted) + spread * 2,
             "departures": dep_count,
             "is_spike": is_spike,
         })
@@ -1855,6 +1862,7 @@ def _projected_hourly_stats_trition(terminal_id):
         return jsonify({"stats": None})
 
     now = datetime.now(DUBLIN_TZ)
+    now_utc = datetime.now(timezone.utc)
     hour_start = now.replace(minute=0, second=0, microsecond=0)
     hour_end = hour_start + timedelta(hours=1)
 
@@ -1863,6 +1871,16 @@ def _projected_hourly_stats_trition(terminal_id):
 
     last_value = observed_values[-1] if observed_values else h60
     last_minute = now.minute
+
+    dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+    dep_times = []
+    for r in dep_rows:
+        ts = r['scheduled_datetime']
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        dep_times.append(ts)
+
+    baseline_rate = _trition_baseline_dep_rate(dep_times, now_utc)
 
     future_minutes = list(range(last_minute + 1, 60))
     if not future_minutes:
@@ -1876,7 +1894,12 @@ def _projected_hourly_stats_trition(terminal_id):
     projected = []
     current = float(last_value)
     for m in future_minutes:
-        drift = (h60 - current) * 0.3
+        center = now_utc + timedelta(minutes=(m - last_minute))
+        dep_count = _trition_dep_pressure(dep_times, center, 15)
+        dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+        pressure = max((dep_ratio - 1.0) * 0.3, 0)
+        adjusted_target = h60 * (1.0 + pressure * 0.1)
+        drift = (adjusted_target - current) * 0.3
         current = max(0, current + drift)
         projected.append({"minute": m, "value": round(current)})
 
@@ -2595,6 +2618,32 @@ def _trition_predict_all():
         results[key] = round(float(pred[0]), 1)
     return results
 
+def _trition_interp_horizon(horizon_preds, sorted_horizons, minute, last_obs):
+    if minute <= sorted_horizons[0]:
+        frac = minute / sorted_horizons[0]
+        return last_obs + frac * (horizon_preds[sorted_horizons[0]] - last_obs)
+    if minute >= sorted_horizons[-1]:
+        return horizon_preds[sorted_horizons[-1]]
+    for i in range(len(sorted_horizons) - 1):
+        if sorted_horizons[i] <= minute <= sorted_horizons[i + 1]:
+            lo, hi = sorted_horizons[i], sorted_horizons[i + 1]
+            frac = (minute - lo) / (hi - lo)
+            return horizon_preds[lo] + frac * (horizon_preds[hi] - horizon_preds[lo])
+    return horizon_preds[sorted_horizons[-1]]
+
+
+def _trition_dep_pressure(dep_times, center_utc, window_minutes=30):
+    lo = center_utc - timedelta(minutes=window_minutes)
+    hi = center_utc + timedelta(minutes=window_minutes)
+    return sum(1 for d in dep_times if lo <= d <= hi)
+
+
+def _trition_baseline_dep_rate(dep_times, now_utc, lookback_hours=3):
+    start = now_utc - timedelta(hours=lookback_hours)
+    past_count = sum(1 for d in dep_times if start <= d <= now_utc)
+    return max(past_count / (lookback_hours * 2), 0.5)
+
+
 def simulate_trition_method_a():
     try:
         data = request.get_json()
@@ -2629,36 +2678,39 @@ def simulate_trition_method_a():
         if not horizon_preds:
             return jsonify({"bands": {}})
 
+        sec_rows = _fetch_security_range(terminal_id, now - timedelta(minutes=5), now)
+        last_obs = sec_rows[-1]['sec_time'] if sec_rows else horizon_preds.get(min(horizon_preds.keys()), 5)
+
+        dep_rows = _fetch_departures_range(terminal_id, now - timedelta(hours=3), now + timedelta(minutes=effective_steps + 30))
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        baseline_rate = _trition_baseline_dep_rate(dep_times, now)
         sorted_horizons = sorted(horizon_preds.keys())
+
         bands = {}
         for minute in range(1, effective_steps + 1):
-            interp_val = None
-            if minute <= sorted_horizons[0]:
-                current_val = preds.get(f"{t_key}_h{sorted_horizons[0]}m")
-                sec_rows = _fetch_security_range(terminal_id, now - timedelta(minutes=5), now)
-                last_obs = sec_rows[-1]['sec_time'] if sec_rows else current_val
-                frac = minute / sorted_horizons[0]
-                interp_val = last_obs + frac * (horizon_preds[sorted_horizons[0]] - last_obs)
-            elif minute >= sorted_horizons[-1]:
-                interp_val = horizon_preds[sorted_horizons[-1]]
-            else:
-                for i in range(len(sorted_horizons) - 1):
-                    if sorted_horizons[i] <= minute <= sorted_horizons[i + 1]:
-                        lo, hi = sorted_horizons[i], sorted_horizons[i + 1]
-                        frac = (minute - lo) / (hi - lo)
-                        interp_val = horizon_preds[lo] + frac * (horizon_preds[hi] - horizon_preds[lo])
-                        break
-
-            if interp_val is not None:
-                v = max(0, round(interp_val))
-                spread = max(1, int(v * 0.15))
-                bands[str(minute)] = {
-                    "p10": max(0, v - spread * 2),
-                    "p25": max(0, v - spread),
-                    "median": v,
-                    "p75": v + spread,
-                    "p90": v + spread * 2,
-                }
+            interp_val = _trition_interp_horizon(horizon_preds, sorted_horizons, minute, last_obs)
+            center_utc = now + timedelta(minutes=minute)
+            dep_count = _trition_dep_pressure(dep_times, center_utc)
+            dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            pressure = (dep_ratio - 1.0) * 0.4
+            adjusted = interp_val * (1.0 + pressure * 0.15)
+            v = max(0, round(adjusted))
+            base_spread = max(1, int(v * 0.12))
+            vol_mult = 1.0 + 0.5 * max(pressure, 0)
+            spread = max(1, int(base_spread * vol_mult))
+            bands[str(minute)] = {
+                "p10": max(0, v - spread * 2),
+                "p25": max(0, v - spread),
+                "median": v,
+                "p75": v + spread,
+                "p90": v + spread * 2,
+            }
 
         return jsonify({"bands": bands})
     except Exception as e:
@@ -2678,6 +2730,7 @@ def simulate_trition_method_b():
             return jsonify({"paths": []})
 
         now = datetime.now(DUBLIN_TZ)
+        now_utc = datetime.now(timezone.utc)
         last_minute = now.minute
         t_key = f"t{terminal_id}"
 
@@ -2695,6 +2748,21 @@ def simulate_trition_method_b():
         if not future_minutes:
             return jsonify({"paths": [], "dataPoints": len(observed_values)})
 
+        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        baseline_rate = _trition_baseline_dep_rate(dep_times, now_utc)
+
+        dep_by_minute = {}
+        for m in future_minutes:
+            center = now_utc + timedelta(minutes=(m - last_minute))
+            dep_by_minute[m] = _trition_dep_pressure(dep_times, center, 15)
+
         paths = []
         for _ in range(15):
             path = []
@@ -2702,9 +2770,13 @@ def simulate_trition_method_b():
             target = h60_pred
             remaining = len(future_minutes)
             for idx, m in enumerate(future_minutes):
-                frac = (idx + 1) / remaining
-                drift = (target - current) * 0.3
-                noise = np.random.randn() * 0.5
+                dep_count = dep_by_minute.get(m, 0)
+                dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                pressure = max((dep_ratio - 1.0) * 0.3, 0)
+                adjusted_target = target * (1.0 + pressure * 0.1)
+                drift = (adjusted_target - current) * 0.3
+                vol = 0.5 * (1.0 + 0.4 * pressure)
+                noise = np.random.randn() * vol
                 current = max(0, current + drift + noise)
                 path.append({"minute": m, "value": max(0, round(current))})
             paths.append(path)
@@ -2735,6 +2807,7 @@ def simulate_trition_method_d():
             ref_time = datetime.now(DUBLIN_TZ)
 
         current_minute = ref_time.minute
+        now_utc = datetime.now(timezone.utc)
         t_key = f"t{terminal_id}"
 
         sec_rows = _fetch_security_for_hour(terminal_id,
@@ -2765,12 +2838,25 @@ def simulate_trition_method_d():
         if not future_minutes:
             return jsonify({"projected": []})
 
+        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+        dep_times = []
+        for r in dep_rows:
+            ts = r['scheduled_datetime']
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            dep_times.append(ts)
+
+        baseline_rate = _trition_baseline_dep_rate(dep_times, now_utc)
+
         projected = []
         current = float(last_value)
-        remaining = len(future_minutes)
-        for idx, m in enumerate(future_minutes):
-            frac = (idx + 1) / remaining
-            drift = (h60_pred - current) * 0.3
+        for m in future_minutes:
+            center = now_utc + timedelta(minutes=(m - last_minute))
+            dep_count = _trition_dep_pressure(dep_times, center, 15)
+            dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            pressure = max((dep_ratio - 1.0) * 0.3, 0)
+            adjusted_target = h60_pred * (1.0 + pressure * 0.1)
+            drift = (adjusted_target - current) * 0.3
             current = max(0, current + drift)
             projected.append({"minute": m, "value": max(0, round(current))})
 
@@ -2806,7 +2892,7 @@ def simulate_trition_method_c():
         sec_rows = _fetch_security_range(terminal_id, now_utc - timedelta(minutes=5), now_utc)
         last_obs = sec_rows[-1]['sec_time'] if sec_rows else horizon_preds.get(60, 5)
 
-        dep_rows = _fetch_departures_range(terminal_id, now_utc, now_utc + timedelta(hours=7))
+        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=7))
         dep_times = []
         for r in dep_rows:
             ts = r['scheduled_datetime']
@@ -2814,6 +2900,7 @@ def simulate_trition_method_c():
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
 
+        baseline_rate = _trition_baseline_dep_rate(dep_times, now_utc)
         sorted_horizons = sorted(horizon_preds.keys())
 
         hours_result = []
@@ -2826,32 +2913,25 @@ def simulate_trition_method_c():
             minutes_data = []
             medians = []
             for m in range(hour_start_min, hour_end_min + 1):
-                interp_val = None
-                if m <= sorted_horizons[0]:
-                    frac = m / sorted_horizons[0]
-                    interp_val = last_obs + frac * (horizon_preds[sorted_horizons[0]] - last_obs)
-                elif m >= sorted_horizons[-1]:
-                    interp_val = horizon_preds[sorted_horizons[-1]]
-                else:
-                    for i in range(len(sorted_horizons) - 1):
-                        if sorted_horizons[i] <= m <= sorted_horizons[i + 1]:
-                            lo, hi = sorted_horizons[i], sorted_horizons[i + 1]
-                            frac = (m - lo) / (hi - lo)
-                            interp_val = horizon_preds[lo] + frac * (horizon_preds[hi] - horizon_preds[lo])
-                            break
-
-                if interp_val is not None:
-                    v = max(0, round(interp_val))
-                    spread = max(1, int(v * 0.12))
-                    minutes_data.append({
-                        "minute": m - hour_start_min,
-                        "median": v,
-                        "p10": max(0, v - spread * 2),
-                        "p25": max(0, v - spread),
-                        "p75": v + spread,
-                        "p90": v + spread * 2,
-                    })
-                    medians.append(v)
+                interp_val = _trition_interp_horizon(horizon_preds, sorted_horizons, m, last_obs)
+                center_utc = now_utc + timedelta(minutes=m)
+                dep_count = _trition_dep_pressure(dep_times, center_utc)
+                dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                pressure = (dep_ratio - 1.0) * 0.4
+                adjusted = interp_val * (1.0 + pressure * 0.15)
+                v = max(0, round(adjusted))
+                base_spread = max(1, int(v * 0.10))
+                vol_mult = 1.0 + 0.5 * max(pressure, 0)
+                spread = max(1, int(base_spread * vol_mult))
+                minutes_data.append({
+                    "minute": m - hour_start_min,
+                    "median": v,
+                    "p10": max(0, v - spread * 2),
+                    "p25": max(0, v - spread),
+                    "p75": v + spread,
+                    "p90": v + spread * 2,
+                })
+                medians.append(v)
 
             avg_median = round(sum(medians) / len(medians)) if medians else None
             hour_utc_start = now_utc + timedelta(hours=h)
