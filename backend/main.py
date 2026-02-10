@@ -2752,33 +2752,6 @@ def simulate_trition_method_c():
         logging.error(f"Error in trition/method-c: {e}")
         return jsonify({"error": "TICK::5035 — SIM_FAULT: TRC Err"}), 500
 
-
-VALID_INTEGRITY_REASONS = {"dt_inspect", "dt_resize", "js_inject", "dt_debugger"}
-
-
-def sec_integrity_report():
-    try:
-        data = request.get_json(silent=True) or {}
-        reason = data.get("r", "unknown")
-        fp = data.get("fp", "")
-
-        if reason not in VALID_INTEGRITY_REASONS:
-            return jsonify({"error": "TICK::4003 — PARAM_VOID: Reason Inv"}), 400
-
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
-        raw_token = auth_header[7:]
-
-        bt_hash = hashlib.sha256(raw_token.encode()).hexdigest()[:16]
-        ban_bounce_token(bt_hash, reason)
-        logging.warning(f"[INTEGRITY] Report received: reason={reason} bt={bt_hash} fp={fp[:12] if fp else 'N/A'} ip={_get_client_ip()}")
-        return jsonify({"status": "acknowledged"}), 200
-    except Exception as e:
-        logging.error(f"[INTEGRITY] Report error: {e}")
-        return jsonify({"status": "acknowledged"}), 200
-
-
 _ROUTE_DISPATCH = {
     "/api/security-data": get_security_data,
     "/api/departure-data": get_departure_data,
@@ -2807,7 +2780,6 @@ _ROUTE_DISPATCH = {
     "/api/bouncetoken/verify": bouncetoken_verify,
     "/api/seo-security-data": seo_security_data,
     "/api/current-security-data": get_current_security_data,
-    "/api/sec-integrity-report": sec_integrity_report,
 }
 
 

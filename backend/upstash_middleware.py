@@ -12,8 +12,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-INTEGRITY_BAN_TTL = 30
-
 UPSTASH_REDIS_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "")
 UPSTASH_REDIS_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
 
@@ -91,31 +89,6 @@ def _get_token_hash():
     if forwarded:
         return hashlib.sha256(forwarded.split(",")[0].strip().encode()).hexdigest()[:16]
     return hashlib.sha256((request.remote_addr or "unknown").encode()).hexdigest()[:16]
-
-
-def ban_bounce_token(token_hash: str, reason: str) -> bool:
-    redis_client = _get_redis()
-    if not redis_client:
-        return False
-    try:
-        key = f"ib:{token_hash}"
-        redis_client.set(key, reason, ex=INTEGRITY_BAN_TTL)
-        logger.warning(f"[integrity] Banned {token_hash} for {INTEGRITY_BAN_TTL}s reason={reason}")
-        return True
-    except Exception as e:
-        logger.error(f"[integrity] Ban failed: {e}")
-        return False
-
-
-def is_bounce_token_banned(token_hash: str) -> bool:
-    redis_client = _get_redis()
-    if not redis_client:
-        return False
-    try:
-        return redis_client.get(f"ib:{token_hash}") is not None
-    except Exception:
-        return False
-
 
 def rate_limit_middleware(app):
     @app.before_request
