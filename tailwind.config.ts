@@ -3,10 +3,8 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
+    "./index.html",
   ],
   prefix: "",
   theme: {
@@ -136,7 +134,6 @@ export default {
     "bg-custom-green",
     "border-custom-green",
     "text-custom-green",
-    "bg-departure-orange",
     "border-departure-orange",
     "text-departure-orange",
   ],
