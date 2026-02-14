@@ -548,7 +548,6 @@
     </script>
 
     <script>
-      // Console noise filter (deferred to not block parsing)
       (function() {
         var ketchPatterns = /^\[Ketch\]|^showConsentExperience|^App\.tsx|^useFireExperienceEvents|^fullConfig|^payload|^consents|^showConsentOptions|^purposeTCFInfo|^options|^theme|^appStateProviderPayload|^showPreferenceOptions|^mutableConfig|^error|^isThemeMapMounted|^experience|^store|^host/;
         function patchConsole(ctx) {
@@ -574,7 +573,6 @@
     </script>
 
     <script>
-      // Ketch consent - deferred
       !function(){
         window.semaphore=window.semaphore||[];
         window.ketch=function(){window.semaphore.push(arguments)};
@@ -589,7 +587,6 @@
 
     <script>
       (function() {
-        // Defer reCAPTCHA loading until after page is interactive
         function loadRecaptcha() {
           if (document.getElementById('recaptcha-enterprise-script')) return;
           var s = document.createElement('script');
@@ -604,7 +601,6 @@
     </script>
 
     <script>
-      // Defer dynamic FAQ injection to after page load
       window.addEventListener('load', function() {
         setTimeout(function() {
           var API_BASE = 'https://datagram.eidwtimes.xyz';

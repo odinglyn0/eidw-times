@@ -52,25 +52,73 @@ export default defineConfig(() => ({
     target: "es2020",
     sourcemap: false,
     cssCodeSplit: true,
+    cssMinify: "esbuild",
     modulePreload: { polyfill: false },
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 50,
+    assetsInlineLimit: 0,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-radix': [
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-toast',
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-select',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-dropdown-menu',
-          ],
-          'vendor-charts': ['recharts'],
-          'vendor-fingerprint': ['@fingerprintjs/fingerprintjs'],
+        compact: true,
+        generatedCode: { constBindings: true, arrowFunctions: true, objectShorthand: true, symbols: true },
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("/react-dom/")) return "v-react-dom";
+          if (id.includes("/react/")) return "v-react";
+          if (id.includes("/scheduler/")) return "v-scheduler";
+          if (id.includes("/react-router-dom/")) return "v-router-dom";
+          if (id.includes("/react-router/")) return "v-router";
+          if (id.includes("/@remix-run/")) return "v-remix-run";
+          if (id.includes("/@tanstack/query-core")) return "v-query-core";
+          if (id.includes("/@tanstack/react-query")) return "v-query-react";
+          if (id.includes("/d3-")) {
+            const m = id.match(/\/node_modules\/(d3-[^/]+)/);
+            if (m) return "v-" + m[1];
+          }
+          if (id.includes("/recharts/")) return "v-recharts";
+          if (id.includes("/victory-vendor/")) return "v-victory";
+          if (id.includes("/@radix-ui/")) {
+            const m = id.match(/@radix-ui\/(react-[^/]+)/);
+            if (m) return "v-rx-" + m[1];
+            const p = id.match(/@radix-ui\/(primitive[^/]*)/);
+            if (p) return "v-rx-primitive";
+            return "v-rx-core";
+          }
+          if (id.includes("/@fingerprintjs/")) return "v-fingerprint";
+          if (id.includes("/three/src/")) {
+            const sub = id.match(/\/three\/src\/([^/]+)\//);
+            if (sub) return "v-three-" + sub[1].toLowerCase();
+            return "v-three-core";
+          }
+          if (id.includes("/three/")) return "v-three";
+          if (id.includes("/posthog-js/")) return "v-posthog";
+          if (id.includes("/react-ga4/")) return "v-ga4";
+          if (id.includes("/@vercel/analytics")) return "v-vercel-analytics";
+          if (id.includes("/react-hook-form/")) return "v-rhf";
+          if (id.includes("/@hookform/")) return "v-hookform-resolvers";
+          if (id.includes("/zod/")) return "v-zod";
+          if (id.includes("/date-fns/")) return "v-date-fns";
+          if (id.includes("/react-day-picker/")) return "v-day-picker";
+          if (id.includes("/embla-carousel")) return "v-embla";
+          if (id.includes("/class-variance-authority/")) return "v-cva";
+          if (id.includes("/clsx/")) return "v-clsx";
+          if (id.includes("/tailwind-merge/")) return "v-tw-merge";
+          if (id.includes("/lucide-react/")) return "v-lucide";
+          if (id.includes("/cmdk/")) return "v-cmdk";
+          if (id.includes("/sonner/")) return "v-sonner";
+          if (id.includes("/vaul/")) return "v-vaul";
+          if (id.includes("/next-themes/")) return "v-themes";
+          if (id.includes("/input-otp/")) return "v-input-otp";
+          if (id.includes("/react-resizable-panels/")) return "v-resizable";
+          if (id.includes("/js-cookie/")) return "v-js-cookie";
+          const pnpm = id.match(/\.pnpm\/([^@/][^/]*?)@|\.pnpm\/(@[^/]+?\+[^@/]+?)@/);
+          if (pnpm) {
+            const raw = (pnpm[1] || pnpm[2] || "").replace(/\+/g, "-");
+            return "v-" + raw;
+          }
+          const pkg = id.match(/\/node_modules\/(@[^/]+\/[^/]+|[^/]+)/);
+          if (pkg) return "v-" + pkg[1].replace(/[@/]/g, "-").replace(/^-/, "");
+
+          return "v-misc";
         },
       },
     },
