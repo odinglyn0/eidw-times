@@ -2,7 +2,11 @@ import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } fro
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
-const Logo = "/intakeLogo.png";
+const LogoAvif1x = "/intakeLogo-577w.avif";
+const LogoAvif2x = "/intakeLogo-1154w.avif";
+const LogoWebp1x = "/intakeLogo-577w.webp";
+const LogoWebp2x = "/intakeLogo-1154w.webp";
+const LogoPngFallback = "/intakeLogo-577w.png";
 
 const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 
@@ -256,7 +260,11 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     }}>
       <Suspense fallback={null}><TileBG /></Suspense>
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
-        <img src={Logo} alt="EIDW Times" width={577} height={125} fetchPriority="high" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
+        <picture>
+          <source type="image/avif" srcSet={`${LogoAvif1x} 577w, ${LogoAvif2x} 1154w`} sizes="(max-width: 577px) 80vw, 577px" />
+          <source type="image/webp" srcSet={`${LogoWebp1x} 577w, ${LogoWebp2x} 1154w`} sizes="(max-width: 577px) 80vw, 577px" />
+          <img src={LogoPngFallback} alt="EIDW Times" width={577} height={125} fetchPriority="high" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
+        </picture>
         <Loader />
         <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
           Verifying you are not an evil hacker

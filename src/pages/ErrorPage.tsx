@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-const Logo = "/intakeLogo.png";
+const LogoWebp = "/intakeLogo-577w.webp";
+const LogoPng = "/intakeLogo-577w.png";
 
 const WebGLBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 
@@ -29,7 +30,10 @@ const ErrorPage = () => {
     }}>
       <Suspense fallback={null}><WebGLBG /></Suspense>
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
-        <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain" }} />
+        <picture>
+          <source type="image/webp" srcSet={LogoWebp} />
+          <img src={LogoPng} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain" }} />
+        </picture>
         <img
           src={`https://http.cat/${statusCode}`}
           alt={`HTTP ${statusCode}`}
