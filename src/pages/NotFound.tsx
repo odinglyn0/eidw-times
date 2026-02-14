@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import Logo from "@/assets/intakeLogo.png";
+const Logo = "/intakeLogo.png";
 
 const WebGLBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 

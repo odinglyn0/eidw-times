@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } fro
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
-import Logo from "@/assets/intakeLogo.png";
+const Logo = "/intakeLogo.png";
 
 const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 
@@ -165,6 +165,8 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     attemptedRef.current = true;
 
     const run = async () => {
+      await new Promise(r => setTimeout(r, 50));
+
       let visitorId = "";
 
       try {

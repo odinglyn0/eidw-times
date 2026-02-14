@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import Logo from "@/assets/intakeLogo.png";
+const Logo = "/intakeLogo.png";
 
 const WebGLBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebGLBackground })));
 

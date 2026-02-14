@@ -44,6 +44,8 @@ const NeuralNetworkBackground: React.FC = () => {
     }
   }, [planeSize, planeSpacing, mousePos]);
 
+  const bgColorRef = useRef<string>('');
+
   const draw = useCallback(() => {
     if (!isVisibleRef.current) {
       animationFrameId.current = requestAnimationFrame(draw);
@@ -56,10 +58,11 @@ const NeuralNetworkBackground: React.FC = () => {
 
     const { width, height } = canvas;
 
-    const computedStyle = window.getComputedStyle(canvas);
-    const bgColor = computedStyle.backgroundColor;
+    if (!bgColorRef.current) {
+      bgColorRef.current = window.getComputedStyle(canvas).backgroundColor;
+    }
 
-    ctx.fillStyle = bgColor;
+    ctx.fillStyle = bgColorRef.current;
     ctx.fillRect(0, 0, width, height);
 
     ctx.fillStyle = nodeColor;
@@ -103,6 +106,7 @@ const NeuralNetworkBackground: React.FC = () => {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      bgColorRef.current = '';
       initNodes(canvas.width, canvas.height);
     };
 
@@ -115,6 +119,9 @@ const NeuralNetworkBackground: React.FC = () => {
     
     const handleVisibility = () => { isVisibleRef.current = !document.hidden; };
     document.addEventListener('visibilitychange', handleVisibility);
+
+    const themeObserver = new MutationObserver(() => { bgColorRef.current = ''; });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     
     resizeCanvas();
 
@@ -126,6 +133,7 @@ const NeuralNetworkBackground: React.FC = () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('visibilitychange', handleVisibility);
+      themeObserver.disconnect();
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
