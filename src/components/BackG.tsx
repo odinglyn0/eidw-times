@@ -14,6 +14,7 @@ const NeuralNetworkBackground: React.FC = () => {
   const nodesRef = useRef<Node[]>([]);
   const animationFrameId = useRef<number | null>(null);
   const planeImageRef = useRef<HTMLImageElement | null>(null);
+  const isVisibleRef = useRef(!document.hidden);
 
   const planeSize = 12;
   const planeSpacing = 40;
@@ -44,6 +45,10 @@ const NeuralNetworkBackground: React.FC = () => {
   }, [planeSize, planeSpacing, mousePos]);
 
   const draw = useCallback(() => {
+    if (!isVisibleRef.current) {
+      animationFrameId.current = requestAnimationFrame(draw);
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -107,6 +112,10 @@ const NeuralNetworkBackground: React.FC = () => {
 
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('mousemove', handleMouseMove);
+    
+    const handleVisibility = () => { isVisibleRef.current = !document.hidden; };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
     resizeCanvas();
 
     if (animationFrameId.current === null) {
@@ -116,6 +125,7 @@ const NeuralNetworkBackground: React.FC = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;

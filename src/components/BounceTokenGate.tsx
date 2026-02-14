@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
 import Logo from "@/assets/intakeLogo.png";
@@ -169,6 +168,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       let visitorId = "";
 
       try {
+        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs")).default;
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         visitorId = result.visitorId;
@@ -254,7 +254,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     }}>
       <Suspense fallback={null}><TileBG /></Suspense>
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem" }}>
-        <img src={Logo} alt="EIDW Times" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
+        <img src={Logo} alt="EIDW Times" width={577} height={125} fetchPriority="high" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
         <Loader />
         <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
           Verifying you are not an evil hacker

@@ -1,42 +1,6 @@
 <!doctype html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
   <head>
-    <script>
-      (function() {
-        var ketchPatterns = /^\[Ketch\]|^showConsentExperience|^App\.tsx|^useFireExperienceEvents|^fullConfig|^payload|^consents|^showConsentOptions|^purposeTCFInfo|^options|^theme|^appStateProviderPayload|^showPreferenceOptions|^mutableConfig|^error|^isThemeMapMounted|^experience|^store|^host/;
-        function patchConsole(ctx) {
-          var orig = ctx.console.log;
-          ctx.console.log = function() {
-            var msg = arguments[0];
-            if (typeof msg === 'string' && ketchPatterns.test(msg.trim())) return;
-            orig.apply(ctx.console, arguments);
-          };
-        }
-        patchConsole(window);
-        var origCreate = document.createElement;
-        document.createElement = function(tag) {
-          var el = origCreate.apply(document, arguments);
-          if (tag.toLowerCase() === 'iframe') {
-            el.addEventListener('load', function() {
-              try { if (el.contentWindow) patchConsole(el.contentWindow); } catch(e) {}
-            });
-          }
-          return el;
-        };
-      })();
-    </script>
-    <script>
-      !function(){
-        window.semaphore=window.semaphore||[];
-        window.ketch=function(){window.semaphore.push(arguments)};
-        var e=document.createElement("script");
-        e.type="text/javascript";
-        e.src="https://global.ketchcdn.com/web/v3/config/ogm/website_smart_tag/boot.js";
-        e.defer=e.async=!0;
-        e.onerror=function(){console.error('[Ketch] boot.js failed to load')};
-        document.getElementsByTagName("head")[0].appendChild(e);
-      }();
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -44,6 +8,8 @@
     <link rel="dns-prefetch" href="https://datagram.eidwtimes.xyz" />
     <link rel="preconnect" href="https://global.ketchcdn.com" crossorigin />
     <link rel="dns-prefetch" href="https://global.ketchcdn.com" />
+    <link rel="preconnect" href="https://www.google.com" crossorigin />
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
     <title>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times</title>
     <meta name="title" content="Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times" />
     <meta name="description" content="Live Dublin Airport security queue wait times for Terminal 1 and Terminal 2. Real-time updates, historical trends, departure info, and AI-projected wait times. Plan your journey through Dublin Airport (DUB/EIDW) with confidence." />
@@ -581,56 +547,103 @@
     }
     </script>
 
-    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LdI9WQsAAAAAK4ilb6iOeKXxIVIcJk8iOVuXKV7" async defer></script>
+    <script>
+      // Console noise filter (deferred to not block parsing)
+      (function() {
+        var ketchPatterns = /^\[Ketch\]|^showConsentExperience|^App\.tsx|^useFireExperienceEvents|^fullConfig|^payload|^consents|^showConsentOptions|^purposeTCFInfo|^options|^theme|^appStateProviderPayload|^showPreferenceOptions|^mutableConfig|^error|^isThemeMapMounted|^experience|^store|^host/;
+        function patchConsole(ctx) {
+          var orig = ctx.console.log;
+          ctx.console.log = function() {
+            var msg = arguments[0];
+            if (typeof msg === 'string' && ketchPatterns.test(msg.trim())) return;
+            orig.apply(ctx.console, arguments);
+          };
+        }
+        patchConsole(window);
+        var origCreate = document.createElement;
+        document.createElement = function(tag) {
+          var el = origCreate.apply(document, arguments);
+          if (tag.toLowerCase() === 'iframe') {
+            el.addEventListener('load', function() {
+              try { if (el.contentWindow) patchConsole(el.contentWindow); } catch(e) {}
+            });
+          }
+          return el;
+        };
+      })();
+    </script>
+
+    <script>
+      // Ketch consent - deferred
+      !function(){
+        window.semaphore=window.semaphore||[];
+        window.ketch=function(){window.semaphore.push(arguments)};
+        var e=document.createElement("script");
+        e.type="text/javascript";
+        e.src="https://global.ketchcdn.com/web/v3/config/ogm/website_smart_tag/boot.js";
+        e.defer=e.async=!0;
+        e.onerror=function(){console.error('[Ketch] boot.js failed to load')};
+        document.getElementsByTagName("head")[0].appendChild(e);
+      }();
+    </script>
 
     <script>
       (function() {
-        var API_BASE = 'https://datagram.eidwtimes.xyz';
-        
-        fetch(API_BASE + '/api/current-security-data')
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            var t1 = data.t1 != null ? data.t1 + ' minutes' : 'No data';
-            var t2 = data.t2 != null ? data.t2 + ' minutes' : 'No data';
-            var now = new Date().toLocaleString('en-IE', { hour: 'numeric', minute: '2-digit', hour12: true });
-            
-            var rec = '';
-            if (data.t1 != null && data.t2 != null) {
-              if (data.t1 < data.t2) rec = 'Terminal 1 is currently faster.';
-              else if (data.t2 < data.t1) rec = 'Terminal 2 is currently faster.';
-              else rec = 'Both terminals are equal.';
-            }
-
-            var dynamicQuestions = [{
-              "@type": "Question",
-              "name": "What are the current security times at Dublin Airport?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "As of " + now + ", Dublin Airport Terminal 1 security wait time is " + t1 + " and Terminal 2 is " + t2 + ". " + rec
-              }
-            }, {
-              "@type": "Question",
-              "name": "Which Dublin Airport terminal has the shortest security queue?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": rec + " Terminal 1: " + t1 + ", Terminal 2: " + t2 + "."
-              }
-            }];
-
-            var scripts = document.querySelectorAll('script[type="application/ld+json"]');
-            for (var i = 0; i < scripts.length; i++) {
-              try {
-                var parsed = JSON.parse(scripts[i].textContent);
-                if (parsed['@type'] === 'FAQPage') {
-                  parsed.mainEntity = dynamicQuestions.concat(parsed.mainEntity);
-                  scripts[i].textContent = JSON.stringify(parsed);
-                  return;
-                }
-              } catch(e) {}
-            }
-          })
-          .catch(function() {});
+        // Defer reCAPTCHA loading until after page is interactive
+        function loadRecaptcha() {
+          if (document.getElementById('recaptcha-enterprise-script')) return;
+          var s = document.createElement('script');
+          s.id = 'recaptcha-enterprise-script';
+          s.src = 'https://www.google.com/recaptcha/enterprise.js?render=6LdI9WQsAAAAAK4ilb6iOeKXxIVIcJk8iOVuXKV7';
+          s.async = true;
+          document.head.appendChild(s);
+        }
+        if (document.readyState === 'complete') { loadRecaptcha(); }
+        else { window.addEventListener('load', function() { setTimeout(loadRecaptcha, 100); }); }
       })();
+    </script>
+
+    <script>
+      // Defer dynamic FAQ injection to after page load
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var API_BASE = 'https://datagram.eidwtimes.xyz';
+          fetch(API_BASE + '/api/current-security-data')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              var t1 = data.t1 != null ? data.t1 + ' minutes' : 'No data';
+              var t2 = data.t2 != null ? data.t2 + ' minutes' : 'No data';
+              var now = new Date().toLocaleString('en-IE', { hour: 'numeric', minute: '2-digit', hour12: true });
+              var rec = '';
+              if (data.t1 != null && data.t2 != null) {
+                if (data.t1 < data.t2) rec = 'Terminal 1 is currently faster.';
+                else if (data.t2 < data.t1) rec = 'Terminal 2 is currently faster.';
+                else rec = 'Both terminals are equal.';
+              }
+              var dynamicQuestions = [{
+                "@type": "Question",
+                "name": "What are the current security times at Dublin Airport?",
+                "acceptedAnswer": { "@type": "Answer", "text": "As of " + now + ", Dublin Airport Terminal 1 security wait time is " + t1 + " and Terminal 2 is " + t2 + ". " + rec }
+              }, {
+                "@type": "Question",
+                "name": "Which Dublin Airport terminal has the shortest security queue?",
+                "acceptedAnswer": { "@type": "Answer", "text": rec + " Terminal 1: " + t1 + ", Terminal 2: " + t2 + "." }
+              }];
+              var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+              for (var i = 0; i < scripts.length; i++) {
+                try {
+                  var parsed = JSON.parse(scripts[i].textContent);
+                  if (parsed['@type'] === 'FAQPage') {
+                    parsed.mainEntity = dynamicQuestions.concat(parsed.mainEntity);
+                    scripts[i].textContent = JSON.stringify(parsed);
+                    return;
+                  }
+                } catch(e) {}
+              }
+            })
+            .catch(function() {});
+        }, 500);
+      });
     </script>
   </head>
 
