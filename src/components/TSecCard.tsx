@@ -15,15 +15,50 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/ACC";
-import HourlyDetailPopover from "./HDPopO";
-import DepartureDetailPopover from "./DDPopO";
+const HourlyDetailPopover = lazy(() => import("./HDPopO"));
+const DepartureDetailPopover = lazy(() => import("./DDPopO"));
 import ProjectedHourlyPopover from "./PHPopO";
 const HourGraphDialog = lazy(() => import("./HgDi"));
 import LaserPulseBorder from "./LPB";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/PopO";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import SecurityTimeGraph from "./SecurityTimeGraph";
+const SecurityTimeGraph = lazy(() => import("./SecurityTimeGraph"));
 import { getSecurityViewMode } from "@/lib/cookies";
+
+const ProjectedHourChart = lazy(() =>
+  Promise.all([
+    import("recharts/es6/chart/AreaChart"),
+    import("recharts/es6/component/ResponsiveContainer"),
+    import("recharts/es6/cartesian/Area"),
+    import("recharts/es6/cartesian/XAxis"),
+    import("recharts/es6/cartesian/YAxis"),
+    import("recharts/es6/component/Tooltip"),
+    import("recharts/es6/cartesian/CartesianGrid"),
+  ]).then(([AreaChartMod, RCMod, AreaMod, XMod, YMod, TtMod, CGMod]) => ({
+    default: ({ data }: { data: { minute: number; median: number; p10: number; p25: number; p75: number; p90: number }[] }) => (
+      <div className="h-28 w-full">
+        <RCMod.ResponsiveContainer width="100%" height="100%">
+          <AreaChartMod.AreaChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <CGMod.CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XMod.XAxis dataKey="minute" tickFormatter={(v: number) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
+            <YMod.YAxis tickFormatter={(v: number) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
+            <TtMod.Tooltip
+              formatter={(value: number, name: string) => {
+                const labels: Record<string, string> = { median: "Median", p10: "P10", p90: "P90" };
+                return [`${value}m`, labels[name] || name];
+              }}
+              labelFormatter={(l: string) => `Minute ${l}`}
+            />
+            <AreaMod.Area type="monotone" dataKey="p90" stroke="none" fill="#7c3aed" fillOpacity={0.1} />
+            <AreaMod.Area type="monotone" dataKey="p75" stroke="none" fill="#7c3aed" fillOpacity={0.15} />
+            <AreaMod.Area type="monotone" dataKey="median" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.05} strokeDasharray="4 3" />
+            <AreaMod.Area type="monotone" dataKey="p25" stroke="none" fill="transparent" />
+            <AreaMod.Area type="monotone" dataKey="p10" stroke="none" fill="transparent" />
+          </AreaChartMod.AreaChart>
+        </RCMod.ResponsiveContainer>
+      </div>
+    )
+  }))
+);
 
 interface HourlySecurityData {
   hour: number;
@@ -75,16 +110,6 @@ interface TerminalSecurityCardProps {
   isOtherTerminalOpen?: boolean;
 }
 
-function projectedColorClass(value: number | null): string {
-  if (value === null) return "bg-gray-500";
-  if (value <= 5) return "bg-blue-500";
-  if (value <= 10) return "bg-blue-600";
-  if (value <= 20) return "bg-indigo-500";
-  if (value <= 30) return "bg-indigo-600";
-  if (value <= 45) return "bg-purple-600";
-  return "bg-purple-800";
-}
-
 const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
   const [open, setOpen] = useState(false);
   const colorCls = projectedColorClass(hour.avgMedian);
@@ -111,27 +136,9 @@ const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
           {hour.departures} departures nearby · median ~{hour.avgMedian ?? "—"}m
         </p>
         {hour.minutes.length > 0 ? (
-          <div className="h-28 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={hour.minutes} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="minute" tickFormatter={(v) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
-                <YAxis tickFormatter={(v) => `${v}m`} axisLine={false} tickLine={false} fontSize={9} />
-                <Tooltip
-                  formatter={(value: number, name: string) => {
-                    const labels: Record<string, string> = { median: "Median", p10: "P10", p90: "P90" };
-                    return [`${value}m`, labels[name] || name];
-                  }}
-                  labelFormatter={(l) => `Minute ${l}`}
-                />
-                <Area type="monotone" dataKey="p90" stroke="none" fill="#7c3aed" fillOpacity={0.1} />
-                <Area type="monotone" dataKey="p75" stroke="none" fill="#7c3aed" fillOpacity={0.15} />
-                <Area type="monotone" dataKey="median" stroke="#7c3aed" strokeWidth={2} fill="#7c3aed" fillOpacity={0.05} strokeDasharray="4 3" />
-                <Area type="monotone" dataKey="p25" stroke="none" fill="transparent" />
-                <Area type="monotone" dataKey="p10" stroke="none" fill="transparent" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <Suspense fallback={<div className="h-28 w-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div>}>
+            <ProjectedHourChart data={hour.minutes} />
+          </Suspense>
         ) : (
           <p className="text-center text-muted-foreground text-xs py-4">No minute data.</p>
         )}
@@ -140,6 +147,16 @@ const ProjectedHourCard: React.FC<{ hour: ProjectedHourData }> = ({ hour }) => {
     </Popover>
   );
 };
+
+function projectedColorClass(value: number | null): string {
+  if (value === null) return "bg-gray-500";
+  if (value <= 5) return "bg-blue-500";
+  if (value <= 10) return "bg-blue-600";
+  if (value <= 20) return "bg-indigo-500";
+  if (value <= 30) return "bg-indigo-600";
+  if (value <= 45) return "bg-purple-600";
+  return "bg-purple-800";
+}
 
 const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId, globalMaxTime, isAutoRefreshing, t1CurrentTime, t2CurrentTime, isSecurityOpen = true, isOtherTerminalOpen = true }) => {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
@@ -181,7 +198,6 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
           if (!hourlyGranularMap.has(hour)) hourlyGranularMap.set(hour, []);
           hourlyGranularMap.get(hour)!.push(record);
         });
-        // Sort each hour's data chronologically
         hourlyGranularMap.forEach((records) => {
           records.sort((a, b) => parseISO(a.timestamp).getTime() - parseISO(b.timestamp).getTime());
         });
@@ -351,9 +367,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">{viewMode === 'graph' ? 'Past 7d / Next 6h' : 'Past 24 / Next 6'}</h3>
               {viewMode === 'graph' ? (
-                <SecurityTimeGraph
-                  terminalId={terminalId}
-                />
+                <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                  <SecurityTimeGraph
+                    terminalId={terminalId}
+                  />
+                </Suspense>
               ) : currentDayHourlyData.length > 0 ? (
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 lg:grid-cols-auto gap-1 text-xs">
                   {currentDayHourlyData.map((dataPoint) => (
