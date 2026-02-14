@@ -195,7 +195,7 @@ const Index = () => {
       <SecurityOpeningHours />
 
       <nav className="w-full max-w-5xl text-center text-xs text-gray-400 dark:text-gray-600 mt-8 mb-4" aria-label="Additional resources">
-        <a href="https://datagram.eidwtimes.xyz/api/seo-security-data" className="hover:underline">Dublin Airport Live Security Times</a>
+        <a href="https://datagram.eidwtimes.xyz/api/seo-security-data" className="hover:underline">I'm a search engine</a>
         {" · "}
         <a href="/llms.txt" className="hover:underline">llms.txt</a>
       </nav>
