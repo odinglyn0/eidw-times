@@ -64,6 +64,8 @@
     <meta name="content-language" content="en-IE" />
     <link rel="alternate" hreflang="en" href="https://eidwtimes.xyz/" />
     <link rel="alternate" hreflang="x-default" href="https://eidwtimes.xyz/" />
+    <link rel="alternate" type="text/html" title="Live Dublin Airport Security Data" href="https://datagram.eidwtimes.xyz/api/seo-security-data" />
+    <link rel="alternate" hreflang="en" title="Dublin Airport Security Times — Real-Time Data" href="https://datagram.eidwtimes.xyz/api/seo-security-data" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#4CAF50" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -115,6 +117,8 @@
       "url": "https://eidwtimes.xyz/",
       "isPartOf": { "@type": "WebSite", "name": "EIDW Times", "url": "https://eidwtimes.xyz/" },
       "about": { "@type": "Airport", "name": "Dublin Airport", "iataCode": "DUB", "icaoCode": "EIDW" },
+      "relatedLink": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+      "significantLink": "https://datagram.eidwtimes.xyz/api/seo-security-data",
       "speakable": {
         "@type": "SpeakableSpecification",
         "xpath": [
@@ -539,10 +543,26 @@
         {
           "@type": "ListItem",
           "position": 2,
+          "name": "Live Security Data",
+          "item": "https://datagram.eidwtimes.xyz/api/seo-security-data"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
           "name": "Settings",
           "item": "https://eidwtimes.xyz/settings"
         }
       ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SiteNavigationElement",
+      "name": "Live Dublin Airport Security Data",
+      "description": "Real-time Dublin Airport Terminal 1 and Terminal 2 security queue wait times, historical trends, and projected wait times.",
+      "url": "https://datagram.eidwtimes.xyz/api/seo-security-data"
     }
     </script>
 
@@ -704,6 +724,14 @@
 
         <p><em>Please enable JavaScript to use the full interactive dashboard.</em></p>
         <p>Data provided by <a href="https://eidwtimes.xyz/">EIDW Times</a> — live Dublin Airport security queue tracker.</p>
+
+        <h2>Live Dublin Airport Security Data</h2>
+        <p>View <a href="https://datagram.eidwtimes.xyz/api/seo-security-data">live Dublin Airport security queue times</a> for Terminal 1 and Terminal 2, updated in real-time.</p>
+        <p>Check <a href="https://datagram.eidwtimes.xyz/api/seo-security-data">current Dublin Airport security wait times</a> including historical trends and projected queue lengths.</p>
+        <ul>
+          <li><a href="https://datagram.eidwtimes.xyz/api/seo-security-data">Dublin Airport T1 and T2 security times — live data</a></li>
+          <li><a href="https://datagram.eidwtimes.xyz/api/seo-security-data">Real-time Dublin Airport security queue dashboard</a></li>
+        </ul>
       </div>
     </noscript>
 
