@@ -1129,7 +1129,7 @@ p{{margin-bottom:.5rem;color:#cbd5e1}}
 strong{{color:#fff}}
 a{{color:#4ade80;text-decoration:underline}}
 section{{margin:1.5rem 0;padding:1rem;background:#1e293b;border-radius:.5rem}}
-footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:.75rem;color:#64748b}}
+footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:.75rem;color:#94a3b8}}
 .hero{{display:flex;gap:1.5rem;margin:1.5rem 0}}
 .hero-card{{flex:1;padding:1.25rem;background:#1e293b;border-radius:.75rem;text-align:center}}
 .hero-card .time{{font-size:2.5rem;font-weight:700;color:#4ade80}}
@@ -1142,8 +1142,8 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 .spike{{color:#f59e0b;font-size:.75rem;font-weight:600}}
 .forecast-section{{margin:1.5rem 0}}
 .forecast-section h3{{color:#4ade80;margin-bottom:.5rem}}
-nav.breadcrumb{{font-size:.75rem;color:#64748b;margin-bottom:1rem}}
-nav.breadcrumb a{{color:#64748b;text-decoration:none}}
+nav.breadcrumb{{font-size:.75rem;color:#94a3b8;margin-bottom:1rem}}
+nav.breadcrumb a{{color:#94a3b8;text-decoration:none}}
 nav.breadcrumb a:hover{{color:#4ade80}}
 nav.breadcrumb span{{margin:0 .35rem}}
 .live-badge{{display:inline-flex;align-items:center;gap:.4rem;background:#164e3a;color:#4ade80;padding:.2rem .6rem;border-radius:9999px;font-size:.75rem;font-weight:600;margin-bottom:.75rem}}
@@ -1157,7 +1157,7 @@ nav.breadcrumb span{{margin:0 .35rem}}
 <div class="live-badge"><span class="live-dot"></span> LIVE — updates every 30 seconds</div>
 <h1>Dublin Airport Security Times</h1>
 <p id="seo-summary">Live security queue wait times at Dublin Airport (DUB/EIDW) as of <time datetime="{now_iso}" itemprop="dateModified">{now_dublin.strftime('%I:%M %p on %A, %B %d, %Y')}</time>. This page updates automatically every 30 seconds with real-time data.</p>
-<p style="font-size:.8rem;color:#64748b;margin-top:.25rem">&#x1F7E2; Data refreshes every 30 seconds &mdash; last refresh: <time datetime="{now_iso}">{now_dublin.strftime('%H:%M:%S')}</time> Dublin time (UTC{now_dublin.strftime('%z')[:3]})</p>
+<p style="font-size:.8rem;color:#94a3b8;margin-top:.25rem">&#x1F7E2; Data refreshes every 30 seconds &mdash; last refresh: <time datetime="{now_iso}">{now_dublin.strftime('%H:%M:%S')}</time> Dublin time (UTC{now_dublin.strftime('%z')[:3]})</p>
 
 <div class="hero" itemscope itemtype="https://schema.org/Observation">
 <div class="hero-card" itemprop="variableMeasured" itemscope itemtype="https://schema.org/PropertyValue">
@@ -1189,7 +1189,7 @@ nav.breadcrumb span{{margin:0 .35rem}}
 <h3>Terminal 2 (T2) — Forecast</h3>
 {t2_forecast_html}
 
-<p style="font-size:.8rem;color:#64748b">&#9650; = departure spike detected (more flights departing in this window than surrounding periods). Spikes typically correlate with longer security queues.</p>
+<p style="font-size:.8rem;color:#94a3b8">&#9650; = departure spike detected (more flights departing in this window than surrounding periods). Spikes typically correlate with longer security queues.</p>
 </section>
 
 <section>
