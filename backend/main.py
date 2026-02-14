@@ -910,13 +910,20 @@ def seo_security_data():
             "@context": "https://schema.org",
             "@type": "Dataset",
             "name": "Dublin Airport Live Security Queue Wait Times",
-            "description": f"Real-time security queue wait times at Dublin Airport. Terminal 1: {t1_str}, Terminal 2: {t2_str}. Updated {now_dublin.strftime('%I:%M %p %d %b %Y')}.",
-            "url": "https://eidwtimes.xyz/",
+            "description": f"Real-time security queue wait times at Dublin Airport, updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}. Updated {now_dublin.strftime('%I:%M %p %d %b %Y')}.",
+            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
             "license": "https://creativecommons.org/licenses/by/4.0/",
+            "isAccessibleForFree": True,
             "temporalCoverage": f"{now_iso}/...",
+            "measurementTechnique": "Automated real-time monitoring with 30-second update interval",
             "spatialCoverage": {
                 "@type": "Place",
-                "name": "Dublin Airport",
+                "name": "Dublin Airport (DUB/EIDW)",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": "Dublin",
+                    "addressCountry": "IE"
+                },
                 "geo": {
                     "@type": "GeoCoordinates",
                     "latitude": 53.4264,
@@ -937,19 +944,125 @@ def seo_security_data():
                     "value": t2
                 }
             ],
-            "dateModified": last_updated or now_iso
+            "dateModified": now_iso,
+            "datePublished": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
+            "creator": {
+                "@type": "Organization",
+                "name": "EIDW Times",
+                "url": "https://eidwtimes.xyz/"
+            }
         })
 
         jsonld_speakable = json.dumps({
             "@context": "https://schema.org",
             "@type": "WebPage",
             "name": "Dublin Airport Security Times — Live T1 & T2 Queue Wait Times",
-            "url": "https://eidwtimes.xyz/",
+            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
             "speakable": {
                 "@type": "SpeakableSpecification",
                 "cssSelector": ["#seo-summary", "#seo-t1", "#seo-t2", "#seo-recommendation"]
             },
-            "dateModified": last_updated or now_iso
+            "datePublished": "2024-01-01T00:00:00+00:00",
+            "dateModified": now_iso,
+            "isPartOf": {
+                "@type": "WebSite",
+                "name": "EIDW Times",
+                "url": "https://eidwtimes.xyz/"
+            }
+        })
+
+        jsonld_liveblog = json.dumps({
+            "@context": "https://schema.org",
+            "@type": "LiveBlogPosting",
+            "headline": f"Dublin Airport Security Times — Live Updates (T1: {t1_str}, T2: {t2_str})",
+            "description": f"Real-time Dublin Airport security queue wait times updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}.",
+            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+            "coverageStartTime": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
+            "coverageEndTime": f"{now_dublin.strftime('%Y-%m-%d')}T23:59:59+00:00",
+            "datePublished": now_iso,
+            "dateModified": now_iso,
+            "author": {
+                "@type": "Organization",
+                "name": "EIDW Times",
+                "url": "https://eidwtimes.xyz/"
+            },
+            "publisher": {
+                "@type": "Organization",
+                "name": "EIDW Times",
+                "url": "https://eidwtimes.xyz/",
+                "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://eidwtimes.xyz/favicon.png"
+                }
+            },
+            "about": {
+                "@type": "Place",
+                "name": "Dublin Airport",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": "Dublin",
+                    "addressCountry": "IE"
+                },
+                "geo": {
+                    "@type": "GeoCoordinates",
+                    "latitude": 53.4264,
+                    "longitude": -6.2499
+                }
+            },
+            "liveBlogUpdate": [
+                {
+                    "@type": "BlogPosting",
+                    "headline": f"T1: {t1_str}, T2: {t2_str}",
+                    "datePublished": now_iso,
+                    "articleBody": f"Dublin Airport security at {now_dublin.strftime('%I:%M %p')}: Terminal 1 wait is {t1_str}, Terminal 2 wait is {t2_str}. {recommendation}"
+                }
+            ]
+        })
+
+        jsonld_service = json.dumps({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "EIDW Times — Dublin Airport Security Queue Tracker",
+            "url": "https://eidwtimes.xyz/",
+            "applicationCategory": "TravelApplication",
+            "operatingSystem": "All",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "EUR"
+            },
+            "description": "Free real-time Dublin Airport security queue wait times, updated every 30 seconds. Covers Terminal 1 and Terminal 2 with ML-powered forecasts.",
+            "featureList": [
+                "Real-time security queue wait times",
+                "Terminal 1 and Terminal 2 coverage",
+                "Machine learning wait time forecasts",
+                "7-day historical data",
+                "Departure spike detection",
+                "Progressive Web App (installable)"
+            ],
+            "author": {
+                "@type": "Organization",
+                "name": "EIDW Times"
+            }
+        })
+
+        jsonld_breadcrumb = json.dumps({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": "EIDW Times",
+                    "item": "https://eidwtimes.xyz/"
+                },
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": "Dublin Airport Security Times",
+                    "item": "https://datagram.eidwtimes.xyz/api/seo-security-data"
+                }
+            ]
         })
 
         html = f"""<!DOCTYPE html>
@@ -957,36 +1070,54 @@ def seo_security_data():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dublin Airport Security Times — Live T1 & T2 Queue Wait Times | EIDW Times</title>
-<meta name="description" content="Current Dublin Airport security wait times: Terminal 1 is {t1_str}, Terminal 2 is {t2_str}. {recommendation} Updated {now_dublin.strftime('%I:%M %p')}." />
-<meta name="keywords" content="Dublin Airport security times, Dublin Airport queue times, Dublin Airport T1, Dublin Airport T2, Dublin Airport wait times, DUB security, EIDW times, Dublin Airport today, Dublin Airport live, Dublin Airport queues, Dublin Airport security queue, Dublin Airport Terminal 1, Dublin Airport Terminal 2, Dublin Airport delays, Dublin Airport tips, Ireland airport security" />
+<meta http-equiv="refresh" content="30">
+<title>Dublin Airport Security Times — Live T1: {t1_str}, T2: {t2_str} | EIDW Times</title>
+<meta name="description" content="LIVE: Dublin Airport security wait times right now — Terminal 1: {t1_str}, Terminal 2: {t2_str}. {recommendation} Updated every 30 seconds at {now_dublin.strftime('%I:%M %p')}." />
+<meta name="keywords" content="Dublin Airport security times, Dublin Airport queue times, Dublin Airport T1, Dublin Airport T2, Dublin Airport wait times, DUB security, EIDW times, Dublin Airport today, Dublin Airport live, Dublin Airport queues, Dublin Airport security queue, Dublin Airport Terminal 1, Dublin Airport Terminal 2, Dublin Airport delays, Dublin Airport tips, Ireland airport security, terminal 1 security times dublin airport, terminal 2 security times dublin airport, dublin airport security wait, how long is dublin airport security, dublin airport queue live" />
 <meta name="author" content="EIDW Times" />
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 <meta name="googlebot" content="index, follow" />
-<link rel="canonical" href="https://eidwtimes.xyz/" />
-<link rel="icon" type="image/png" href="https://eidwtimes.xyz/images/favicon.png" />
-<link rel="alternate" hreflang="en" href="https://eidwtimes.xyz/" />
-<link rel="alternate" hreflang="x-default" href="https://eidwtimes.xyz/" />
+<meta name="revisit-after" content="1 hours" />
+<meta name="rating" content="general" />
+<link rel="canonical" href="https://datagram.eidwtimes.xyz/api/seo-security-data" />
+<link rel="icon" type="image/png" href="https://eidwtimes.xyz/favicon.png" />
+<link rel="alternate" hreflang="en" href="https://datagram.eidwtimes.xyz/api/seo-security-data" />
+<link rel="alternate" hreflang="x-default" href="https://datagram.eidwtimes.xyz/api/seo-security-data" />
 <meta name="geo.region" content="IE-D" />
 <meta name="geo.placename" content="Dublin, Ireland" />
 <meta name="geo.position" content="53.4264;-6.2499" />
 <meta name="ICBM" content="53.4264, -6.2499" />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://eidwtimes.xyz/" />
-<meta property="og:title" content="Dublin Airport Security Times — T1: {t1_str}, T2: {t2_str}" />
-<meta property="og:description" content="{recommendation} Live data updated {now_dublin.strftime('%I:%M %p')}." />
-<meta property="og:image" content="https://eidwtimes.xyz/images/og-image.png" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://datagram.eidwtimes.xyz/api/seo-security-data" />
+<meta property="og:title" content="Dublin Airport Security Times — T1: {t1_str}, T2: {t2_str} (Live)" />
+<meta property="og:description" content="{recommendation} Live data updated every 30 seconds. Last update: {now_dublin.strftime('%I:%M %p')}." />
+<meta property="og:image" content="https://eidwtimes.xyz/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:site_name" content="EIDW Times" />
 <meta property="og:locale" content="en_IE" />
+<meta property="og:updated_time" content="{now_iso}" />
+<meta property="article:published_time" content="{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00" />
+<meta property="article:modified_time" content="{now_iso}" />
+<meta property="article:section" content="Travel" />
+<meta property="article:tag" content="Dublin Airport" />
+<meta property="article:tag" content="Security Times" />
+<meta property="article:tag" content="Airport Queue" />
+<meta property="article:tag" content="Live Data" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Dublin Airport Security Times — T1: {t1_str}, T2: {t2_str}" />
-<meta name="twitter:description" content="{recommendation}" />
-<meta name="twitter:image" content="https://eidwtimes.xyz/images/og-image.png" />
+<meta name="twitter:title" content="Dublin Airport Security Times — T1: {t1_str}, T2: {t2_str} (Live)" />
+<meta name="twitter:description" content="{recommendation} Updated every 30 seconds." />
+<meta name="twitter:image" content="https://eidwtimes.xyz/og-image.png" />
+<meta name="twitter:label1" content="Terminal 1 Wait" />
+<meta name="twitter:data1" content="{t1_str}" />
+<meta name="twitter:label2" content="Terminal 2 Wait" />
+<meta name="twitter:data2" content="{t2_str}" />
 <script type="application/ld+json">{jsonld_faq}</script>
 <script type="application/ld+json">{jsonld_dataset}</script>
 <script type="application/ld+json">{jsonld_speakable}</script>
+<script type="application/ld+json">{jsonld_liveblog}</script>
+<script type="application/ld+json">{jsonld_service}</script>
+<script type="application/ld+json">{jsonld_breadcrumb}</script>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6;padding:2rem 1rem}}
@@ -1011,19 +1142,35 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 .spike{{color:#f59e0b;font-size:.75rem;font-weight:600}}
 .forecast-section{{margin:1.5rem 0}}
 .forecast-section h3{{color:#4ade80;margin-bottom:.5rem}}
+nav.breadcrumb{{font-size:.75rem;color:#64748b;margin-bottom:1rem}}
+nav.breadcrumb a{{color:#64748b;text-decoration:none}}
+nav.breadcrumb a:hover{{color:#4ade80}}
+nav.breadcrumb span{{margin:0 .35rem}}
+.live-badge{{display:inline-flex;align-items:center;gap:.4rem;background:#164e3a;color:#4ade80;padding:.2rem .6rem;border-radius:9999px;font-size:.75rem;font-weight:600;margin-bottom:.75rem}}
+.live-dot{{width:8px;height:8px;background:#4ade80;border-radius:50%;animation:pulse 1.5s ease-in-out infinite}}
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.3}}}}
 </style>
 </head>
 <body>
-<main>
+<main itemscope itemtype="https://schema.org/WebPage">
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="https://eidwtimes.xyz/">EIDW Times</a> <span>&rsaquo;</span> Dublin Airport Security Times</nav>
+<div class="live-badge"><span class="live-dot"></span> LIVE — updates every 30 seconds</div>
 <h1>Dublin Airport Security Times</h1>
-<p id="seo-summary">Live security queue wait times at Dublin Airport (DUB/EIDW) as of {now_dublin.strftime('%I:%M %p on %A, %B %d, %Y')}.</p>
+<p id="seo-summary">Live security queue wait times at Dublin Airport (DUB/EIDW) as of <time datetime="{now_iso}" itemprop="dateModified">{now_dublin.strftime('%I:%M %p on %A, %B %d, %Y')}</time>. This page updates automatically every 30 seconds with real-time data.</p>
+<p style="font-size:.8rem;color:#64748b;margin-top:.25rem">&#x1F7E2; Data refreshes every 30 seconds &mdash; last refresh: <time datetime="{now_iso}">{now_dublin.strftime('%H:%M:%S')}</time> Dublin time (UTC{now_dublin.strftime('%z')[:3]})</p>
 
-<div class="hero">
-<div class="hero-card">
+<div class="hero" itemscope itemtype="https://schema.org/Observation">
+<div class="hero-card" itemprop="variableMeasured" itemscope itemtype="https://schema.org/PropertyValue">
+<meta itemprop="name" content="Terminal 1 Security Wait Time" />
+<meta itemprop="unitText" content="minutes" />
+<meta itemprop="value" content="{t1 if t1 is not None else ''}" />
 <div class="time" id="seo-t1">{t1_str}</div>
 <div class="label">Terminal 1 (T1)</div>
 </div>
-<div class="hero-card">
+<div class="hero-card" itemprop="variableMeasured" itemscope itemtype="https://schema.org/PropertyValue">
+<meta itemprop="name" content="Terminal 2 Security Wait Time" />
+<meta itemprop="unitText" content="minutes" />
+<meta itemprop="value" content="{t2 if t2 is not None else ''}" />
 <div class="time" id="seo-t2">{t2_str}</div>
 <div class="label">Terminal 2 (T2)</div>
 </div>
@@ -1143,8 +1290,11 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 </section>
 
 <footer>
-<p>Data provided by <a href="https://eidwtimes.xyz/">EIDW Times</a> — live Dublin Airport security queue tracker.</p>
-<p>Last updated: {last_updated or now_iso}</p>
+<p>Data provided by <a href="https://eidwtimes.xyz/">EIDW Times</a> — live Dublin Airport security queue tracker. Free, real-time, updated every 30 seconds.</p>
+<p>Page generated: <time datetime="{now_iso}">{now_dublin.strftime('%Y-%m-%d %H:%M:%S')} Dublin time</time></p>
+<p>Data source last updated: <time datetime="{last_updated or now_iso}">{last_updated or now_iso}</time></p>
+<p>Next automatic refresh in 30 seconds. <a href="https://eidwtimes.xyz/">View full interactive dashboard &rarr;</a></p>
+<p style="margin-top:.5rem">Dublin Airport (IATA: DUB, ICAO: EIDW) &bull; Collinstown, Dublin, Ireland &bull; GPS: 53.4264&deg;N, 6.2499&deg;W</p>
 </footer>
 </main>
 </body>
@@ -1152,7 +1302,11 @@ footer{{margin-top:2rem;padding-top:1rem;border-top:1px solid #334155;font-size:
 
         response = make_response(html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        response.headers['Cache-Control'] = 'public, max-age=120, s-maxage=60'
+        response.headers['Cache-Control'] = 'public, max-age=30, s-maxage=30, stale-while-revalidate=30'
+        response.headers['Refresh'] = '30'
+        response.headers['Last-Modified'] = now_dublin.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        response.headers['X-Robots-Tag'] = 'index, follow, max-snippet:-1, max-image-preview:large'
+        response.headers['Vary'] = 'Accept-Encoding'
         return response
 
     except Exception as e:
