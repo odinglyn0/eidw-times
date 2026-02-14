@@ -263,7 +263,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         <picture>
           <source type="image/avif" srcSet={`${LogoAvif1x} 577w, ${LogoAvif2x} 1154w`} sizes="(max-width: 577px) 80vw, 577px" />
           <source type="image/webp" srcSet={`${LogoWebp1x} 577w, ${LogoWebp2x} 1154w`} sizes="(max-width: 577px) 80vw, 577px" />
-          <img src={LogoPngFallback} alt="EIDW Times" width={577} height={125} fetchPriority="high" style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
+          <img src={LogoPngFallback} alt="EIDW Times" width={577} height={125} {...{ fetchpriority: "high" } as React.HTMLAttributes<HTMLImageElement>} style={{ maxHeight: 140, maxWidth: "80vw", objectFit: "contain", marginBottom: "2rem" }} />
         </picture>
         <Loader />
         <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
