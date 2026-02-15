@@ -269,6 +269,11 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
           Verifying you are not an evil hacker
         </p>
+        <nav style={{ textAlign: "center", fontSize: "0.75rem", color: "#9ca3af", marginTop: "1rem" }}>
+          <a href="https://datagram.eidwtimes.xyz/api/seo-security-data" style={{ color: "#9ca3af", textDecoration: "none" }}>I'm a search engine</a>
+          {" · "}
+          <a href="/llms.txt" style={{ color: "#9ca3af", textDecoration: "none" }}>I'm an LLM</a>
+        </nav>
       </div>
     </div>
   );
