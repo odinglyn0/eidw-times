@@ -127,6 +127,16 @@ export default defineConfig(() => ({
     dyadComponentTagger(),
     react(),
     {
+      name: "defer-non-critical-css",
+      enforce: "post" as const,
+      transformIndexHtml(html: string) {
+        return html.replace(
+          /<link rel="stylesheet" crossorigin href="(\/assets\/[^"]+\.css)">/g,
+          `<link rel="stylesheet" href="$1" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="$1"></noscript>`
+        );
+      },
+    },
+    {
       name: "ensure-dist",
       buildStart() {
         const dist = path.resolve(__dirname, "dist");
