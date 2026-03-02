@@ -8,9 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@fingerprintjs/fingerprintjs':
-        specifier: ^5.0.1
-        version: 5.0.1
+      '@fingerprintjs/fingerprintjs-pro':
+        specifier: ^3.12.7
+        version: 3.12.7
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.55.0(react@18.3.1))
@@ -453,8 +453,8 @@ packages:
     resolution: {integrity: sha512-ZAoA40rNMPwSm+AeHpCq8STiNAwzWLJuP8Xv4CHIc9wv/PSuExjMrmjfYNj682vW0OOiZ1HKxzvjQr9XZIisQA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@fingerprintjs/fingerprintjs@5.0.1':
-    resolution: {integrity: sha512-KbaeE/rk2WL8MfpRP6jTI4lSr42SJPjvkyrjP3QU6uUDkOMWWYC2Ts1sNSYcegHC8avzOoYTHBj+2fTqvZWQBA==}
+  '@fingerprintjs/fingerprintjs-pro@3.12.7':
+    resolution: {integrity: sha512-+o2qNKKjTNmejmjFQ4idPSrk1qn8BfeIWHhGY54drOhkLMRSQI/NaDI3bAZgKK5WsZ/V4SUYhEa3JITipLBg9g==}
 
   '@floating-ui/core@1.6.9':
     resolution: {integrity: sha512-uMXCuQ3BItDUbAMhIXw7UPXRfAlOAvZzdK9BWpE60MCn+Svt3aLn9jsPTi/WNGlRUu2uI0v5S7JiIUsbsvh3fw==}
@@ -2817,7 +2817,7 @@ snapshots:
       '@eslint/core': 0.13.0
       levn: 0.4.1
 
-  '@fingerprintjs/fingerprintjs@5.0.1': {}
+  '@fingerprintjs/fingerprintjs-pro@3.12.7': {}
 
   '@floating-ui/core@1.6.9':
     dependencies:

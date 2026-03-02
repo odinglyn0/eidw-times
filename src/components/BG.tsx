@@ -149,7 +149,7 @@ export function WebGLBackground() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-0"
-      style={{ width: '100vw', height: '100vh' }}
+      style={{ width: '100vw', height: '100vh', contain: 'layout paint' }}
     />
   )
 }

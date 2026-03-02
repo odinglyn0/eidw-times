@@ -53,6 +53,8 @@ const PhoneNotch: React.FC = () => {
         <img
           src={DublinAirportLogo}
           alt="Dublin Airport Logo"
+          width={164}
+          height={40}
           className="w-full h-auto"
         />
       </div>

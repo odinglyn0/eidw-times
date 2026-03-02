@@ -29,6 +29,7 @@ interface Props {
   config?: LaserPulseConfig;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 interface Perimeter {
@@ -107,7 +108,7 @@ function interpAtDist(p: Perimeter, dist: number): { x: number; y: number; nx: n
   };
 }
 
-const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className }) => {
+const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className, style }) => {
   const cfg = { ...DEFAULTS, ...config };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -241,7 +242,7 @@ const LaserPulseBorder: React.FC<Props> = ({ active, config, children, className
   }, [active, cfg.duration, cfg.color, cfg.pulseWidth, cfg.bulgeAmount, cfg.bulgeSpread, cfg.borderRadius, cfg.borderWidth, cfg.rampDuration, cfg.fadeOutDuration]);
 
   return (
-    <div ref={containerRef} className={className} style={{ position: "relative" }}>
+    <div ref={containerRef} className={className} style={{ position: "relative", ...style }}>
       {children}
       <canvas
         ref={canvasRef}

@@ -42,37 +42,27 @@ const AnnouncementBanner: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="w-full max-w-5xl mb-8 px-4">
-        <Skeleton className="h-16 w-full" />
-      </div>
-    );
+  if (!loading && !error && !announcement) {
+    return null;
   }
 
-  if (error) {
-    return (
-      <div className="w-full max-w-5xl mb-8 px-4">
+  return (
+    <div className="w-full max-w-5xl mb-8 px-4" style={{ minHeight: loading ? 64 : undefined, contain: 'layout' }}>
+      {loading ? (
+        <Skeleton className="h-16 w-full" />
+      ) : error ? (
         <Alert variant="destructive">
           <Info className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      </div>
-    );
-  }
-
-  if (!announcement) {
-    return null;
-  }
-
-  return (
-    <div className="w-full max-w-5xl mb-8 px-4">
-      <Alert className="bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-200">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Announcement</AlertTitle>
-        <AlertDescription>{announcement.message}</AlertDescription>
-      </Alert>
+      ) : announcement ? (
+        <Alert className="bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-200">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Announcement</AlertTitle>
+          <AlertDescription>{announcement.message}</AlertDescription>
+        </Alert>
+      ) : null}
     </div>
   );
 };

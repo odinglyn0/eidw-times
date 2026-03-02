@@ -325,29 +325,21 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
         </Button>
       </CardHeader>
       <CardContent className="p-6 text-center">
-        {loading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-20 w-3/4 mx-auto" />
-            <Skeleton className="h-6 w-1/2 mx-auto" />
-            <Skeleton className="h-[150px] w-full" />
-            <Skeleton className="h-[200px] w-full" />
-          </div>
-        ) : (
           <>
             <div
-              className="cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => setHourGraphOpen(true)}
-              title="Click for detailed hour graph"
+              className={cn("cursor-pointer", !loading ? "hover:opacity-80 transition-opacity" : "opacity-50")}
+              onClick={() => !loading && setHourGraphOpen(true)}
+              title={loading ? undefined : "Click for detailed hour graph"}
             >
               <p className={cn("text-7xl font-extrabold mb-2", currentTimeColorClass)}>
-                {!isSecurityOpen && currentTime === 0 ? "C" : currentTime !== null ? currentTime : "N/A"}
+                {!isSecurityOpen && currentTime === 0 ? "C" : currentTime !== null ? currentTime : "—"}
               </p>
               <p className={cn("text-2xl font-semibold mb-4", currentTimeColorClass)}>
                 {!isSecurityOpen && currentTime === 0 ? "closed" : "minutes"}
               </p>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-              Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}
+              {loading ? "Loading..." : <>Last updated {timeSinceLastUpdate !== null ? `${timeSinceLastUpdate} minutes ago` : "N/A"}</>}
             </p>
             <div className="mb-4">
               <ProjectedHourlyPopover terminalId={terminalId} currentTime={currentTime} />
@@ -367,7 +359,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
             <div className="mb-8 w-full">
               <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-4">{viewMode === 'graph' ? 'Past 7d / Next 6h' : 'Past 24 / Next 6'}</h3>
               {viewMode === 'graph' ? (
-                <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                <Suspense fallback={<Skeleton className="h-[175px] w-full" />}>
                   <SecurityTimeGraph
                     terminalId={terminalId}
                   />
@@ -400,7 +392,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground text-sm">No hourly data for the last 24 hours.</p>
+                <p className="text-center text-muted-foreground text-sm">{loading ? "\u00A0" : "No hourly data for the last 24 hours."}</p>
               )}
             </div>
 
@@ -438,7 +430,7 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                         </div>
                       ))
                     ) : (
-                      <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
+                      <p className="text-center text-muted-foreground text-sm">{loading ? "\u00A0" : "No departure data available."}</p>
                     )}
                   </AccordionContent>
                 </AccordionItem>
@@ -475,12 +467,11 @@ const TerminalSecurityCard: React.FC<TerminalSecurityCardProps> = ({ terminalId,
                     </div>
                   ))
                 ) : (
-                  <p className="text-center text-muted-foreground text-sm">No departure data available.</p>
+                  <p className="text-center text-muted-foreground text-sm">{loading ? "\u00A0" : "No departure data available."}</p>
                 )}
               </div>
             )}
           </>
-        )}
       </CardContent>
     </Card>
     </LaserPulseBorder>

@@ -103,6 +103,7 @@ const Index = () => {
           borderRadius: 8,
         }}
         className="w-full max-w-5xl mb-8"
+        style={{ minHeight: 160, contain: 'layout' }}
       >
       <div className="w-full p-4 pr-12 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200 relative">
         {loadingRecommendation || isAutoRefreshing ? (
@@ -171,7 +172,7 @@ const Index = () => {
       </LaserPulseBorder>
       )}
 
-      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16">
+      <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 justify-center mb-8 mt-16" style={{ contain: 'layout' }}>
         <TerminalSecurityCard
           terminalId={1}
           globalMaxTime={recData?.globalMaxSecurityTime ?? null}

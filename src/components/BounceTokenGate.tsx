@@ -12,6 +12,7 @@ const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebG
 
 const COOKIE_NAME = "elasticBounceTokenScreen";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+const FP_API_KEY = import.meta.env.VITE_FINGERPRINT_API_KEY || "";
 
 declare global {
   interface Window {
@@ -174,8 +175,13 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       let visitorId = "";
 
       try {
-        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs")).default;
-        const fp = await FingerprintJS.load();
+        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
+        const fp = await FingerprintJS.load({
+          apiKey: FP_API_KEY,
+          region: "eu",
+          endpoint: "https://fp.eidwtimes.xyz",
+          scriptUrlPattern: "https://fp.eidwtimes.xyz/web/v<version>/<apiKey>/loader_v<loaderVersion>.js",
+        });
         const result = await fp.get();
         visitorId = result.visitorId;
       } catch {

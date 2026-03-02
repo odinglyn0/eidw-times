@@ -145,7 +145,7 @@ const NeuralNetworkBackground: React.FC = () => {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 z-[-1] opacity-30"
-      style={{ backgroundColor: 'var(--background)' }}
+      style={{ backgroundColor: 'var(--background)', contain: 'layout paint' }}
     />
   );
 };
