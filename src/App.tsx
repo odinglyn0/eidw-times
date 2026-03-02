@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import { FingerprintProvider } from "@fingerprint/react";
 const Index = lazy(() => import("./pages/Index"));
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import { ThemeProvider } from "@/components/TP";
@@ -101,39 +102,45 @@ const PageTracker = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Suspense fallback={null}>
-          <NeuralNetworkBackground />
-        </Suspense>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <CookieConsentProvider>
-            <AnalyticsGate />
-            <PageTracker />
-            <Routes>
-              <Route path="/error/:code" element={
-                <Suspense fallback={null}><ErrorPage /></Suspense>
-              } />
-              <Route path="*" element={
-                <BounceTokenGate>
-                  <Suspense fallback={null}>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </BounceTokenGate>
-              } />
-            </Routes>
-          </CookieConsentProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+  <FingerprintProvider
+    apiKey={import.meta.env.VITE_FINGERPRINT_API_KEY || ""}
+    region="eu"
+    endpoints={["https://fp.eidwtimes.xyz"]}
+  >
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Suspense fallback={null}>
+            <NeuralNetworkBackground />
+          </Suspense>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <CookieConsentProvider>
+              <AnalyticsGate />
+              <PageTracker />
+              <Routes>
+                <Route path="/error/:code" element={
+                  <Suspense fallback={null}><ErrorPage /></Suspense>
+                } />
+                <Route path="*" element={
+                  <BounceTokenGate>
+                    <Suspense fallback={null}>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </BounceTokenGate>
+                } />
+              </Routes>
+            </CookieConsentProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  </FingerprintProvider>
 );
 
 export default App;

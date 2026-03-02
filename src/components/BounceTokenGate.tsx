@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVisitorData } from "@fingerprint/react";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
 const LogoAvif1x = "/intakeLogo-577w.avif";
@@ -12,7 +13,6 @@ const TileBG = lazy(() => import("@/components/BG").then(m => ({ default: m.WebG
 
 const COOKIE_NAME = "elasticBounceTokenScreen";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
-const FP_API_KEY = import.meta.env.VITE_FINGERPRINT_API_KEY || "";
 
 declare global {
   interface Window {
@@ -124,6 +124,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   const navigate = useNavigate();
   const attemptedRef = useRef(false);
   const Loader = useMemo(() => LOADERS[Math.floor(Math.random() * LOADERS.length)], []);
+  const { getData: getFpData } = useVisitorData({ immediate: false });
 
   const hasValidToken = useCallback(() => {
     const token = getCookie(COOKIE_NAME);
@@ -175,16 +176,13 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
       let visitorId = "";
 
       try {
-        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
-        const fp = await FingerprintJS.load({
-          apiKey: FP_API_KEY,
-          region: "eu",
-          endpoint: "https://fp.eidwtimes.xyz",
-          scriptUrlPattern: "https://fp.eidwtimes.xyz/web/v<version>/<apiKey>/loader_v<loaderVersion>.js",
-        });
-        const result = await fp.get();
-        visitorId = result.visitorId;
+        const fpResult = await getFpData();
+        visitorId = fpResult?.visitor_id || "";
       } catch {
+        visitorId = "fp_unavailable_" + Date.now();
+      }
+
+      if (!visitorId) {
         visitorId = "fp_unavailable_" + Date.now();
       }
 
