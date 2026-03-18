@@ -12,7 +12,7 @@ from google.cloud import logging as cloud_logging
 cloud_logging.Client().setup_logging()
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get("DATABASE_URL")
 API_URL = "https://api.dublinairport.com/dap/flight-listing/departures"
 SCRAPE_DAYS_AHEAD = 2
 
@@ -31,7 +31,8 @@ def store_departures(flights):
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 for f in flights:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO departures (
                             internal_flight_id, flight_identity, carrier_code, carrier_name,
                             scheduled_datetime, estimated_datetime, status, status_message,
@@ -48,24 +49,26 @@ def store_departures(flights):
                             is_delayed = EXCLUDED.is_delayed,
                             last_updated = EXCLUDED.last_updated,
                             polled_at = EXCLUDED.polled_at
-                    """, (
-                        f.get("internalFlightId"),
-                        f.get("flightIdentity"),
-                        f.get("carrierCode"),
-                        f.get("carrierName"),
-                        f.get("scheduledDateTime"),
-                        f.get("estimatedDateTime"),
-                        f.get("status"),
-                        f.get("statusMessage"),
-                        f.get("terminalName"),
-                        f.get("destinationAirportName"),
-                        f.get("gate"),
-                        f.get("checkinZone"),
-                        f.get("checkinDeskRange"),
-                        f.get("isDelayed", False),
-                        f.get("lastUpdated"),
-                        now,
-                    ))
+                    """,
+                        (
+                            f.get("internalFlightId"),
+                            f.get("flightIdentity"),
+                            f.get("carrierCode"),
+                            f.get("carrierName"),
+                            f.get("scheduledDateTime"),
+                            f.get("estimatedDateTime"),
+                            f.get("status"),
+                            f.get("statusMessage"),
+                            f.get("terminalName"),
+                            f.get("destinationAirportName"),
+                            f.get("gate"),
+                            f.get("checkinZone"),
+                            f.get("checkinDeskRange"),
+                            f.get("isDelayed", False),
+                            f.get("lastUpdated"),
+                            now,
+                        ),
+                    )
                 conn.commit()
                 logger.info(f"Stored {len(flights)} departure records")
     except Exception as e:
@@ -114,21 +117,34 @@ class DeparturesSpider(scrapy.Spider):
         retry_count = response.meta.get("retry_count", 0)
         target_date = response.meta.get("target_date")
         request_url = response.meta.get("request_url")
-        logger.info(f"[{target_date}] Response status: {response.status} (attempt {retry_count + 1})")
+        logger.info(
+            f"[{target_date}] Response status: {response.status} (attempt {retry_count + 1})"
+        )
         logger.info(f"[{target_date}] Response headers: {dict(response.headers)}")
         try:
             data = json.loads(response.text)
-            logger.info(f"[{target_date}] Raw API response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+            logger.info(
+                f"[{target_date}] Raw API response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+            )
         except json.JSONDecodeError as e:
-            logger.error(f"[{target_date}] Failed to parse API response: {e}, body={response.text[:500]}")
+            logger.error(
+                f"[{target_date}] Failed to parse API response: {e}, body={response.text[:500]}"
+            )
             if retry_count < self.max_retries:
-                logger.warning(f"[{target_date}] Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})")
+                logger.warning(
+                    f"[{target_date}] Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})"
+                )
                 import time
+
                 time.sleep(self.retry_delay)
                 yield scrapy.Request(
                     request_url,
                     callback=self.parse,
-                    meta={"retry_count": retry_count + 1, "target_date": target_date, "request_url": request_url},
+                    meta={
+                        "retry_count": retry_count + 1,
+                        "target_date": target_date,
+                        "request_url": request_url,
+                    },
                     dont_filter=True,
                 )
             return
@@ -136,13 +152,20 @@ class DeparturesSpider(scrapy.Spider):
         flights = data.get("content", []) if isinstance(data, dict) else []
 
         if not flights and retry_count < self.max_retries:
-            logger.warning(f"[{target_date}] Empty flights list, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+            logger.warning(
+                f"[{target_date}] Empty flights list, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+            )
             import time
+
             time.sleep(self.retry_delay)
             yield scrapy.Request(
                 request_url,
                 callback=self.parse,
-                meta={"retry_count": retry_count + 1, "target_date": target_date, "request_url": request_url},
+                meta={
+                    "retry_count": retry_count + 1,
+                    "target_date": target_date,
+                    "request_url": request_url,
+                },
                 dont_filter=True,
             )
             return

@@ -70,15 +70,25 @@ def _token_bucket_check(redis_client, key, capacity, refill_rate, window_secs):
         if _lua_sha is None:
             _lua_sha = redis_client.script_load(_TOKEN_BUCKET_LUA)
         result = redis_client.evalsha(
-            _lua_sha, 1, key,
-            str(capacity), str(refill_rate), str(now_ms), str(window_secs)
+            _lua_sha,
+            1,
+            key,
+            str(capacity),
+            str(refill_rate),
+            str(now_ms),
+            str(window_secs),
         )
         return int(result[0]) == 1
     except redis.exceptions.NoScriptError:
         _lua_sha = redis_client.script_load(_TOKEN_BUCKET_LUA)
         result = redis_client.evalsha(
-            _lua_sha, 1, key,
-            str(capacity), str(refill_rate), str(now_ms), str(window_secs)
+            _lua_sha,
+            1,
+            key,
+            str(capacity),
+            str(refill_rate),
+            str(now_ms),
+            str(window_secs),
         )
         return int(result[0]) == 1
     except Exception as e:
@@ -98,6 +108,7 @@ def _get_token_hash():
         return hashlib.sha256(forwarded.split(",")[0].strip().encode()).hexdigest()[:16]
     return hashlib.sha256((request.remote_addr or "unknown").encode()).hexdigest()[:16]
 
+
 def rate_limit_middleware(app):
     @app.before_request
     def _check_rate_limits():
@@ -113,11 +124,17 @@ def rate_limit_middleware(app):
         token_hash = _get_token_hash()
         endpoint = request.path
 
-        if not _token_bucket_check(redis_client, f"rl:ep:{token_hash}:{endpoint}", 24, 1, 30):
-            logger.warning(f"[rate-limit] Per-endpoint limit: {token_hash} -> {endpoint}")
+        if not _token_bucket_check(
+            redis_client, f"rl:ep:{token_hash}:{endpoint}", 24, 1, 30
+        ):
+            logger.warning(
+                f"[rate-limit] Per-endpoint limit: {token_hash} -> {endpoint}"
+            )
             return jsonify({"error": "TICK::4290 — RL_ENGAGED: EP Thresh"}), 429
 
-        if not _token_bucket_check(redis_client, f"rl:global:{token_hash}", 100, 10, 60):
+        if not _token_bucket_check(
+            redis_client, f"rl:global:{token_hash}", 100, 10, 60
+        ):
             logger.warning(f"[rate-limit] Global limit: {token_hash}")
             return jsonify({"error": "TICK::4291 — RL_ENGAGED: Glbl Thresh"}), 429
 
@@ -127,20 +144,20 @@ def rate_limit_middleware(app):
 CACHE_TTL = 30
 
 CACHEABLE_ENDPOINTS = {
-    "/api/current-security-data":    {"method": "GET",  "key_from": "path"},
-    "/api/security-data":            {"method": "GET",  "key_from": "path"},
-    "/api/recommendation":           {"method": "GET",  "key_from": "path"},
-    "/api/facility-hours":           {"method": "GET",  "key_from": "path"},
-    "/api/active-announcements":     {"method": "GET",  "key_from": "path"},
-    "/api/last-departures":          {"method": "GET",  "key_from": "path"},
-    "/api/seo-security-data":        {"method": "GET",  "key_from": "path"},
-    "/api/processed-security-data":  {"method": "GET",  "key_from": "query"},
-    "/api/processed-departure-data": {"method": "GET",  "key_from": "query"},
-    "/api/departure-data":           {"method": "POST", "key_from": "body"},
-    "/api/range-security-data":      {"method": "POST", "key_from": "body"},
-    "/api/range-departure-data":     {"method": "POST", "key_from": "body"},
-    "/api/chart-data":               {"method": "POST", "key_from": "body"},
-    "/api/simulate/gamma/method-c":  {"method": "POST", "key_from": "body"},
+    "/api/current-security-data": {"method": "GET", "key_from": "path"},
+    "/api/security-data": {"method": "GET", "key_from": "path"},
+    "/api/recommendation": {"method": "GET", "key_from": "path"},
+    "/api/facility-hours": {"method": "GET", "key_from": "path"},
+    "/api/active-announcements": {"method": "GET", "key_from": "path"},
+    "/api/last-departures": {"method": "GET", "key_from": "path"},
+    "/api/seo-security-data": {"method": "GET", "key_from": "path"},
+    "/api/processed-security-data": {"method": "GET", "key_from": "query"},
+    "/api/processed-departure-data": {"method": "GET", "key_from": "query"},
+    "/api/departure-data": {"method": "POST", "key_from": "body"},
+    "/api/range-security-data": {"method": "POST", "key_from": "body"},
+    "/api/range-departure-data": {"method": "POST", "key_from": "body"},
+    "/api/chart-data": {"method": "POST", "key_from": "body"},
+    "/api/simulate/gamma/method-c": {"method": "POST", "key_from": "body"},
 }
 
 
@@ -193,7 +210,7 @@ def response_cache_middleware(app):
 
     @app.after_request
     def _cache_store(response):
-        cache_key = getattr(g, '_cache_key', None)
+        cache_key = getattr(g, "_cache_key", None)
         if not cache_key:
             return response
         if response.status_code != 200:

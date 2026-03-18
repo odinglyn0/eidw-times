@@ -19,17 +19,29 @@ import hmac as hmac_mod
 import gzip
 
 app = Flask(__name__)
-CORS(app, origins=[
-    r"https://datagram\.eidwtimes\.xyz",
-    r"https://eidwtimes\.xyz",
-    r"http://localhost:8080",
-    r"http://localhost:3000",
-], supports_credentials=True, allow_headers=[
-    "Content-Type", "Authorization", "X-Session-Fingerprint",
-    "X-Datagram-Cookie", "X-Datagram-Exp", "X-Datagram-RK", "X-Datagram-CV",
-    "X-Datacrane",
-], expose_headers=["X-Datacrane"])
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+CORS(
+    app,
+    origins=[
+        r"https://datagram\.eidwtimes\.xyz",
+        r"https://eidwtimes\.xyz",
+        r"http://localhost:8080",
+        r"http://localhost:3000",
+    ],
+    supports_credentials=True,
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Session-Fingerprint",
+        "X-Datagram-Cookie",
+        "X-Datagram-Exp",
+        "X-Datagram-RK",
+        "X-Datagram-CV",
+        "X-Datacrane",
+    ],
+    expose_headers=["X-Datacrane"],
+)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
 
 class ISOJSONProvider(app.json_provider_class):
     def default(self, obj):
@@ -41,23 +53,27 @@ class ISOJSONProvider(app.json_provider_class):
             return float(obj)
         return super().default(obj)
 
+
 app.json_provider_class = ISOJSONProvider
 app.json = ISOJSONProvider(app)
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get("DATABASE_URL")
 DUBLIN_TZ = ZoneInfo("Europe/Dublin")
-RECAPTCHA_SITE_KEY = os.environ.get('RECAPTCHA_SITE_KEY', '')
-GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID', '')
-BOUNCE_TOKEN_SECRET = os.environ.get('BOUNCE_TOKEN_SECRET')
-DATAGRAM_SIGNING_KEY = os.environ.get('DATAGRAM_SIGNING_KEY')
+RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "")
+GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
+BOUNCE_TOKEN_SECRET = os.environ.get("BOUNCE_TOKEN_SECRET")
+DATAGRAM_SIGNING_KEY = os.environ.get("DATAGRAM_SIGNING_KEY")
 RECAPTCHA_SCORE_THRESHOLD = 0.5
+
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
 def _verify_recaptcha_enterprise(token, expected_action=None):
-    logging.info(f"[RECAPTCHA] Starting assessment | site_key={RECAPTCHA_SITE_KEY[:8]}... | project={GCP_PROJECT_ID} | expected_action={expected_action} | token_len={len(token) if token else 0}")
+    logging.info(
+        f"[RECAPTCHA] Starting assessment | site_key={RECAPTCHA_SITE_KEY[:8]}... | project={GCP_PROJECT_ID} | expected_action={expected_action} | token_len={len(token) if token else 0}"
+    )
     client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
     event = recaptchaenterprise_v1.Event()
     event.site_key = RECAPTCHA_SITE_KEY
@@ -68,12 +84,18 @@ def _verify_recaptcha_enterprise(token, expected_action=None):
     req.assessment = assessment
     req.parent = f"projects/{GCP_PROJECT_ID}"
     response = client.create_assessment(req)
-    logging.info(f"[RECAPTCHA] Assessment response | valid={response.token_properties.valid} | invalid_reason={response.token_properties.invalid_reason} | action={response.token_properties.action} | score={response.risk_analysis.score} | reasons={list(response.risk_analysis.reasons)}")
+    logging.info(
+        f"[RECAPTCHA] Assessment response | valid={response.token_properties.valid} | invalid_reason={response.token_properties.invalid_reason} | action={response.token_properties.action} | score={response.risk_analysis.score} | reasons={list(response.risk_analysis.reasons)}"
+    )
     if not response.token_properties.valid:
-        logging.warning(f"[RECAPTCHA] Token INVALID: reason={response.token_properties.invalid_reason}")
+        logging.warning(
+            f"[RECAPTCHA] Token INVALID: reason={response.token_properties.invalid_reason}"
+        )
         return False, 0.0
     if expected_action and response.token_properties.action != expected_action:
-        logging.warning(f"[RECAPTCHA] Action mismatch: expected={expected_action} got={response.token_properties.action}")
+        logging.warning(
+            f"[RECAPTCHA] Action mismatch: expected={expected_action} got={response.token_properties.action}"
+        )
     return True, response.risk_analysis.score
 
 
@@ -90,7 +112,7 @@ def _mint_bounce_token(client_ip, fingerprint, country):
 
 
 def _get_client_ip():
-    cf_ip = request.headers.get("CF-Connecting-IP", "")
+    cf_ip = request.headers.get("CF-Connecting-IP")
     if cf_ip:
         return cf_ip.strip()
     forwarded = request.headers.get("X-Forwarded-For", "")
@@ -112,9 +134,9 @@ def _sha512(data: str) -> str:
 
 
 def _verify_datagram_headers() -> tuple[bool, str]:
-    dg_cookie_name = request.headers.get("X-Datagram-Cookie", "")
-    dg_exp = request.headers.get("X-Datagram-Exp", "")
-    dg_rk = request.headers.get("X-Datagram-RK", "")
+    dg_cookie_name = request.headers.get("X-Datagram-Cookie")
+    dg_exp = request.headers.get("X-Datagram-Exp")
+    dg_rk = request.headers.get("X-Datagram-RK")
 
     if not all([dg_cookie_name, dg_exp, dg_rk]):
         return True, "", ""
@@ -134,7 +156,7 @@ def _verify_datagram_headers() -> tuple[bool, str]:
     if len(fp_hmac_prefix) != 16 or len(hashed_path) != 24:
         return False, "Invalid datagram path segment lengths", ""
 
-    fp_from_token = getattr(request, 'bounce_claims', {}).get('fp', '')
+    fp_from_token = getattr(request, "bounce_claims", {}).get("fp", "")
     if not fp_from_token:
         return True, "", ""
 
@@ -156,13 +178,15 @@ def _verify_datagram_headers() -> tuple[bool, str]:
     if not matched_route:
         return False, "No known route matches hashed path", ""
 
-    per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, full_route_key + "|" + matched_route)
+    per_route_hs_key = _hmac_sha512(
+        DATAGRAM_SIGNING_KEY, full_route_key + "|" + matched_route
+    )
     sign_payload = f"datagram.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{dg_exp}"
     expected_cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
 
-    actual_cookie_value = request.cookies.get(dg_cookie_name, "")
+    actual_cookie_value = request.cookies.get(dg_cookie_name)
     if not actual_cookie_value:
-        actual_cookie_value = request.headers.get("X-Datagram-CV", "")
+        actual_cookie_value = request.headers.get("X-Datagram-CV")
     if not actual_cookie_value:
         return False, f"Datagram cookie '{dg_cookie_name}' not found", ""
 
@@ -234,10 +258,12 @@ def verify_bounce_token():
             return None
 
         if request.path in ALL_KNOWN_ROUTES and request.path not in UNPROTECTED_PATHS:
-            logging.warning(f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}")
+            logging.warning(
+                f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}"
+            )
             return jsonify({"error": "TICK::4033 — DG_REQUIRED: Use signed URL"}), 403
 
-        auth_header = request.headers.get("Authorization", "")
+        auth_header = request.headers.get("Authorization")
         if not auth_header.startswith("Bearer "):
             return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
         token = auth_header[7:]
@@ -248,16 +274,18 @@ def verify_bounce_token():
         except jwt.InvalidTokenError:
             return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
-        session_fp = request.headers.get("X-Session-Fingerprint", "")
-        token_fp = payload.get("fp", "")
+        session_fp = request.headers.get("X-Session-Fingerprint")
+        token_fp = payload.get("fp")
         if not session_fp or session_fp != token_fp:
-            logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
+            logging.warning(
+                f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
+            )
             return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
 
         request.bounce_claims = payload
         return None
 
-    auth_header = request.headers.get("Authorization", "")
+    auth_header = request.headers.get("Authorization")
     if not auth_header.startswith("Bearer "):
         return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
     token = auth_header[7:]
@@ -270,16 +298,20 @@ def verify_bounce_token():
 
     bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
 
-    session_fp = request.headers.get("X-Session-Fingerprint", "")
-    token_fp = payload.get("fp", "")
+    session_fp = request.headers.get("X-Session-Fingerprint")
+    token_fp = payload.get("fp")
     if not session_fp or session_fp != token_fp:
-        logging.warning(f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}...")
+        logging.warning(
+            f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
+        )
         return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
 
     request.bounce_claims = payload
     dg_valid, dg_reason, resolved_route = _verify_datagram_headers()
     if not dg_valid:
-        logging.warning(f"[DATAGRAM] Verification failed: {dg_reason} | ip={_get_client_ip()}")
+        logging.warning(
+            f"[DATAGRAM] Verification failed: {dg_reason} | ip={_get_client_ip()}"
+        )
         return jsonify({"error": "TICK::4031 — DG_SEAL: Vrfy Fail"}), 403
 
     if not resolved_route:
@@ -287,6 +319,7 @@ def verify_bounce_token():
 
     g._datagram_resolved_route = resolved_route
     return None
+
 
 @app.before_request
 def datacrane_decompress():
@@ -297,12 +330,16 @@ def datacrane_decompress():
     try:
         raw_json = gzip.decompress(request.data)
         request._datacrane_body = raw_json
-        request.get_json = lambda force=False, silent=False, cache=True: json.loads(raw_json)
+        request.get_json = lambda force=False, silent=False, cache=True: json.loads(
+            raw_json
+        )
     except Exception:
         return jsonify({"error": "TICK::4000 — DC_FAULT: Decompress Fail"}), 400
     return None
 
+
 rate_limit_middleware(app)
+
 
 @app.after_request
 def datacrane_compress(response):
@@ -325,15 +362,16 @@ def datacrane_compress(response):
     response.headers["Content-Length"] = str(len(compressed))
     return response
 
+
 response_cache_middleware(app)
 
 
-@app.route('/<fp_prefix>/<hashed_path>', methods=['GET', 'POST', 'OPTIONS'])
+@app.route("/<fp_prefix>/<hashed_path>", methods=["GET", "POST", "OPTIONS"])
 def datagram_catchall(fp_prefix, hashed_path):
     if request.method == "OPTIONS":
         return "", 200
 
-    resolved = getattr(g, '_datagram_resolved_route', None)
+    resolved = getattr(g, "_datagram_resolved_route", None)
     if not resolved:
         return jsonify({"error": "TICK::4033 — DG_VOID: No Rte Bind"}), 403
 
@@ -349,7 +387,7 @@ def datagram_catchall(fp_prefix, hashed_path):
         return jsonify({"error": "TICK::5002 — DG_FAULT: Dspch Abrt"}), 500
 
 
-@app.route('/api/bouncetoken/verify', methods=['POST'])
+@app.route("/api/bouncetoken/verify", methods=["POST"])
 def bouncetoken_verify():
     try:
         data = request.get_json()
@@ -358,17 +396,28 @@ def bouncetoken_verify():
         client_ip = _get_client_ip()
         country = _get_client_country()
 
-        logging.info(f"[BOUNCE-VERIFY] Request from ip={client_ip} country={country} fp={fingerprint[:12] if fingerprint else 'None'}... token_present={bool(recaptcha_token)}")
+        logging.info(
+            f"[BOUNCE-VERIFY] Request from ip={client_ip} country={country} fp={fingerprint[:12] if fingerprint else 'None'}... token_present={bool(recaptcha_token)}"
+        )
 
         if not recaptcha_token or not fingerprint:
-            logging.warning(f"[BOUNCE-VERIFY] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}")
+            logging.warning(
+                f"[BOUNCE-VERIFY] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}"
+            )
             return jsonify({"error": "TICK::4001 — PARAM_VOID: RC/FP Absent"}), 400
 
         try:
-            valid, score = _verify_recaptcha_enterprise(recaptcha_token, "bouncetoken_screen")
-            logging.info(f"[BOUNCE-VERIFY] Assessment result: valid={valid} score={score} threshold={RECAPTCHA_SCORE_THRESHOLD}")
+            valid, score = _verify_recaptcha_enterprise(
+                recaptcha_token, "bouncetoken_screen"
+            )
+            logging.info(
+                f"[BOUNCE-VERIFY] Assessment result: valid={valid} score={score} threshold={RECAPTCHA_SCORE_THRESHOLD}"
+            )
         except Exception as e:
-            logging.error(f"[BOUNCE-VERIFY] Assessment exception: {type(e).__name__}: {e}", exc_info=True)
+            logging.error(
+                f"[BOUNCE-VERIFY] Assessment exception: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
             return jsonify({"status": "TICK::4034 — CAPT_ERR: Assmnt Flt"}), 403
 
         if not valid:
@@ -380,21 +429,40 @@ def bouncetoken_verify():
             logging.info(f"[BOUNCE-VERIFY] GRANTED | ip={client_ip} score={score}")
             return jsonify({"status": "granted", "elasticBounceTokenScreen": token})
 
-        logging.info(f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}) | ip={client_ip}")
+        logging.info(
+            f"[BOUNCE-VERIFY] Score too low ({score} < {RECAPTCHA_SCORE_THRESHOLD}) | ip={client_ip}"
+        )
         return jsonify({"status": "TICK::4036 — CAPT_LOW: Scr Thresh"}), 403
     except Exception as e:
-        logging.error(f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}", exc_info=True)
+        logging.error(
+            f"[BOUNCE-VERIFY] Unhandled exception: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         return jsonify({"status": "TICK::5000 — SYS_HALT: Unhdl Exc"}), 403
 
 
 DATAGRAM_HOST = "datagram.eidwtimes.xyz"
 COOKIE_PREFIXES = [
-    "_ga_", "_gid_", "__ut", "_fbp_", "_dc_", "mp_", "ajs_", "_hp2_",
-    "__hs", "_ce_", "_pk_", "ss_c", "ln_o", "_tt_", "ab_t", "ck_v",
+    "_ga_",
+    "_gid_",
+    "__ut",
+    "_fbp_",
+    "_dc_",
+    "mp_",
+    "ajs_",
+    "_hp2_",
+    "__hs",
+    "_ce_",
+    "_pk_",
+    "ss_c",
+    "ln_o",
+    "_tt_",
+    "ab_t",
+    "ck_v",
 ]
 
 
-@app.route('/api/dgrmV2-fp', methods=['POST'])
+@app.route("/api/dgrmV2-fp", methods=["POST"])
 def datagram_mint():
     try:
         data = request.get_json()
@@ -409,7 +477,9 @@ def datagram_mint():
         routes = {}
         for i, route in enumerate(ALL_KNOWN_ROUTES):
             hashed_path = _hmac_sha512(route_key, route)[:24]
-            per_route_hs_key = _hmac_sha512(DATAGRAM_SIGNING_KEY, route_key + "|" + route)
+            per_route_hs_key = _hmac_sha512(
+                DATAGRAM_SIGNING_KEY, route_key + "|" + route
+            )
             sign_payload = f"{DATAGRAM_HOST}/{fp_hmac_prefix}/{hashed_path}|{exp}"
             cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
             prefix_idx = (i + int(hashed_path[:2], 16)) % len(COOKIE_PREFIXES)
@@ -422,99 +492,114 @@ def datagram_mint():
                 "hsKey": per_route_hs_key[:32],
             }
 
-        return jsonify({
-            "host": DATAGRAM_HOST,
-            "fpPrefix": fp_hmac_prefix,
-            "routes": routes,
-            "exp": exp,
-            "routeKey": route_key[:32],
-        })
+        return jsonify(
+            {
+                "host": DATAGRAM_HOST,
+                "fpPrefix": fp_hmac_prefix,
+                "routes": routes,
+                "exp": exp,
+                "routeKey": route_key[:32],
+            }
+        )
     except Exception as e:
         logging.error(f"[DATAGRAM-MINT] Error: {type(e).__name__}: {e}", exc_info=True)
         return jsonify({"error": "TICK::5003 — MINT_FAULT: Intrnl Err"}), 500
 
 
-@app.route('/api/current-security-data', methods=['GET'])
+@app.route("/api/current-security-data", methods=["GET"])
 def get_current_security_data():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1")
+                cur.execute(
+                    "SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1"
+                )
                 result = cur.fetchone()
-                
+
                 if not result:
                     return jsonify({"error": "TICK::4040 — QRY_NULL: No Curr Rec"}), 404
-                
+
                 return jsonify(dict(result))
     except Exception as e:
         logging.error(f"Error fetching current security data: {e}")
         return jsonify({"error": "TICK::5010 — QRY_FAULT: CSD Err"}), 500
+
 
 def get_security_data():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 seven_days_ago = datetime.now(timezone.utc) - timedelta(days=6)
-                
-                cur.execute("""
+
+                cur.execute(
+                    """
                     SELECT timestamp, t1, t2 
                     FROM security_times 
                     WHERE timestamp >= %s 
                     ORDER BY timestamp ASC
-                """, (seven_days_ago,))
-                
+                """,
+                    (seven_days_ago,),
+                )
+
                 data = cur.fetchall()
-                
+
                 daily_hourly_data = {}
                 for item in data:
-                    timestamp = item['timestamp']
+                    timestamp = item["timestamp"]
                     if timestamp.tzinfo is None:
                         timestamp = timestamp.replace(tzinfo=timezone.utc)
-                    
+
                     local_time = timestamp.astimezone(DUBLIN_TZ)
-                    date_key = local_time.strftime('%Y-%m-%d')
+                    date_key = local_time.strftime("%Y-%m-%d")
                     hour = local_time.hour
-                    
+
                     if date_key not in daily_hourly_data:
                         daily_hourly_data[date_key] = {}
                     if hour not in daily_hourly_data[date_key]:
                         daily_hourly_data[date_key][hour] = []
-                    
-                    daily_hourly_data[date_key][hour].append({
-                        't1': item['t1'],
-                        't2': item['t2'],
-                        'timestamp': local_time.isoformat(),
-                    })
-                
+
+                    daily_hourly_data[date_key][hour].append(
+                        {
+                            "t1": item["t1"],
+                            "t2": item["t2"],
+                            "timestamp": local_time.isoformat(),
+                        }
+                    )
+
                 historical_data = []
                 for i in range(6, -1, -1):
                     date = datetime.now(DUBLIN_TZ) - timedelta(days=i)
-                    date_key = date.strftime('%Y-%m-%d')
-                    
+                    date_key = date.strftime("%Y-%m-%d")
+
                     hourly_data = []
                     day_data = daily_hourly_data.get(date_key, {})
-                    
+
                     for hour in range(24):
                         records = day_data.get(hour, [])
-                        valid_t1 = [r['t1'] for r in records if r['t1'] is not None]
-                        valid_t2 = [r['t2'] for r in records if r['t2'] is not None]
-                        avg_t1 = round(sum(valid_t1) / len(valid_t1)) if valid_t1 else None
-                        avg_t2 = round(sum(valid_t2) / len(valid_t2)) if valid_t2 else None
-                        latest_ts = records[-1]['timestamp'] if records else None
-                        
-                        hourly_data.append({
-                            'hour': hour,
-                            't1': avg_t1,
-                            't2': avg_t2,
-                            'timestamp': latest_ts,
-                            'records': records,
-                        })
-                    
-                    historical_data.append({
-                        'date': date_key,
-                        'hourlyData': hourly_data
-                    })
-                
+                        valid_t1 = [r["t1"] for r in records if r["t1"] is not None]
+                        valid_t2 = [r["t2"] for r in records if r["t2"] is not None]
+                        avg_t1 = (
+                            round(sum(valid_t1) / len(valid_t1)) if valid_t1 else None
+                        )
+                        avg_t2 = (
+                            round(sum(valid_t2) / len(valid_t2)) if valid_t2 else None
+                        )
+                        latest_ts = records[-1]["timestamp"] if records else None
+
+                        hourly_data.append(
+                            {
+                                "hour": hour,
+                                "t1": avg_t1,
+                                "t2": avg_t2,
+                                "timestamp": latest_ts,
+                                "records": records,
+                            }
+                        )
+
+                    historical_data.append(
+                        {"date": date_key, "hourlyData": hourly_data}
+                    )
+
                 return jsonify(historical_data)
     except Exception as e:
         logging.error(f"Error fetching security data: {e}")
@@ -524,17 +609,18 @@ def get_security_data():
 def get_departure_data():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        three_days_ago = data.get('threeDaysAgo')
-        
+        terminal_id = data.get("terminalId")
+        three_days_ago = data.get("threeDaysAgo")
+
         if not terminal_id or not three_days_ago:
             return jsonify({"error": "TICK::4003 — PARAM_VOID: TID/3DA Absent"}), 400
-        
+
         terminal_name = f"T{terminal_id}"
-        
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT
                         DATE_TRUNC('hour', scheduled_datetime) as departure_datetime,
                         COUNT(*) as departure_count
@@ -542,19 +628,23 @@ def get_departure_data():
                     WHERE terminal_name = %s AND scheduled_datetime >= %s
                     GROUP BY DATE_TRUNC('hour', scheduled_datetime)
                     ORDER BY departure_datetime ASC
-                """, (terminal_name, three_days_ago))
-                
+                """,
+                    (terminal_name, three_days_ago),
+                )
+
                 results = cur.fetchall()
                 return jsonify([dict(row) for row in results])
     except Exception as e:
         logging.error(f"Error fetching departure data: {e}")
         return jsonify({"error": "TICK::5012 — QRY_FAULT: DD Err"}), 500
 
+
 def get_hourly_interval_security_data():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT 
                         timestamp,
                         t1,
@@ -562,51 +652,56 @@ def get_hourly_interval_security_data():
                     FROM security_times 
                     WHERE timestamp >= NOW() - INTERVAL '24 hours'
                     ORDER BY timestamp ASC
-                """)
-                
+                """
+                )
+
                 results = cur.fetchall()
                 rows = []
                 for row in results:
                     r = dict(row)
-                    ts = r.get('timestamp')
+                    ts = r.get("timestamp")
                     if ts:
                         if ts.tzinfo is None:
                             ts = ts.replace(tzinfo=timezone.utc)
-                        r['timestamp'] = ts.astimezone(DUBLIN_TZ)
+                        r["timestamp"] = ts.astimezone(DUBLIN_TZ)
                     rows.append(r)
                 return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching hourly interval security data: {e}")
         return jsonify({"error": "TICK::5013 — QRY_FAULT: HISD Err"}), 500
 
+
 def get_hourly_interval_departure_data():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        
+        terminal_id = data.get("terminalId")
+
         if not terminal_id:
             return jsonify({"error": "TICK::4004 — PARAM_VOID: TID Absent"}), 400
-        
+
         terminal_name = f"T{terminal_id}"
-        
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT scheduled_datetime
                     FROM departures 
                     WHERE terminal_name = %s AND scheduled_datetime >= NOW() - INTERVAL '3 days'
                     ORDER BY scheduled_datetime ASC
-                """, (terminal_name,))
-                
+                """,
+                    (terminal_name,),
+                )
+
                 departures = cur.fetchall()
-                
+
                 from collections import defaultdict
-                
-                dep_times = [row['scheduled_datetime'] for row in departures]
+
+                dep_times = [row["scheduled_datetime"] for row in departures]
                 hours_with_deps = set()
                 for dt in dep_times:
                     hours_with_deps.add(dt.replace(minute=0, second=0, microsecond=0))
-                
+
                 results = []
                 for hour_start in sorted(hours_with_deps):
                     for minute in range(60):
@@ -616,28 +711,28 @@ def get_hourly_interval_departure_data():
                             diff = abs((dep_dt - minute_ts).total_seconds())
                             if diff <= 300:
                                 count += 1
-                        results.append({
-                            'timestamp': minute_ts,
-                            'count': count
-                        })
-                
+                        results.append({"timestamp": minute_ts, "count": count})
+
                 return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching hourly interval departure data: {e}")
         return jsonify({"error": "TICK::5014 — QRY_FAULT: HIDD Err"}), 500
 
+
 def get_active_announcements():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT id, title, message, created_at, expires_at 
                     FROM announcements 
                     WHERE (expires_at IS NULL OR expires_at > NOW()) 
                     AND active = true 
                     ORDER BY created_at DESC
-                """)
-                
+                """
+                )
+
                 results = cur.fetchall()
                 return jsonify([dict(row) for row in results])
     except Exception as e:
@@ -667,10 +762,12 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
     if not horizon_preds:
         return None
 
-    dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=4))
+    dep_rows = _fetch_departures_range(
+        terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=4)
+    )
     dep_times = []
     for r in dep_rows:
-        ts = r['scheduled_datetime']
+        ts = r["scheduled_datetime"]
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         dep_times.append(ts)
@@ -684,7 +781,7 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
             continue
 
         horizon_time = now_dublin + timedelta(minutes=minutes)
-        horizon_str = horizon_time.strftime('%I:%M %p')
+        horizon_str = horizon_time.strftime("%I:%M %p")
         horizon_utc = now_utc + timedelta(minutes=minutes)
         window_start = horizon_utc - timedelta(minutes=30)
         window_end = horizon_utc + timedelta(minutes=30)
@@ -696,34 +793,45 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
 
         is_spike = False
         if dep_count > 0:
-            before_count = sum(1 for d in dep_times
-                               if (horizon_utc - timedelta(minutes=90)) <= d < window_start)
-            after_count = sum(1 for d in dep_times
-                              if window_end < d <= (horizon_utc + timedelta(minutes=90)))
+            before_count = sum(
+                1
+                for d in dep_times
+                if (horizon_utc - timedelta(minutes=90)) <= d < window_start
+            )
+            after_count = sum(
+                1
+                for d in dep_times
+                if window_end < d <= (horizon_utc + timedelta(minutes=90))
+            )
             if dep_count > before_count and dep_count > after_count:
                 is_spike = True
 
         base_spread = max(1, int(adjusted * 0.12))
         vol_mult = 1.0 + 0.5 * max(pressure, 0)
         spread = max(1, int(base_spread * vol_mult))
-        forecasts.append({
-            "label": label,
-            "time": horizon_str,
-            "median": round(adjusted),
-            "p10": max(0, round(adjusted) - spread * 2),
-            "p90": round(adjusted) + spread * 2,
-            "departures": dep_count,
-            "is_spike": is_spike,
-        })
+        forecasts.append(
+            {
+                "label": label,
+                "time": horizon_str,
+                "median": round(adjusted),
+                "p10": max(0, round(adjusted) - spread * 2),
+                "p90": round(adjusted) + spread * 2,
+                "departures": dep_count,
+                "is_spike": is_spike,
+            }
+        )
 
     return forecasts if forecasts else None
 
-@app.route('/api/seo-security-data', methods=['GET'])
+
+@app.route("/api/seo-security-data", methods=["GET"])
 def seo_security_data():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1")
+                cur.execute(
+                    "SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1"
+                )
                 result = cur.fetchone()
 
         if not result:
@@ -731,9 +839,9 @@ def seo_security_data():
             t2 = None
             last_updated = None
         else:
-            t1 = result.get('t1')
-            t2 = result.get('t2')
-            last_updated_raw = result.get('last_updated')
+            t1 = result.get("t1")
+            t2 = result.get("t2")
+            last_updated_raw = result.get("last_updated")
             if last_updated_raw:
                 if isinstance(last_updated_raw, str):
                     last_updated = last_updated_raw
@@ -779,12 +887,18 @@ def seo_security_data():
         def _fmt_forecast_row(fc):
             if fc["median"] is None:
                 return f"<tr><td>{fc['label']}</td><td>{fc['time']}</td><td>—</td><td>—</td><td>{fc['departures']}</td><td></td></tr>"
-            spike_badge = ' <span class="spike">&#9650; departure spike</span>' if fc["is_spike"] else ""
-            return (f"<tr><td>{fc['label']}</td><td>{fc['time']}</td>"
-                    f"<td>{fc['p10']}–{fc['p90']}m</td>"
-                    f"<td><strong>{fc['median']}m</strong></td>"
-                    f"<td>{fc['departures']}</td>"
-                    f"<td>{spike_badge}</td></tr>")
+            spike_badge = (
+                ' <span class="spike">&#9650; departure spike</span>'
+                if fc["is_spike"]
+                else ""
+            )
+            return (
+                f"<tr><td>{fc['label']}</td><td>{fc['time']}</td>"
+                f"<td>{fc['p10']}–{fc['p90']}m</td>"
+                f"<td><strong>{fc['median']}m</strong></td>"
+                f"<td>{fc['departures']}</td>"
+                f"<td>{spike_badge}</td></tr>"
+            )
 
         def _forecast_text(forecasts, terminal_label):
             if not forecasts:
@@ -793,8 +907,14 @@ def seo_security_data():
             for fc in forecasts:
                 if fc["median"] is not None:
                     spike = " (departure spike expected)" if fc["is_spike"] else ""
-                    parts.append(f"In {fc['label']} ({fc['time']}): ~{fc['median']}m (range {fc['p10']}–{fc['p90']}m), {fc['departures']} departures nearby{spike}")
-            return f"{terminal_label} forecast: " + ". ".join(parts) + "." if parts else f"No forecast data for {terminal_label}."
+                    parts.append(
+                        f"In {fc['label']} ({fc['time']}): ~{fc['median']}m (range {fc['p10']}–{fc['p90']}m), {fc['departures']} departures nearby{spike}"
+                    )
+            return (
+                f"{terminal_label} forecast: " + ". ".join(parts) + "."
+                if parts
+                else f"No forecast data for {terminal_label}."
+            )
 
         t1_forecast_text = _forecast_text(t1_forecasts, "Terminal 1")
         t2_forecast_text = _forecast_text(t2_forecasts, "Terminal 2")
@@ -811,259 +931,266 @@ def seo_security_data():
         t1_forecast_html = _forecast_table_html(t1_forecasts, "Terminal 1")
         t2_forecast_html = _forecast_table_html(t2_forecasts, "Terminal 2")
 
-        jsonld_faq = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
-                {
-                    "@type": "Question",
-                    "name": "What are the current security times at Dublin Airport?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"As of {now_dublin.strftime('%I:%M %p on %B %d, %Y')}, Dublin Airport Terminal 1 (T1) security wait time is {t1_str} and Terminal 2 (T2) is {t2_str}. {recommendation}"
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "How long is the security queue at Dublin Airport Terminal 1?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"The current security queue wait time at Dublin Airport Terminal 1 is {t1_str} (updated {now_dublin.strftime('%I:%M %p')})."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "How long is the security queue at Dublin Airport Terminal 2?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"The current security queue wait time at Dublin Airport Terminal 2 is {t2_str} (updated {now_dublin.strftime('%I:%M %p')})."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Which Dublin Airport terminal has the shortest security queue right now?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": recommendation
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Can I use either terminal security at Dublin Airport?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Yes. At Dublin Airport, passengers can go through security at either Terminal 1 or Terminal 2 regardless of which terminal their flight departs from. After clearing security, you can walk to your departure gate in either terminal."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Dublin Airport T1 vs T2 security — which is faster right now?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"Right now at {now_dublin.strftime('%I:%M %p')}: {recommendation} Check eidwtimes.xyz for live updates."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Is Dublin Airport security busy right now?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"As of {now_dublin.strftime('%I:%M %p')}, Terminal 1 security is {t1_str} and Terminal 2 is {t2_str}. Visit eidwtimes.xyz for live updates and historical trends."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "How early should I arrive at Dublin Airport?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"Dublin Airport recommends 2 hours for short-haul and 3 hours for long-haul flights. Current security wait: T1 is {t1_str}, T2 is {t2_str}. Check eidwtimes.xyz for live data to plan your arrival."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What time is Dublin Airport security busiest?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Dublin Airport security is typically busiest between 5-8 AM and 2-4 PM. EIDW Times shows 7 days of historical hourly data so you can see exact peak patterns at eidwtimes.xyz."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Dublin Airport security times today?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"Today ({now_dublin.strftime('%A, %B %d')}), Dublin Airport security is currently T1: {t1_str}, T2: {t2_str}. EIDW Times tracks the full 24-hour breakdown at eidwtimes.xyz."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What will Dublin Airport security times be in the next few hours?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using a machine learning model trained on historical security data. Check eidwtimes.xyz for live forecasts."
-                    }
-                }
-            ]
-        })
-
-        jsonld_dataset = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "Dataset",
-            "name": "Dublin Airport Live Security Queue Wait Times",
-            "description": f"Real-time security queue wait times at Dublin Airport, updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}. Updated {now_dublin.strftime('%I:%M %p %d %b %Y')}.",
-            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
-            "license": "https://creativecommons.org/licenses/by/4.0/",
-            "isAccessibleForFree": True,
-            "temporalCoverage": f"{now_iso}/...",
-            "measurementTechnique": "Automated real-time monitoring with 30-second update interval",
-            "spatialCoverage": {
-                "@type": "Place",
-                "name": "Dublin Airport (DUB/EIDW)",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": "Dublin",
-                    "addressCountry": "IE"
-                },
-                "geo": {
-                    "@type": "GeoCoordinates",
-                    "latitude": 53.4264,
-                    "longitude": -6.2499
-                }
-            },
-            "variableMeasured": [
-                {
-                    "@type": "PropertyValue",
-                    "name": "Terminal 1 Security Wait Time",
-                    "unitText": "minutes",
-                    "value": t1
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": "Terminal 2 Security Wait Time",
-                    "unitText": "minutes",
-                    "value": t2
-                }
-            ],
-            "dateModified": now_iso,
-            "datePublished": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
-            "creator": {
-                "@type": "Organization",
-                "name": "EIDW Times",
-                "url": "https://eidwtimes.xyz/"
+        jsonld_faq = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": "What are the current security times at Dublin Airport?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"As of {now_dublin.strftime('%I:%M %p on %B %d, %Y')}, Dublin Airport Terminal 1 (T1) security wait time is {t1_str} and Terminal 2 (T2) is {t2_str}. {recommendation}",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "How long is the security queue at Dublin Airport Terminal 1?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"The current security queue wait time at Dublin Airport Terminal 1 is {t1_str} (updated {now_dublin.strftime('%I:%M %p')}).",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "How long is the security queue at Dublin Airport Terminal 2?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"The current security queue wait time at Dublin Airport Terminal 2 is {t2_str} (updated {now_dublin.strftime('%I:%M %p')}).",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Which Dublin Airport terminal has the shortest security queue right now?",
+                        "acceptedAnswer": {"@type": "Answer", "text": recommendation},
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Can I use either terminal security at Dublin Airport?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Yes. At Dublin Airport, passengers can go through security at either Terminal 1 or Terminal 2 regardless of which terminal their flight departs from. After clearing security, you can walk to your departure gate in either terminal.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Dublin Airport T1 vs T2 security — which is faster right now?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"Right now at {now_dublin.strftime('%I:%M %p')}: {recommendation} Check eidwtimes.xyz for live updates.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Is Dublin Airport security busy right now?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"As of {now_dublin.strftime('%I:%M %p')}, Terminal 1 security is {t1_str} and Terminal 2 is {t2_str}. Visit eidwtimes.xyz for live updates and historical trends.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "How early should I arrive at Dublin Airport?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"Dublin Airport recommends 2 hours for short-haul and 3 hours for long-haul flights. Current security wait: T1 is {t1_str}, T2 is {t2_str}. Check eidwtimes.xyz for live data to plan your arrival.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "What time is Dublin Airport security busiest?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": "Dublin Airport security is typically busiest between 5-8 AM and 2-4 PM. EIDW Times shows 7 days of historical hourly data so you can see exact peak patterns at eidwtimes.xyz.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "Dublin Airport security times today?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"Today ({now_dublin.strftime('%A, %B %d')}), Dublin Airport security is currently T1: {t1_str}, T2: {t2_str}. EIDW Times tracks the full 24-hour breakdown at eidwtimes.xyz.",
+                        },
+                    },
+                    {
+                        "@type": "Question",
+                        "name": "What will Dublin Airport security times be in the next few hours?",
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": f"{t1_forecast_text} {t2_forecast_text} Predictions are generated using a machine learning model trained on historical security data. Check eidwtimes.xyz for live forecasts.",
+                        },
+                    },
+                ],
             }
-        })
+        )
 
-        jsonld_speakable = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            "name": "Dublin Airport Security Times — Live T1 & T2 Queue Wait Times",
-            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
-            "speakable": {
-                "@type": "SpeakableSpecification",
-                "cssSelector": ["#seo-summary", "#seo-t1", "#seo-t2", "#seo-recommendation"]
-            },
-            "datePublished": "2024-01-01T00:00:00+00:00",
-            "dateModified": now_iso,
-            "isPartOf": {
-                "@type": "WebSite",
-                "name": "EIDW Times",
-                "url": "https://eidwtimes.xyz/"
-            }
-        })
-
-        jsonld_liveblog = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "LiveBlogPosting",
-            "headline": f"Dublin Airport Security Times — Live Updates (T1: {t1_str}, T2: {t2_str})",
-            "description": f"Real-time Dublin Airport security queue wait times updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}.",
-            "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
-            "coverageStartTime": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
-            "coverageEndTime": f"{now_dublin.strftime('%Y-%m-%d')}T23:59:59+00:00",
-            "datePublished": now_iso,
-            "dateModified": now_iso,
-            "author": {
-                "@type": "Organization",
-                "name": "EIDW Times",
-                "url": "https://eidwtimes.xyz/"
-            },
-            "publisher": {
-                "@type": "Organization",
-                "name": "EIDW Times",
-                "url": "https://eidwtimes.xyz/",
-                "logo": {
-                    "@type": "ImageObject",
-                    "url": "https://eidwtimes.xyz/favicon.png"
-                }
-            },
-            "about": {
-                "@type": "Place",
-                "name": "Dublin Airport",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": "Dublin",
-                    "addressCountry": "IE"
+        jsonld_dataset = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "Dataset",
+                "name": "Dublin Airport Live Security Queue Wait Times",
+                "description": f"Real-time security queue wait times at Dublin Airport, updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}. Updated {now_dublin.strftime('%I:%M %p %d %b %Y')}.",
+                "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+                "license": "https://creativecommons.org/licenses/by/4.0/",
+                "isAccessibleForFree": True,
+                "temporalCoverage": f"{now_iso}/...",
+                "measurementTechnique": "Automated real-time monitoring with 30-second update interval",
+                "spatialCoverage": {
+                    "@type": "Place",
+                    "name": "Dublin Airport (DUB/EIDW)",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": "Dublin",
+                        "addressCountry": "IE",
+                    },
+                    "geo": {
+                        "@type": "GeoCoordinates",
+                        "latitude": 53.4264,
+                        "longitude": -6.2499,
+                    },
                 },
-                "geo": {
-                    "@type": "GeoCoordinates",
-                    "latitude": 53.4264,
-                    "longitude": -6.2499
-                }
-            },
-            "liveBlogUpdate": [
-                {
-                    "@type": "BlogPosting",
-                    "headline": f"T1: {t1_str}, T2: {t2_str}",
-                    "datePublished": now_iso,
-                    "articleBody": f"Dublin Airport security at {now_dublin.strftime('%I:%M %p')}: Terminal 1 wait is {t1_str}, Terminal 2 wait is {t2_str}. {recommendation}"
-                }
-            ]
-        })
-
-        jsonld_service = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": "EIDW Times — Dublin Airport Security Queue Tracker",
-            "url": "https://eidwtimes.xyz/",
-            "applicationCategory": "TravelApplication",
-            "operatingSystem": "All",
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "EUR"
-            },
-            "description": "Free real-time Dublin Airport security queue wait times, updated every 30 seconds. Covers Terminal 1 and Terminal 2 with ML-powered forecasts.",
-            "featureList": [
-                "Real-time security queue wait times",
-                "Terminal 1 and Terminal 2 coverage",
-                "Machine learning wait time forecasts",
-                "7-day historical data",
-                "Departure spike detection",
-                "Progressive Web App (installable)"
-            ],
-            "author": {
-                "@type": "Organization",
-                "name": "EIDW Times"
-            }
-        })
-
-        jsonld_breadcrumb = json.dumps({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            "itemListElement": [
-                {
-                    "@type": "ListItem",
-                    "position": 1,
+                "variableMeasured": [
+                    {
+                        "@type": "PropertyValue",
+                        "name": "Terminal 1 Security Wait Time",
+                        "unitText": "minutes",
+                        "value": t1,
+                    },
+                    {
+                        "@type": "PropertyValue",
+                        "name": "Terminal 2 Security Wait Time",
+                        "unitText": "minutes",
+                        "value": t2,
+                    },
+                ],
+                "dateModified": now_iso,
+                "datePublished": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
+                "creator": {
+                    "@type": "Organization",
                     "name": "EIDW Times",
-                    "item": "https://eidwtimes.xyz/"
+                    "url": "https://eidwtimes.xyz/",
                 },
-                {
-                    "@type": "ListItem",
-                    "position": 2,
-                    "name": "Dublin Airport Security Times",
-                    "item": "https://datagram.eidwtimes.xyz/api/seo-security-data"
-                }
-            ]
-        })
+            }
+        )
+
+        jsonld_speakable = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Dublin Airport Security Times — Live T1 & T2 Queue Wait Times",
+                "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+                "speakable": {
+                    "@type": "SpeakableSpecification",
+                    "cssSelector": [
+                        "#seo-summary",
+                        "#seo-t1",
+                        "#seo-t2",
+                        "#seo-recommendation",
+                    ],
+                },
+                "datePublished": "2024-01-01T00:00:00+00:00",
+                "dateModified": now_iso,
+                "isPartOf": {
+                    "@type": "WebSite",
+                    "name": "EIDW Times",
+                    "url": "https://eidwtimes.xyz/",
+                },
+            }
+        )
+
+        jsonld_liveblog = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "LiveBlogPosting",
+                "headline": f"Dublin Airport Security Times — Live Updates (T1: {t1_str}, T2: {t2_str})",
+                "description": f"Real-time Dublin Airport security queue wait times updated every 30 seconds. Terminal 1: {t1_str}, Terminal 2: {t2_str}.",
+                "url": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+                "coverageStartTime": f"{now_dublin.strftime('%Y-%m-%d')}T00:00:00+00:00",
+                "coverageEndTime": f"{now_dublin.strftime('%Y-%m-%d')}T23:59:59+00:00",
+                "datePublished": now_iso,
+                "dateModified": now_iso,
+                "author": {
+                    "@type": "Organization",
+                    "name": "EIDW Times",
+                    "url": "https://eidwtimes.xyz/",
+                },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "EIDW Times",
+                    "url": "https://eidwtimes.xyz/",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://eidwtimes.xyz/favicon.png",
+                    },
+                },
+                "about": {
+                    "@type": "Place",
+                    "name": "Dublin Airport",
+                    "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": "Dublin",
+                        "addressCountry": "IE",
+                    },
+                    "geo": {
+                        "@type": "GeoCoordinates",
+                        "latitude": 53.4264,
+                        "longitude": -6.2499,
+                    },
+                },
+                "liveBlogUpdate": [
+                    {
+                        "@type": "BlogPosting",
+                        "headline": f"T1: {t1_str}, T2: {t2_str}",
+                        "datePublished": now_iso,
+                        "articleBody": f"Dublin Airport security at {now_dublin.strftime('%I:%M %p')}: Terminal 1 wait is {t1_str}, Terminal 2 wait is {t2_str}. {recommendation}",
+                    }
+                ],
+            }
+        )
+
+        jsonld_service = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                "name": "EIDW Times — Dublin Airport Security Queue Tracker",
+                "url": "https://eidwtimes.xyz/",
+                "applicationCategory": "TravelApplication",
+                "operatingSystem": "All",
+                "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
+                "description": "Free real-time Dublin Airport security queue wait times, updated every 30 seconds. Covers Terminal 1 and Terminal 2 with ML-powered forecasts.",
+                "featureList": [
+                    "Real-time security queue wait times",
+                    "Terminal 1 and Terminal 2 coverage",
+                    "Machine learning wait time forecasts",
+                    "7-day historical data",
+                    "Departure spike detection",
+                    "Progressive Web App (installable)",
+                ],
+                "author": {"@type": "Organization", "name": "EIDW Times"},
+            }
+        )
+
+        jsonld_breadcrumb = json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "EIDW Times",
+                        "item": "https://eidwtimes.xyz/",
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Dublin Airport Security Times",
+                        "item": "https://datagram.eidwtimes.xyz/api/seo-security-data",
+                    },
+                ],
+            }
+        )
 
         html = f"""<!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
@@ -1301,23 +1428,30 @@ nav.breadcrumb span{{margin:0 .35rem}}
 </html>"""
 
         response = make_response(html)
-        response.headers['Content-Type'] = 'text/html; charset=utf-8'
-        response.headers['Cache-Control'] = 'public, max-age=30, s-maxage=30, stale-while-revalidate=30'
-        response.headers['Refresh'] = '30'
-        response.headers['Last-Modified'] = now_dublin.strftime('%a, %d %b %Y %H:%M:%S GMT')
-        response.headers['X-Robots-Tag'] = 'index, follow, max-snippet:-1, max-image-preview:large'
-        response.headers['Vary'] = 'Accept-Encoding'
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
+        response.headers["Cache-Control"] = (
+            "public, max-age=30, s-maxage=30, stale-while-revalidate=30"
+        )
+        response.headers["Refresh"] = "30"
+        response.headers["Last-Modified"] = now_dublin.strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+        response.headers["X-Robots-Tag"] = (
+            "index, follow, max-snippet:-1, max-image-preview:large"
+        )
+        response.headers["Vary"] = "Accept-Encoding"
         return response
 
     except Exception as e:
         logging.error(f"Error generating SEO page: {e}")
         return make_response("Internal Server Error", 500)
 
+
 def get_range_security_data():
     try:
         data = request.get_json()
-        start_iso = data.get('start')
-        end_iso = data.get('end')
+        start_iso = data.get("start")
+        end_iso = data.get("end")
         if not start_iso or not end_iso:
             return jsonify({"error": "TICK::4005 — PARAM_VOID: Rng Absent"}), 400
 
@@ -1330,33 +1464,37 @@ def get_range_security_data():
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT timestamp, t1, t2
                     FROM security_times
                     WHERE timestamp >= %s AND timestamp <= %s
                     ORDER BY timestamp ASC
-                """, (start_dt, end_dt))
+                """,
+                    (start_dt, end_dt),
+                )
                 results = cur.fetchall()
                 rows = []
                 for row in results:
                     r = dict(row)
-                    ts = r.get('timestamp')
+                    ts = r.get("timestamp")
                     if ts:
                         if ts.tzinfo is None:
                             ts = ts.replace(tzinfo=timezone.utc)
-                        r['timestamp'] = ts.astimezone(DUBLIN_TZ).isoformat()
+                        r["timestamp"] = ts.astimezone(DUBLIN_TZ).isoformat()
                     rows.append(r)
                 return jsonify(rows)
     except Exception as e:
         logging.error(f"Error fetching range security data: {e}")
         return jsonify({"error": "TICK::5016 — QRY_FAULT: RSD Err"}), 500
 
+
 def get_range_departure_data():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        start_iso = data.get('start')
-        end_iso = data.get('end')
+        terminal_id = data.get("terminalId")
+        start_iso = data.get("start")
+        end_iso = data.get("end")
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "TICK::4006 — PARAM_VOID: TID/Rng Absent"}), 400
 
@@ -1366,15 +1504,18 @@ def get_range_departure_data():
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT scheduled_datetime
                     FROM departures
                     WHERE terminal_name = %s AND scheduled_datetime >= %s AND scheduled_datetime <= %s
                     ORDER BY scheduled_datetime ASC
-                """, (terminal_name, start_dt, end_dt))
+                """,
+                    (terminal_name, start_dt, end_dt),
+                )
                 departures = cur.fetchall()
 
-                dep_times = [row['scheduled_datetime'] for row in departures]
+                dep_times = [row["scheduled_datetime"] for row in departures]
                 hours_with_deps = set()
                 for dt in dep_times:
                     hours_with_deps.add(dt.replace(minute=0, second=0, microsecond=0))
@@ -1390,30 +1531,68 @@ def get_range_departure_data():
                             diff = abs((dep_dt - minute_ts).total_seconds())
                             if diff <= 300:
                                 count += 1
-                        results.append({
-                            'timestamp': minute_ts.isoformat(),
-                            'count': count
-                        })
+                        results.append(
+                            {"timestamp": minute_ts.isoformat(), "count": count}
+                        )
 
                 return jsonify(results)
     except Exception as e:
         logging.error(f"Error fetching range departure data: {e}")
         return jsonify({"error": "TICK::5017 — QRY_FAULT: RDD Err"}), 500
 
+
 def get_irish_time():
     now = datetime.now(DUBLIN_TZ)
-    return jsonify({"time": now.strftime('%Y-%m-%dT%H:%M:%S.') + f"{now.microsecond // 1000:03d}" + now.strftime('%z')[:3] + ':' + now.strftime('%z')[3:]})
+    return jsonify(
+        {
+            "time": now.strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{now.microsecond // 1000:03d}"
+            + now.strftime("%z")[:3]
+            + ":"
+            + now.strftime("%z")[3:]
+        }
+    )
 
 
 OPENING_SOON_MINUTES = 30
 CLOSING_SOON_MINUTES = 30
 
 FACILITY_DEFINITIONS = [
-    {"name": "Security", "terminal": 1, "openTime": "03:00", "closeTime": "last-flight", "iconType": "shield"},
-    {"name": "Fast Track Security", "terminal": 1, "openTime": "04:00", "closeTime": "21:00", "iconType": "zap"},
-    {"name": "Security", "terminal": 2, "openTime": "03:30", "closeTime": "last-flight", "iconType": "shield"},
-    {"name": "Fast Track Security", "terminal": 2, "openTime": "04:00", "closeTime": "18:00", "iconType": "zap"},
-    {"name": "US Preclearance", "terminal": 2, "openTime": "07:00", "closeTime": "16:30", "iconType": "globe"},
+    {
+        "name": "Security",
+        "terminal": 1,
+        "openTime": "03:00",
+        "closeTime": "last-flight",
+        "iconType": "shield",
+    },
+    {
+        "name": "Fast Track Security",
+        "terminal": 1,
+        "openTime": "04:00",
+        "closeTime": "21:00",
+        "iconType": "zap",
+    },
+    {
+        "name": "Security",
+        "terminal": 2,
+        "openTime": "03:30",
+        "closeTime": "last-flight",
+        "iconType": "shield",
+    },
+    {
+        "name": "Fast Track Security",
+        "terminal": 2,
+        "openTime": "04:00",
+        "closeTime": "18:00",
+        "iconType": "zap",
+    },
+    {
+        "name": "US Preclearance",
+        "terminal": 2,
+        "openTime": "07:00",
+        "closeTime": "16:30",
+        "iconType": "globe",
+    },
 ]
 
 
@@ -1441,13 +1620,19 @@ def _compute_status(now_mins: int, open_time: str, close_time: str):
     if now_mins < open_mins:
         mins_until_open = open_mins - now_mins
         if mins_until_open <= OPENING_SOON_MINUTES:
-            return {"status": "opening-soon", "opensIn": _format_duration(mins_until_open)}
+            return {
+                "status": "opening-soon",
+                "opensIn": _format_duration(mins_until_open),
+            }
         return {"status": "closed", "opensIn": _format_duration(mins_until_open)}
 
     if open_mins <= now_mins < close_mins:
         mins_until_close = close_mins - now_mins
         if mins_until_close <= CLOSING_SOON_MINUTES:
-            return {"status": "closing-soon", "closesIn": _format_duration(mins_until_close)}
+            return {
+                "status": "closing-soon",
+                "closesIn": _format_duration(mins_until_close),
+            }
         return {"status": "open"}
 
     return {"status": "closed"}
@@ -1461,7 +1646,8 @@ def _resolve_last_departures():
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT terminal_name,
                            MAX(scheduled_datetime) as last_departure
                     FROM departures
@@ -1469,12 +1655,14 @@ def _resolve_last_departures():
                       AND scheduled_datetime < %s
                     GROUP BY terminal_name
                     ORDER BY terminal_name
-                """, (today_start, tomorrow_start))
+                """,
+                    (today_start, tomorrow_start),
+                )
                 results = cur.fetchall()
                 last_deps = {}
                 for row in results:
-                    terminal = row['terminal_name']
-                    last_dep = row['last_departure']
+                    terminal = row["terminal_name"]
+                    last_dep = row["last_departure"]
                     if last_dep:
                         if last_dep.tzinfo is None:
                             last_dep = last_dep.replace(tzinfo=timezone.utc)
@@ -1482,6 +1670,7 @@ def _resolve_last_departures():
                 return last_deps
     except Exception:
         return {}
+
 
 def get_facility_hours():
     try:
@@ -1508,29 +1697,38 @@ def get_facility_hours():
 
             status_info = _compute_status(now_mins, defn["openTime"], close_time)
 
-            facilities.append({
-                "name": defn["name"],
-                "terminal": defn["terminal"],
-                "openTime": defn["openTime"],
-                "closeTime": defn["closeTime"],
-                "closeDisplayText": close_display,
-                "iconType": defn["iconType"],
-                "status": status_info["status"],
-                "opensIn": status_info.get("opensIn"),
-                "closesIn": status_info.get("closesIn"),
-            })
+            facilities.append(
+                {
+                    "name": defn["name"],
+                    "terminal": defn["terminal"],
+                    "openTime": defn["openTime"],
+                    "closeTime": defn["closeTime"],
+                    "closeDisplayText": close_display,
+                    "iconType": defn["iconType"],
+                    "status": status_info["status"],
+                    "opensIn": status_info.get("opensIn"),
+                    "closesIn": status_info.get("closesIn"),
+                }
+            )
 
-        irish_time_iso = now_dublin.strftime('%Y-%m-%dT%H:%M:%S.') + \
-            f"{now_dublin.microsecond // 1000:03d}" + \
-            now_dublin.strftime('%z')[:3] + ':' + now_dublin.strftime('%z')[3:]
+        irish_time_iso = (
+            now_dublin.strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{now_dublin.microsecond // 1000:03d}"
+            + now_dublin.strftime("%z")[:3]
+            + ":"
+            + now_dublin.strftime("%z")[3:]
+        )
 
-        return jsonify({
-            "facilities": facilities,
-            "irishTime": irish_time_iso,
-        })
+        return jsonify(
+            {
+                "facilities": facilities,
+                "irishTime": irish_time_iso,
+            }
+        )
     except Exception as e:
         logging.error(f"Error fetching facility hours: {e}")
         return jsonify({"error": "TICK::5018 — QRY_FAULT: FH Err"}), 500
+
 
 def get_last_departures():
     try:
@@ -1540,7 +1738,8 @@ def get_last_departures():
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT terminal_name,
                            MAX(scheduled_datetime) as last_departure
                     FROM departures
@@ -1548,14 +1747,16 @@ def get_last_departures():
                       AND scheduled_datetime < %s
                     GROUP BY terminal_name
                     ORDER BY terminal_name
-                """, (today_start, tomorrow_start))
+                """,
+                    (today_start, tomorrow_start),
+                )
 
                 results = cur.fetchall()
 
                 response = {}
                 for row in results:
-                    terminal = row['terminal_name']
-                    last_dep = row['last_departure']
+                    terminal = row["terminal_name"]
+                    last_dep = row["last_departure"]
                     if last_dep:
                         if last_dep.tzinfo is None:
                             last_dep = last_dep.replace(tzinfo=timezone.utc)
@@ -1589,20 +1790,23 @@ def _color_class_for_value(value):
         return "bg-departure-red-deep"
     return "bg-black"
 
+
 def get_recommendation():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1")
+                cur.execute(
+                    "SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1"
+                )
                 current = cur.fetchone()
 
         if not current:
             return jsonify({"error": "TICK::4041 — QRY_NULL: No Rec"}), 404
 
-        t1 = current.get('t1')
-        t2 = current.get('t2')
-        last_updated = current.get('last_updated')
-        if last_updated and hasattr(last_updated, 'isoformat'):
+        t1 = current.get("t1")
+        t2 = current.get("t2")
+        last_updated = current.get("last_updated")
+        if last_updated and hasattr(last_updated, "isoformat"):
             if last_updated.tzinfo is None:
                 last_updated = last_updated.replace(tzinfo=timezone.utc)
             last_updated = last_updated.isoformat()
@@ -1624,7 +1828,11 @@ def get_recommendation():
                     else:
                         close_time = "23:59"
                 status_info = _compute_status(now_mins, defn["openTime"], close_time)
-                is_available = status_info["status"] in ("open", "opening-soon", "closing-soon")
+                is_available = status_info["status"] in (
+                    "open",
+                    "opening-soon",
+                    "closing-soon",
+                )
                 if defn["terminal"] == 1:
                     t1_open = is_available
                 elif defn["terminal"] == 2:
@@ -1663,36 +1871,42 @@ def get_recommendation():
         global_max = 0
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT GREATEST(
                         COALESCE(MAX(t1), 0),
                         COALESCE(MAX(t2), 0)
                     ) as max_time
                     FROM security_times
                     WHERE timestamp >= %s
-                """, (seven_days_ago,))
+                """,
+                    (seven_days_ago,),
+                )
                 row = cur.fetchone()
-                if row and row['max_time']:
-                    global_max = int(row['max_time'])
+                if row and row["max_time"]:
+                    global_max = int(row["max_time"])
 
-        return jsonify({
-            "t1": t1,
-            "t2": t2,
-            "lastUpdated": last_updated,
-            "recommended": rec,
-            "timeDifferenceMessage": time_diff_msg,
-            "additionalTip": tip,
-            "globalMaxSecurityTime": global_max,
-            "t1SecurityOpen": t1_open,
-            "t2SecurityOpen": t2_open,
-        })
+        return jsonify(
+            {
+                "t1": t1,
+                "t2": t2,
+                "lastUpdated": last_updated,
+                "recommended": rec,
+                "timeDifferenceMessage": time_diff_msg,
+                "additionalTip": tip,
+                "globalMaxSecurityTime": global_max,
+                "t1SecurityOpen": t1_open,
+                "t2SecurityOpen": t2_open,
+            }
+        )
     except Exception as e:
         logging.error(f"Error in recommendation: {e}")
         return jsonify({"error": "TICK::5020 — QRY_FAULT: REC Err"}), 500
 
+
 def get_processed_security_data():
     try:
-        terminal_id = request.args.get('terminalId', type=int)
+        terminal_id = request.args.get("terminalId", type=int)
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
@@ -1701,31 +1915,36 @@ def get_processed_security_data():
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 seven_days_ago = datetime.now(timezone.utc) - timedelta(days=6)
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT timestamp, t1, t2
                     FROM security_times
                     WHERE timestamp >= %s
                     ORDER BY timestamp ASC
-                """, (seven_days_ago,))
+                """,
+                    (seven_days_ago,),
+                )
                 data = cur.fetchall()
 
         daily_hourly_data = {}
         for item in data:
-            timestamp = item['timestamp']
+            timestamp = item["timestamp"]
             if timestamp.tzinfo is None:
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
             local_time = timestamp.astimezone(DUBLIN_TZ)
-            date_key = local_time.strftime('%Y-%m-%d')
+            date_key = local_time.strftime("%Y-%m-%d")
             hour = local_time.hour
             if date_key not in daily_hourly_data:
                 daily_hourly_data[date_key] = {}
             if hour not in daily_hourly_data[date_key]:
                 daily_hourly_data[date_key][hour] = []
-            daily_hourly_data[date_key][hour].append({
-                't1': item['t1'],
-                't2': item['t2'],
-                'timestamp': local_time.isoformat(),
-            })
+            daily_hourly_data[date_key][hour].append(
+                {
+                    "t1": item["t1"],
+                    "t2": item["t2"],
+                    "timestamp": local_time.isoformat(),
+                }
+            )
 
         now_dublin = datetime.now(DUBLIN_TZ)
         twenty_four_hours_ago = now_dublin - timedelta(hours=24)
@@ -1736,67 +1955,82 @@ def get_processed_security_data():
         historical_data = []
         for i in range(6, -1, -1):
             d = now_dublin - timedelta(days=i)
-            date_key = d.strftime('%Y-%m-%d')
+            date_key = d.strftime("%Y-%m-%d")
             day_data = daily_hourly_data.get(date_key, {})
             hourly_data = []
             for hour in range(24):
                 records = day_data.get(hour, [])
                 valid_vals = [r[t_key] for r in records if r[t_key] is not None]
-                avg_val = round(sum(valid_vals) / len(valid_vals)) if valid_vals else None
-                latest_ts = records[-1]['timestamp'] if records else None
-                hourly_data.append({
-                    'hour': hour,
-                    't1': records[-1]['t1'] if records else None,
-                    't2': records[-1]['t2'] if records else None,
-                    'avgForTerminal': avg_val,
-                    'timestamp': latest_ts,
-                })
+                avg_val = (
+                    round(sum(valid_vals) / len(valid_vals)) if valid_vals else None
+                )
+                latest_ts = records[-1]["timestamp"] if records else None
+                hourly_data.append(
+                    {
+                        "hour": hour,
+                        "t1": records[-1]["t1"] if records else None,
+                        "t2": records[-1]["t2"] if records else None,
+                        "avgForTerminal": avg_val,
+                        "timestamp": latest_ts,
+                    }
+                )
 
                 for record in records:
-                    ts_parsed = datetime.fromisoformat(record['timestamp'])
+                    ts_parsed = datetime.fromisoformat(record["timestamp"])
                     time_val = record[t_key]
                     if time_val is not None:
                         if hour not in granular_by_hour:
                             granular_by_hour[hour] = []
-                        granular_by_hour[hour].append({
-                            'timestamp': record['timestamp'],
-                            'time': time_val,
-                        })
+                        granular_by_hour[hour].append(
+                            {
+                                "timestamp": record["timestamp"],
+                                "time": time_val,
+                            }
+                        )
 
                 if latest_ts and avg_val is not None:
                     ts_parsed = datetime.fromisoformat(latest_ts)
                     if ts_parsed >= twenty_four_hours_ago and ts_parsed <= now_dublin:
-                        all_data_points.append({
-                            'hour': hour,
-                            't1': records[-1]['t1'] if records else None,
-                            't2': records[-1]['t2'] if records else None,
-                            'timestamp': latest_ts,
-                            'colorClass': _color_class_for_value(avg_val),
-                            'displayValue': avg_val,
-                        })
+                        all_data_points.append(
+                            {
+                                "hour": hour,
+                                "t1": records[-1]["t1"] if records else None,
+                                "t2": records[-1]["t2"] if records else None,
+                                "timestamp": latest_ts,
+                                "colorClass": _color_class_for_value(avg_val),
+                                "displayValue": avg_val,
+                            }
+                        )
 
-            historical_data.append({'date': date_key, 'hourlyData': hourly_data})
+            historical_data.append({"date": date_key, "hourlyData": hourly_data})
 
         daily_averages = []
         for day in historical_data:
-            valid_times = [h['avgForTerminal'] for h in day['hourlyData'] if h['avgForTerminal'] is not None]
+            valid_times = [
+                h["avgForTerminal"]
+                for h in day["hourlyData"]
+                if h["avgForTerminal"] is not None
+            ]
             avg = round(sum(valid_times) / len(valid_times)) if valid_times else None
-            daily_averages.append({'date': day['date'], 't1Average': avg})
+            daily_averages.append({"date": day["date"], "t1Average": avg})
 
-        all_data_points.sort(key=lambda x: x['timestamp'])
+        all_data_points.sort(key=lambda x: x["timestamp"])
 
-        return jsonify({
-            'dailyAverages': daily_averages,
-            'last24HourData': all_data_points,
-            'granularByHour': granular_by_hour,
-        })
+        return jsonify(
+            {
+                "dailyAverages": daily_averages,
+                "last24HourData": all_data_points,
+                "granularByHour": granular_by_hour,
+            }
+        )
     except Exception as e:
         logging.error(f"Error in processed-security-data: {e}")
         return jsonify({"error": "TICK::5021 — QRY_FAULT: PSD Err"}), 500
 
+
 def get_processed_departure_data():
     try:
-        terminal_id = request.args.get('terminalId', type=int)
+        terminal_id = request.args.get("terminalId", type=int)
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
@@ -1806,7 +2040,8 @@ def get_processed_departure_data():
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT
                         DATE_TRUNC('hour', scheduled_datetime) as departure_datetime,
                         COUNT(*) as departure_count
@@ -1814,17 +2049,19 @@ def get_processed_departure_data():
                     WHERE terminal_name = %s AND scheduled_datetime >= %s
                     GROUP BY DATE_TRUNC('hour', scheduled_datetime)
                     ORDER BY departure_datetime ASC
-                """, (terminal_name, three_days_ago))
+                """,
+                    (terminal_name, three_days_ago),
+                )
                 raw_data = cur.fetchall()
 
         dates_to_process = []
         for i in range(3):
             d = now_dublin - timedelta(days=i)
-            date_key = d.strftime('%Y-%m-%d')
+            date_key = d.strftime("%Y-%m-%d")
             if i == 0:
                 label = "TODAY"
             else:
-                label = d.strftime('%a, %b ') + _ordinal(d.day)
+                label = d.strftime("%a, %b ") + _ordinal(d.day)
                 label = label.upper()
             dates_to_process.append((date_key, label))
 
@@ -1832,23 +2069,25 @@ def get_processed_departure_data():
         for date_key, label in dates_to_process:
             hourly_counts = [0] * 24
             for item in raw_data:
-                dt = item['departure_datetime']
+                dt = item["departure_datetime"]
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 local_dt = dt.astimezone(DUBLIN_TZ)
-                if local_dt.strftime('%Y-%m-%d') == date_key:
-                    hourly_counts[local_dt.hour] = int(item['departure_count'])
+                if local_dt.strftime("%Y-%m-%d") == date_key:
+                    hourly_counts[local_dt.hour] = int(item["departure_count"])
 
             hours = []
             for count in hourly_counts:
-                hours.append({
-                    'value': count,
-                    'colorClass': _color_class_for_value(count),
-                })
+                hours.append(
+                    {
+                        "value": count,
+                        "colorClass": _color_class_for_value(count),
+                    }
+                )
 
-            processed.append({'date': label, 'hours': hours})
+            processed.append({"date": label, "hours": hours})
 
-        return jsonify({'days': processed})
+        return jsonify({"days": processed})
     except Exception as e:
         logging.error(f"Error in processed-departure-data: {e}")
         return jsonify({"error": "TICK::5022 — QRY_FAULT: PDD Err"}), 500
@@ -1856,18 +2095,19 @@ def get_processed_departure_data():
 
 def _ordinal(n):
     if 11 <= (n % 100) <= 13:
-        suffix = 'th'
+        suffix = "th"
     else:
-        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suffix}"
+
 
 def get_chart_data():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        start_iso = data.get('start')
-        end_iso = data.get('end')
-        granularity_minutes = data.get('granularity', 1)
+        terminal_id = data.get("terminalId")
+        start_iso = data.get("start")
+        end_iso = data.get("end")
+        granularity_minutes = data.get("granularity", 1)
 
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
@@ -1886,15 +2126,15 @@ def get_chart_data():
 
         sec_points = []
         for r in sec_rows:
-            ts = r['timestamp']
+            ts = r["timestamp"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
-            if r['sec_time'] is not None:
-                sec_points.append({'ts': ts.timestamp(), 'value': int(r['sec_time'])})
+            if r["sec_time"] is not None:
+                sec_points.append({"ts": ts.timestamp(), "value": int(r["sec_time"])})
 
         dep_by_hour = {}
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             hour_key = ts.replace(minute=0, second=0, microsecond=0)
@@ -1905,10 +2145,27 @@ def get_chart_data():
             for minute in range(60):
                 minute_ts = hour_key + timedelta(minutes=minute)
                 if start_dt <= minute_ts <= end_dt:
-                    near_count = sum(1 for r in dep_rows
-                                     if abs((r['scheduled_datetime'].replace(tzinfo=timezone.utc if r['scheduled_datetime'].tzinfo is None else r['scheduled_datetime'].tzinfo) - minute_ts).total_seconds()) <= 300)
+                    near_count = sum(
+                        1
+                        for r in dep_rows
+                        if abs(
+                            (
+                                r["scheduled_datetime"].replace(
+                                    tzinfo=(
+                                        timezone.utc
+                                        if r["scheduled_datetime"].tzinfo is None
+                                        else r["scheduled_datetime"].tzinfo
+                                    )
+                                )
+                                - minute_ts
+                            ).total_seconds()
+                        )
+                        <= 300
+                    )
                     if near_count > 0:
-                        dep_points.append({'ts': minute_ts.timestamp(), 'value': near_count})
+                        dep_points.append(
+                            {"ts": minute_ts.timestamp(), "value": near_count}
+                        )
 
         gran_secs = granularity_minutes * 60
         cursor = start_dt
@@ -1918,32 +2175,47 @@ def get_chart_data():
             cursor_ts = cursor.timestamp()
             bucket_end_ts = bucket_end.timestamp()
 
-            sec_in_bucket = [p['value'] for p in sec_points if cursor_ts <= p['ts'] < bucket_end_ts]
-            dep_in_bucket = [p['value'] for p in dep_points if cursor_ts <= p['ts'] < bucket_end_ts]
+            sec_in_bucket = [
+                p["value"] for p in sec_points if cursor_ts <= p["ts"] < bucket_end_ts
+            ]
+            dep_in_bucket = [
+                p["value"] for p in dep_points if cursor_ts <= p["ts"] < bucket_end_ts
+            ]
 
-            sec_avg = round(sum(sec_in_bucket) / len(sec_in_bucket)) if sec_in_bucket else None
-            dep_avg = round(sum(dep_in_bucket) / len(dep_in_bucket)) if dep_in_bucket else None
+            sec_avg = (
+                round(sum(sec_in_bucket) / len(sec_in_bucket))
+                if sec_in_bucket
+                else None
+            )
+            dep_avg = (
+                round(sum(dep_in_bucket) / len(dep_in_bucket))
+                if dep_in_bucket
+                else None
+            )
 
             is_past = cursor <= now
-            buckets.append({
-                'ts': int(cursor_ts * 1000),
-                'security': sec_avg if is_past else None,
-                'departures': dep_avg or 0,
-            })
+            buckets.append(
+                {
+                    "ts": int(cursor_ts * 1000),
+                    "security": sec_avg if is_past else None,
+                    "departures": dep_avg or 0,
+                }
+            )
             cursor = bucket_end
 
-        return jsonify({'points': buckets})
+        return jsonify({"points": buckets})
     except Exception as e:
         logging.error(f"Error in chart-data: {e}")
         return jsonify({"error": "TICK::5023 — QRY_FAULT: CHD Err"}), 500
 
+
 def get_hourly_detail_stats():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        current_timestamp = data.get('currentTimestamp')
-        prev_timestamp = data.get('prevTimestamp')
-        next_timestamp = data.get('nextTimestamp')
+        terminal_id = data.get("terminalId")
+        current_timestamp = data.get("currentTimestamp")
+        prev_timestamp = data.get("prevTimestamp")
+        next_timestamp = data.get("nextTimestamp")
 
         if not terminal_id or not current_timestamp:
             return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
@@ -1964,7 +2236,7 @@ def get_hourly_detail_stats():
             hour_start = ts.replace(minute=0, second=0, microsecond=0)
             hour_end = hour_start + timedelta(hours=1)
             rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
-            vals = [r['sec_time'] for r in rows if r['sec_time'] is not None]
+            vals = [r["sec_time"] for r in rows if r["sec_time"] is not None]
             return round(sum(vals) / len(vals)) if vals else None
 
         current_time = get_avg_for_timestamp(current_timestamp)
@@ -2003,7 +2275,9 @@ def get_hourly_detail_stats():
         hour_start = ts.replace(minute=0, second=0, microsecond=0)
         hour_end = hour_start + timedelta(hours=1)
         granular_rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
-        valid_times = [r['sec_time'] for r in granular_rows if r['sec_time'] is not None]
+        valid_times = [
+            r["sec_time"] for r in granular_rows if r["sec_time"] is not None
+        ]
 
         fluctuation_msg = None
         if len(valid_times) > 1:
@@ -2022,11 +2296,13 @@ def get_hourly_detail_stats():
         else:
             fluctuation_msg = "No data for fluctuation"
 
-        return jsonify({
-            'changeFromPrev': change_from_prev,
-            'changeToNext': change_to_next,
-            'fluctuationMessage': fluctuation_msg,
-        })
+        return jsonify(
+            {
+                "changeFromPrev": change_from_prev,
+                "changeToNext": change_to_next,
+                "fluctuationMessage": fluctuation_msg,
+            }
+        )
     except Exception as e:
         logging.error(f"Error in hourly-detail-stats: {e}")
         return jsonify({"error": "TICK::5024 — QRY_FAULT: HDS Err"}), 500
@@ -2048,15 +2324,17 @@ def _projected_hourly_stats_trition(terminal_id):
     hour_end = hour_start + timedelta(hours=1)
 
     rows = _fetch_security_for_hour(terminal_id, hour_start, hour_end)
-    observed_values = [r['sec_time'] for r in rows] if rows else []
+    observed_values = [r["sec_time"] for r in rows] if rows else []
 
     last_value = observed_values[-1] if observed_values else h60
     last_minute = now.minute
 
-    dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+    dep_rows = _fetch_departures_range(
+        terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1)
+    )
     dep_times = []
     for r in dep_rows:
-        ts = r['scheduled_datetime']
+        ts = r["scheduled_datetime"]
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         dep_times.append(ts)
@@ -2065,12 +2343,16 @@ def _projected_hourly_stats_trition(terminal_id):
 
     future_minutes = list(range(last_minute + 1, 60))
     if not future_minutes:
-        return jsonify({"stats": {
-            "maxTime": round(last_value),
-            "avgTime": round(last_value),
-            "peakMinute": last_minute,
-            "dataPoints": len(observed_values),
-        }})
+        return jsonify(
+            {
+                "stats": {
+                    "maxTime": round(last_value),
+                    "avgTime": round(last_value),
+                    "peakMinute": last_minute,
+                    "dataPoints": len(observed_values),
+                }
+            }
+        )
 
     projected = []
     current = float(last_value)
@@ -2096,26 +2378,29 @@ def _projected_hourly_stats_trition(terminal_id):
             biggest_increase = inc
             peak_minute = projected[i]["minute"]
 
-    return jsonify({
-        "stats": {
-            "maxTime": max_time,
-            "avgTime": avg_time,
-            "peakMinute": peak_minute,
-            "dataPoints": len(observed_values),
+    return jsonify(
+        {
+            "stats": {
+                "maxTime": max_time,
+                "avgTime": avg_time,
+                "peakMinute": peak_minute,
+                "dataPoints": len(observed_values),
+            }
         }
-    })
+    )
+
 
 def get_projected_hourly_stats():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        num_sims = data.get('numSims', 500)
-        model = data.get('model')
+        terminal_id = data.get("terminalId")
+        num_sims = data.get("numSims", 500)
+        model = data.get("model")
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
-        if model == 'trition':
+        if model == "trition":
             return _projected_hourly_stats_trition(terminal_id)
 
         now = datetime.now(DUBLIN_TZ)
@@ -2126,13 +2411,13 @@ def get_projected_hourly_stats():
         if not rows:
             return jsonify({"stats": None})
 
-        observed_values = [r['sec_time'] for r in rows]
+        observed_values = [r["sec_time"] for r in rows]
         last_row = rows[-1]
-        last_ts = last_row['timestamp']
+        last_ts = last_row["timestamp"]
         if last_ts.tzinfo is None:
             last_ts = last_ts.replace(tzinfo=timezone.utc)
         last_minute = last_ts.astimezone(DUBLIN_TZ).minute
-        last_value = last_row['sec_time']
+        last_value = last_row["sec_time"]
 
         paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
         if not paths or len(paths) == 0:
@@ -2158,14 +2443,16 @@ def get_projected_hourly_stats():
                 biggest_increase = inc
                 peak_minute = paths[0][i]["minute"]
 
-        return jsonify({
-            "stats": {
-                "maxTime": max_time,
-                "avgTime": avg_time,
-                "peakMinute": peak_minute,
-                "dataPoints": len(observed_values),
+        return jsonify(
+            {
+                "stats": {
+                    "maxTime": max_time,
+                    "avgTime": avg_time,
+                    "peakMinute": peak_minute,
+                    "dataPoints": len(observed_values),
+                }
             }
-        })
+        )
     except Exception as e:
         logging.error(f"Error in projected-hourly-stats: {e}")
         return jsonify({"error": "TICK::5025 — QRY_FAULT: PHS Err"}), 500
@@ -2228,8 +2515,14 @@ def _run_project(observed_values, last_value, last_minute, num_sims=200):
     return result
 
 
-def _run_departure_aware(observed_security, observed_pairs, last_value,
-                          future_departures, future_steps, num_sims=200):
+def _run_departure_aware(
+    observed_security,
+    observed_pairs,
+    last_value,
+    future_departures,
+    future_steps,
+    num_sims=200,
+):
     result = {}
     if not observed_security or future_steps <= 0:
         return result
@@ -2259,7 +2552,9 @@ def _run_departure_aware(observed_security, observed_pairs, last_value,
         dep_correlation = abs(dep_correlation)
         baseline_dep = sum(dep_vals) / len(dep_vals)
     elif observed_pairs:
-        baseline_dep = sum(p["departures"] for p in observed_pairs) / len(observed_pairs)
+        baseline_dep = sum(p["departures"] for p in observed_pairs) / len(
+            observed_pairs
+        )
         dep_beta = 0.15
         dep_correlation = 0.3
 
@@ -2268,7 +2563,11 @@ def _run_departure_aware(observed_security, observed_pairs, last_value,
         dep_by_minute[d["minuteOffset"]] = d["count"]
 
     future_dep_values = [d["count"] for d in future_departures]
-    avg_future_dep = sum(future_dep_values) / len(future_dep_values) if future_dep_values else baseline_dep
+    avg_future_dep = (
+        sum(future_dep_values) / len(future_dep_values)
+        if future_dep_values
+        else baseline_dep
+    )
     reference_dep = max(baseline_dep, 0.5)
 
     corr_scale = 0.3 + 0.7 * dep_correlation
@@ -2311,13 +2610,20 @@ def _fetch_security_for_hour(terminal_id, hour_start_utc, hour_end_utc):
     t_key = f"t{terminal_id}"
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT timestamp, """ + t_key + """ as sec_time
+            cur.execute(
+                """
+                SELECT timestamp, """
+                + t_key
+                + """ as sec_time
                 FROM security_times
                 WHERE timestamp >= %s AND timestamp < %s
-                  AND """ + t_key + """ IS NOT NULL
+                  AND """
+                + t_key
+                + """ IS NOT NULL
                 ORDER BY timestamp ASC
-            """, (hour_start_utc, hour_end_utc))
+            """,
+                (hour_start_utc, hour_end_utc),
+            )
             return cur.fetchall()
 
 
@@ -2325,13 +2631,20 @@ def _fetch_security_range(terminal_id, start_utc, end_utc):
     t_key = f"t{terminal_id}"
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT timestamp, """ + t_key + """ as sec_time
+            cur.execute(
+                """
+                SELECT timestamp, """
+                + t_key
+                + """ as sec_time
                 FROM security_times
                 WHERE timestamp >= %s AND timestamp <= %s
-                  AND """ + t_key + """ IS NOT NULL
+                  AND """
+                + t_key
+                + """ IS NOT NULL
                 ORDER BY timestamp ASC
-            """, (start_utc, end_utc))
+            """,
+                (start_utc, end_utc),
+            )
             return cur.fetchall()
 
 
@@ -2339,19 +2652,23 @@ def _fetch_departures_range(terminal_id, start_utc, end_utc):
     terminal_name = f"T{terminal_id}"
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT scheduled_datetime
                 FROM departures
                 WHERE terminal_name = %s
                   AND scheduled_datetime >= %s AND scheduled_datetime <= %s
                 ORDER BY scheduled_datetime ASC
-            """, (terminal_name, start_utc, end_utc))
+            """,
+                (terminal_name, start_utc, end_utc),
+            )
             return cur.fetchall()
+
 
 def get_projected_6h():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
+        terminal_id = data.get("terminalId")
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
@@ -2360,9 +2677,13 @@ def get_projected_6h():
         lookback = timedelta(hours=6)
 
         sec_rows = _fetch_security_range(terminal_id, now_utc - lookback, now_utc)
-        dep_rows = _fetch_departures_range(terminal_id, now_utc - lookback, now_utc + timedelta(hours=7))
+        dep_rows = _fetch_departures_range(
+            terminal_id, now_utc - lookback, now_utc + timedelta(hours=7)
+        )
 
-        observed_security = [r['sec_time'] for r in sec_rows if r['sec_time'] is not None]
+        observed_security = [
+            r["sec_time"] for r in sec_rows if r["sec_time"] is not None
+        ]
         last_value = observed_security[-1] if observed_security else None
 
         if last_value is None or len(observed_security) < 2:
@@ -2370,22 +2691,22 @@ def get_projected_6h():
 
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
 
         observed_pairs = []
         for r in sec_rows:
-            ts = r['timestamp']
+            ts = r["timestamp"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
-            if ts > now_utc or r['sec_time'] is None:
+            if ts > now_utc or r["sec_time"] is None:
                 continue
             dep_hour_start = ts.replace(minute=0, second=0, microsecond=0)
             dep_hour_end = dep_hour_start + timedelta(hours=1)
             dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-            observed_pairs.append({"security": r['sec_time'], "departures": dep_count})
+            observed_pairs.append({"security": r["sec_time"], "departures": dep_count})
 
         future_departures = []
         for dep_ts in dep_times:
@@ -2396,11 +2717,12 @@ def get_projected_6h():
                 dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
                 dep_hour_end = dep_hour_start + timedelta(hours=1)
                 count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-                future_departures.append({"minuteOffset": minute_offset, "count": count})
+                future_departures.append(
+                    {"minuteOffset": minute_offset, "count": count}
+                )
 
         bands = _run_departure_aware(
-            observed_security, observed_pairs, last_value,
-            future_departures, 360, 300
+            observed_security, observed_pairs, last_value, future_departures, 360, 300
         )
 
         hours_result = []
@@ -2408,21 +2730,23 @@ def get_projected_6h():
             hour_start_min = h * 60 + 1
             hour_end_min = (h + 1) * 60
             hour_time = now_dublin + timedelta(hours=h + 1)
-            hour_label = hour_time.strftime('%I %p').lstrip('0')
+            hour_label = hour_time.strftime("%I %p").lstrip("0")
 
             minutes_data = []
             medians = []
             for m in range(hour_start_min, hour_end_min + 1):
                 band = bands.get(m)
                 if band:
-                    minutes_data.append({
-                        "minute": m - hour_start_min,
-                        "median": band["median"],
-                        "p10": band["p10"],
-                        "p25": band["p25"],
-                        "p75": band["p75"],
-                        "p90": band["p90"],
-                    })
+                    minutes_data.append(
+                        {
+                            "minute": m - hour_start_min,
+                            "median": band["median"],
+                            "p10": band["p10"],
+                            "p25": band["p25"],
+                            "p75": band["p75"],
+                            "p90": band["p90"],
+                        }
+                    )
                     medians.append(band["median"])
 
             avg_median = round(sum(medians) / len(medians)) if medians else None
@@ -2430,24 +2754,27 @@ def get_projected_6h():
             hour_utc_end = now_utc + timedelta(hours=h + 1)
             dep_count = sum(1 for d in dep_times if hour_utc_start <= d < hour_utc_end)
 
-            hours_result.append({
-                "hourLabel": hour_label,
-                "hourOffset": h + 1,
-                "timestamp": hour_time.isoformat(),
-                "avgMedian": avg_median,
-                "departures": dep_count,
-                "minutes": minutes_data,
-            })
+            hours_result.append(
+                {
+                    "hourLabel": hour_label,
+                    "hourOffset": h + 1,
+                    "timestamp": hour_time.isoformat(),
+                    "avgMedian": avg_median,
+                    "departures": dep_count,
+                    "minutes": minutes_data,
+                }
+            )
 
         return jsonify({"hours": hours_result})
     except Exception as e:
         logging.error(f"Error in projected-6h: {e}")
         return jsonify({"error": "TICK::5026 — QRY_FAULT: P6H Err"}), 500
 
+
 def simulate_liminal_method_b():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
+        terminal_id = data.get("terminalId")
         num_sims = 15
 
         if not terminal_id:
@@ -2461,13 +2788,13 @@ def simulate_liminal_method_b():
         if not rows:
             return jsonify({"paths": []})
 
-        observed_values = [r['sec_time'] for r in rows]
+        observed_values = [r["sec_time"] for r in rows]
         last_row = rows[-1]
-        last_ts = last_row['timestamp']
+        last_ts = last_row["timestamp"]
         if last_ts.tzinfo is None:
             last_ts = last_ts.replace(tzinfo=timezone.utc)
         last_minute = last_ts.astimezone(DUBLIN_TZ).minute
-        last_value = last_row['sec_time']
+        last_value = last_row["sec_time"]
 
         paths = _run_multi_path(observed_values, last_value, last_minute, num_sims)
         return jsonify({"paths": paths, "dataPoints": len(observed_values)})
@@ -2475,11 +2802,12 @@ def simulate_liminal_method_b():
         logging.error(f"Error in liminal/method-b: {e}")
         return jsonify({"error": "TICK::5030 — SIM_FAULT: LMB Err"}), 500
 
+
 def simulate_liminal_method_d():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        hour_timestamp = data.get('hourTimestamp')
+        terminal_id = data.get("terminalId")
+        hour_timestamp = data.get("hourTimestamp")
         num_sims = 200
 
         if not terminal_id:
@@ -2502,12 +2830,12 @@ def simulate_liminal_method_d():
 
         observed = []
         for r in rows:
-            ts = r['timestamp']
+            ts = r["timestamp"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             m = ts.astimezone(DUBLIN_TZ).minute
             if m <= current_minute:
-                observed.append((m, r['sec_time']))
+                observed.append((m, r["sec_time"]))
 
         if not observed:
             return jsonify({"projected": []})
@@ -2523,13 +2851,14 @@ def simulate_liminal_method_d():
         logging.error(f"Error in liminal/method-a: {e}")
         return jsonify({"error": "TICK::5031 — SIM_FAULT: LMA Err"}), 500
 
+
 def simulate_liminal_method_a():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        start_iso = data.get('start')
-        end_iso = data.get('end')
-        selected_timeframe = data.get('selectedTimeframe', 1440)
+        terminal_id = data.get("terminalId")
+        start_iso = data.get("start")
+        end_iso = data.get("end")
+        selected_timeframe = data.get("selectedTimeframe", 1440)
         num_sims = 200
 
         if not terminal_id or not start_iso or not end_iso:
@@ -2544,15 +2873,15 @@ def simulate_liminal_method_a():
 
         past_sec = []
         for r in sec_rows:
-            ts = r['timestamp']
+            ts = r["timestamp"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             if ts <= now:
-                past_sec.append({"ts": ts, "value": r['sec_time']})
+                past_sec.append({"ts": ts, "value": r["sec_time"]})
 
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
@@ -2566,7 +2895,7 @@ def simulate_liminal_method_a():
         observed_pairs = []
         for sec_point in past_sec:
             best_dep_count = 0
-            best_dist = float('inf')
+            best_dist = float("inf")
             for dep_ts in dep_times:
                 if dep_ts > now:
                     continue
@@ -2575,11 +2904,15 @@ def simulate_liminal_method_a():
                     best_dist = dist
                     dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
                     dep_hour_end = dep_hour_start + timedelta(hours=1)
-                    best_dep_count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-            observed_pairs.append({
-                "security": sec_point["value"],
-                "departures": best_dep_count,
-            })
+                    best_dep_count = sum(
+                        1 for d in dep_times if dep_hour_start <= d < dep_hour_end
+                    )
+            observed_pairs.append(
+                {
+                    "security": sec_point["value"],
+                    "departures": best_dep_count,
+                }
+            )
 
         future_departures = []
         future_dep_times = [d for d in dep_times if d > now]
@@ -2589,7 +2922,9 @@ def simulate_liminal_method_a():
                 dep_hour_start = dep_ts.replace(minute=0, second=0, microsecond=0)
                 dep_hour_end = dep_hour_start + timedelta(hours=1)
                 count = sum(1 for d in dep_times if dep_hour_start <= d < dep_hour_end)
-                future_departures.append({"minuteOffset": minute_offset, "count": count})
+                future_departures.append(
+                    {"minuteOffset": minute_offset, "count": count}
+                )
 
         future_minutes = int((end_dt - now).total_seconds() / 60)
         future_minutes = max(0, min(future_minutes, 1440))
@@ -2599,8 +2934,12 @@ def simulate_liminal_method_a():
             return jsonify({"bands": {}})
 
         bands = _run_departure_aware(
-            observed_security, observed_pairs, last_value,
-            future_departures, effective_steps, num_sims
+            observed_security,
+            observed_pairs,
+            last_value,
+            future_departures,
+            effective_steps,
+            num_sims,
         )
 
         bands_str_keys = {str(k): v for k, v in bands.items()}
@@ -2614,17 +2953,25 @@ import pandas as pd
 import xgboost as xgb
 
 _TRITION_MODEL_KEYS = [
-    "t1_h60m", "t1_h120m", "t1_h180m",
-    "t2_h60m", "t2_h120m", "t2_h180m",
+    "t1_h60m",
+    "t1_h120m",
+    "t1_h180m",
+    "t2_h60m",
+    "t2_h120m",
+    "t2_h180m",
 ]
 _TRITION_BAND_MINUTES = 5
 _TRITION_LOOKBACK_HOURS = 24
 _TRITION_BAND_COUNT = (_TRITION_LOOKBACK_HOURS * 60) // _TRITION_BAND_MINUTES
 _TRITION_DEP_FEATURE_COLS = [
-    "dep_count_t1", "dep_count_t2",
-    "dep_next_1h_t1", "dep_next_1h_t2",
-    "dep_next_2h_t1", "dep_next_2h_t2",
-    "dep_next_3h_t1", "dep_next_3h_t2",
+    "dep_count_t1",
+    "dep_count_t2",
+    "dep_next_1h_t1",
+    "dep_next_1h_t2",
+    "dep_next_2h_t1",
+    "dep_next_2h_t2",
+    "dep_next_3h_t1",
+    "dep_next_3h_t2",
 ]
 _trition_models = None
 _trition_meta = None
@@ -2646,7 +2993,9 @@ def _trition_load_models():
         booster.load_model(os.path.join(model_dir, f"{key}.json"))
         _trition_models[key] = booster
 
-    logging.info(f"[trition] loaded {len(_trition_models)} models, {len(_trition_meta['feature_cols'])} features")
+    logging.info(
+        f"[trition] loaded {len(_trition_models)} models, {len(_trition_meta['feature_cols'])} features"
+    )
     return _trition_models, _trition_meta
 
 
@@ -2675,8 +3024,12 @@ def _trition_fetch_departure_data(band_timestamps):
                 (earliest, latest),
             )
             rows = cur.fetchall()
-    t1_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T1"])
-    t2_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T2"])
+    t1_deps = sorted(
+        [r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T1"]
+    )
+    t2_deps = sorted(
+        [r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T2"]
+    )
     return {"t1": t1_deps, "t2": t2_deps}
 
 
@@ -2713,16 +3066,32 @@ def _trition_fetch_banded():
         for terminal in ["t1", "t2"]:
             deps = dep_data.get(terminal, [])
             dep_features[f"dep_count_{terminal}"].append(
-                _trition_count_deps(deps, ts_aware - timedelta(minutes=30), ts_aware + timedelta(minutes=30))
+                _trition_count_deps(
+                    deps,
+                    ts_aware - timedelta(minutes=30),
+                    ts_aware + timedelta(minutes=30),
+                )
             )
             dep_features[f"dep_next_1h_{terminal}"].append(
-                _trition_count_deps(deps, ts_aware + timedelta(minutes=30), ts_aware + timedelta(minutes=90))
+                _trition_count_deps(
+                    deps,
+                    ts_aware + timedelta(minutes=30),
+                    ts_aware + timedelta(minutes=90),
+                )
             )
             dep_features[f"dep_next_2h_{terminal}"].append(
-                _trition_count_deps(deps, ts_aware + timedelta(minutes=90), ts_aware + timedelta(minutes=150))
+                _trition_count_deps(
+                    deps,
+                    ts_aware + timedelta(minutes=90),
+                    ts_aware + timedelta(minutes=150),
+                )
             )
             dep_features[f"dep_next_3h_{terminal}"].append(
-                _trition_count_deps(deps, ts_aware + timedelta(minutes=150), ts_aware + timedelta(minutes=210))
+                _trition_count_deps(
+                    deps,
+                    ts_aware + timedelta(minutes=150),
+                    ts_aware + timedelta(minutes=210),
+                )
             )
 
     for col in _TRITION_DEP_FEATURE_COLS:
@@ -2799,6 +3168,7 @@ def _trition_predict_all():
         results[key] = round(float(pred[0]), 1)
     return results
 
+
 def _trition_interp_horizon(horizon_preds, sorted_horizons, minute, last_obs):
     if minute <= sorted_horizons[0]:
         frac = minute / sorted_horizons[0]
@@ -2828,10 +3198,10 @@ def _trition_baseline_dep_rate(dep_times, now_utc, lookback_hours=3):
 def simulate_trition_method_a():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        start_iso = data.get('start')
-        end_iso = data.get('end')
-        selected_timeframe = data.get('selectedTimeframe', 1440)
+        terminal_id = data.get("terminalId")
+        start_iso = data.get("start")
+        end_iso = data.get("end")
+        selected_timeframe = data.get("selectedTimeframe", 1440)
 
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
@@ -2860,12 +3230,20 @@ def simulate_trition_method_a():
             return jsonify({"bands": {}})
 
         sec_rows = _fetch_security_range(terminal_id, now - timedelta(minutes=5), now)
-        last_obs = sec_rows[-1]['sec_time'] if sec_rows else horizon_preds.get(min(horizon_preds.keys()), 5)
+        last_obs = (
+            sec_rows[-1]["sec_time"]
+            if sec_rows
+            else horizon_preds.get(min(horizon_preds.keys()), 5)
+        )
 
-        dep_rows = _fetch_departures_range(terminal_id, now - timedelta(hours=3), now + timedelta(minutes=effective_steps + 30))
+        dep_rows = _fetch_departures_range(
+            terminal_id,
+            now - timedelta(hours=3),
+            now + timedelta(minutes=effective_steps + 30),
+        )
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
@@ -2875,10 +3253,14 @@ def simulate_trition_method_a():
 
         bands = {}
         for minute in range(1, effective_steps + 1):
-            interp_val = _trition_interp_horizon(horizon_preds, sorted_horizons, minute, last_obs)
+            interp_val = _trition_interp_horizon(
+                horizon_preds, sorted_horizons, minute, last_obs
+            )
             center_utc = now + timedelta(minutes=minute)
             dep_count = _trition_dep_pressure(dep_times, center_utc)
-            dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            dep_ratio = (
+                min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            )
             pressure = (dep_ratio - 1.0) * 0.4
             adjusted = interp_val * (1.0 + pressure * 0.15)
             v = max(0, round(adjusted))
@@ -2898,10 +3280,11 @@ def simulate_trition_method_a():
         logging.error(f"Error in trition/method-a: {e}")
         return jsonify({"error": "TICK::5032 — SIM_FAULT: TRA Err"}), 500
 
+
 def simulate_trition_method_b():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
+        terminal_id = data.get("terminalId")
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
@@ -2915,10 +3298,12 @@ def simulate_trition_method_b():
         last_minute = now.minute
         t_key = f"t{terminal_id}"
 
-        sec_rows = _fetch_security_for_hour(terminal_id,
+        sec_rows = _fetch_security_for_hour(
+            terminal_id,
             now.replace(minute=0, second=0, microsecond=0),
-            now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
-        observed_values = [r['sec_time'] for r in sec_rows] if sec_rows else []
+            now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
+        )
+        observed_values = [r["sec_time"] for r in sec_rows] if sec_rows else []
         last_value = observed_values[-1] if observed_values else None
 
         h60_pred = preds.get(f"{t_key}_h60m")
@@ -2929,10 +3314,12 @@ def simulate_trition_method_b():
         if not future_minutes:
             return jsonify({"paths": [], "dataPoints": len(observed_values)})
 
-        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+        dep_rows = _fetch_departures_range(
+            terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1)
+        )
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
@@ -2952,7 +3339,9 @@ def simulate_trition_method_b():
             remaining = len(future_minutes)
             for idx, m in enumerate(future_minutes):
                 dep_count = dep_by_minute.get(m, 0)
-                dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                dep_ratio = (
+                    min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                )
                 pressure = max((dep_ratio - 1.0) * 0.3, 0)
                 adjusted_target = target * (1.0 + pressure * 0.1)
                 drift = (adjusted_target - current) * 0.3
@@ -2967,11 +3356,12 @@ def simulate_trition_method_b():
         logging.error(f"Error in trition/method-b: {e}")
         return jsonify({"error": "TICK::5033 — SIM_FAULT: TRB Err"}), 500
 
+
 def simulate_trition_method_d():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
-        hour_timestamp = data.get('hourTimestamp')
+        terminal_id = data.get("terminalId")
+        hour_timestamp = data.get("hourTimestamp")
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
@@ -2991,18 +3381,20 @@ def simulate_trition_method_d():
         now_utc = datetime.now(timezone.utc)
         t_key = f"t{terminal_id}"
 
-        sec_rows = _fetch_security_for_hour(terminal_id,
+        sec_rows = _fetch_security_for_hour(
+            terminal_id,
             ref_time.replace(minute=0, second=0, microsecond=0),
-            ref_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+            ref_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
+        )
 
         observed = []
         for r in sec_rows:
-            ts = r['timestamp']
+            ts = r["timestamp"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             m = ts.astimezone(DUBLIN_TZ).minute
             if m <= current_minute:
-                observed.append((m, r['sec_time']))
+                observed.append((m, r["sec_time"]))
 
         if not observed:
             return jsonify({"projected": []})
@@ -3019,10 +3411,12 @@ def simulate_trition_method_d():
         if not future_minutes:
             return jsonify({"projected": []})
 
-        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1))
+        dep_rows = _fetch_departures_range(
+            terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=1)
+        )
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
@@ -3034,7 +3428,9 @@ def simulate_trition_method_d():
         for m in future_minutes:
             center = now_utc + timedelta(minutes=(m - last_minute))
             dep_count = _trition_dep_pressure(dep_times, center, 15)
-            dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            dep_ratio = (
+                min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+            )
             pressure = max((dep_ratio - 1.0) * 0.3, 0)
             adjusted_target = h60_pred * (1.0 + pressure * 0.1)
             drift = (adjusted_target - current) * 0.3
@@ -3046,10 +3442,11 @@ def simulate_trition_method_d():
         logging.error(f"Error in trition/method-d: {e}")
         return jsonify({"error": "TICK::5034 — SIM_FAULT: TRD Err"}), 500
 
+
 def simulate_trition_method_c():
     try:
         data = request.get_json()
-        terminal_id = data.get('terminalId')
+        terminal_id = data.get("terminalId")
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
 
@@ -3070,13 +3467,17 @@ def simulate_trition_method_c():
         if not horizon_preds:
             return jsonify({"hours": []})
 
-        sec_rows = _fetch_security_range(terminal_id, now_utc - timedelta(minutes=5), now_utc)
-        last_obs = sec_rows[-1]['sec_time'] if sec_rows else horizon_preds.get(60, 5)
+        sec_rows = _fetch_security_range(
+            terminal_id, now_utc - timedelta(minutes=5), now_utc
+        )
+        last_obs = sec_rows[-1]["sec_time"] if sec_rows else horizon_preds.get(60, 5)
 
-        dep_rows = _fetch_departures_range(terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=7))
+        dep_rows = _fetch_departures_range(
+            terminal_id, now_utc - timedelta(hours=3), now_utc + timedelta(hours=7)
+        )
         dep_times = []
         for r in dep_rows:
-            ts = r['scheduled_datetime']
+            ts = r["scheduled_datetime"]
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
             dep_times.append(ts)
@@ -3089,29 +3490,35 @@ def simulate_trition_method_c():
             hour_start_min = h * 60 + 1
             hour_end_min = (h + 1) * 60
             hour_time = now_dublin + timedelta(hours=h + 1)
-            hour_label = hour_time.strftime('%I %p').lstrip('0')
+            hour_label = hour_time.strftime("%I %p").lstrip("0")
 
             minutes_data = []
             medians = []
             for m in range(hour_start_min, hour_end_min + 1):
-                interp_val = _trition_interp_horizon(horizon_preds, sorted_horizons, m, last_obs)
+                interp_val = _trition_interp_horizon(
+                    horizon_preds, sorted_horizons, m, last_obs
+                )
                 center_utc = now_utc + timedelta(minutes=m)
                 dep_count = _trition_dep_pressure(dep_times, center_utc)
-                dep_ratio = min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                dep_ratio = (
+                    min(dep_count / baseline_rate, 3.0) if baseline_rate > 0 else 1.0
+                )
                 pressure = (dep_ratio - 1.0) * 0.4
                 adjusted = interp_val * (1.0 + pressure * 0.15)
                 v = max(0, round(adjusted))
                 base_spread = max(1, int(v * 0.10))
                 vol_mult = 1.0 + 0.5 * max(pressure, 0)
                 spread = max(1, int(base_spread * vol_mult))
-                minutes_data.append({
-                    "minute": m - hour_start_min,
-                    "median": v,
-                    "p10": max(0, v - spread * 2),
-                    "p25": max(0, v - spread),
-                    "p75": v + spread,
-                    "p90": v + spread * 2,
-                })
+                minutes_data.append(
+                    {
+                        "minute": m - hour_start_min,
+                        "median": v,
+                        "p10": max(0, v - spread * 2),
+                        "p25": max(0, v - spread),
+                        "p75": v + spread,
+                        "p90": v + spread * 2,
+                    }
+                )
                 medians.append(v)
 
             avg_median = round(sum(medians) / len(medians)) if medians else None
@@ -3119,19 +3526,22 @@ def simulate_trition_method_c():
             hour_utc_end = now_utc + timedelta(hours=h + 1)
             dep_count = sum(1 for d in dep_times if hour_utc_start <= d < hour_utc_end)
 
-            hours_result.append({
-                "hourLabel": hour_label,
-                "hourOffset": h + 1,
-                "timestamp": hour_time.isoformat(),
-                "avgMedian": avg_median,
-                "departures": dep_count,
-                "minutes": minutes_data,
-            })
+            hours_result.append(
+                {
+                    "hourLabel": hour_label,
+                    "hourOffset": h + 1,
+                    "timestamp": hour_time.isoformat(),
+                    "avgMedian": avg_median,
+                    "departures": dep_count,
+                    "minutes": minutes_data,
+                }
+            )
 
         return jsonify({"hours": hours_result})
     except Exception as e:
         logging.error(f"Error in trition/method-c: {e}")
         return jsonify({"error": "TICK::5035 — SIM_FAULT: TRC Err"}), 500
+
 
 _ROUTE_DISPATCH = {
     "/api/security-data": get_security_data,
@@ -3164,5 +3574,5 @@ _ROUTE_DISPATCH = {
 }
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

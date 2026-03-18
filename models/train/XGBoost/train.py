@@ -21,11 +21,16 @@ image = (
 data_volume = modal.Volume.from_name("eidwtimes-data", create_if_missing=True)
 
 DEP_FEATURE_COLS = [
-    "dep_count_t1", "dep_count_t2",
-    "dep_next_1h_t1", "dep_next_1h_t2",
-    "dep_next_2h_t1", "dep_next_2h_t2",
-    "dep_next_3h_t1", "dep_next_3h_t2",
+    "dep_count_t1",
+    "dep_count_t2",
+    "dep_next_1h_t1",
+    "dep_next_1h_t2",
+    "dep_next_2h_t1",
+    "dep_next_2h_t2",
+    "dep_next_3h_t1",
+    "dep_next_3h_t2",
 ]
+
 
 @app.function(
     image=image,
@@ -62,7 +67,9 @@ def train(
 
     sec_files = sorted(glob.glob(os.path.join(data_path, security_glob)))
     if not sec_files:
-        raise FileNotFoundError(f"No security parquet files found in {data_path}/{security_glob}")
+        raise FileNotFoundError(
+            f"No security parquet files found in {data_path}/{security_glob}"
+        )
 
     df = pd.concat([pd.read_parquet(f) for f in sec_files], ignore_index=True)
     print(f"Loaded {len(df)} security rows from {len(sec_files)} file(s)")
@@ -80,8 +87,12 @@ def train(
 
     if len(dep_df) > 0 and "hour" in dep_df.columns and "minute" in dep_df.columns:
         dep_df["time_minutes"] = dep_df["hour"] * 60 + dep_df["minute"]
-        t1_dep_times = sorted(dep_df.loc[dep_df["terminal_name"] == "T1", "time_minutes"].tolist())
-        t2_dep_times = sorted(dep_df.loc[dep_df["terminal_name"] == "T2", "time_minutes"].tolist())
+        t1_dep_times = sorted(
+            dep_df.loc[dep_df["terminal_name"] == "T1", "time_minutes"].tolist()
+        )
+        t2_dep_times = sorted(
+            dep_df.loc[dep_df["terminal_name"] == "T2", "time_minutes"].tolist()
+        )
     else:
         t1_dep_times = []
         t2_dep_times = []
@@ -176,18 +187,21 @@ def train(
     split = int(len(X) * 0.8)
     X_train, X_val = X.iloc[:split], X.iloc[split:]
 
-    wandb.init(project=wandb_project, config={
-        "model": "xgboost",
-        "gpu": "A100-40GB",
-        "lookback_hours": lookback_hours,
-        "band_minutes": band_minutes,
-        "horizons_minutes": horizons_minutes,
-        "dep_lag_bands": dep_lag_bands,
-        "n_rows_total": len(df),
-        "n_features": X.shape[1],
-        "train_size": len(X_train),
-        "val_size": len(X_val),
-    })
+    wandb.init(
+        project=wandb_project,
+        config={
+            "model": "xgboost",
+            "gpu": "A100-40GB",
+            "lookback_hours": lookback_hours,
+            "band_minutes": band_minutes,
+            "horizons_minutes": horizons_minutes,
+            "dep_lag_bands": dep_lag_bands,
+            "n_rows_total": len(df),
+            "n_features": X.shape[1],
+            "train_size": len(X_train),
+            "val_size": len(X_val),
+        },
+    )
 
     models = {}
     metrics = {}
@@ -235,20 +249,28 @@ def train(
             models[model_key] = model
             metrics[model_key] = {"mae": mae, "rmse": rmse}
 
-            wandb.log({
-                f"{model_key}/mae": mae,
-                f"{model_key}/rmse": rmse,
-                f"{model_key}/best_iteration": model.best_iteration,
-            })
+            wandb.log(
+                {
+                    f"{model_key}/mae": mae,
+                    f"{model_key}/rmse": rmse,
+                    f"{model_key}/best_iteration": model.best_iteration,
+                }
+            )
 
             for epoch_idx in range(len(evals_result["train"]["mae"])):
-                wandb.log({
-                    f"{model_key}/train_mae": evals_result["train"]["mae"][epoch_idx],
-                    f"{model_key}/val_mae": evals_result["val"]["mae"][epoch_idx],
-                    f"{model_key}/epoch": epoch_idx,
-                })
+                wandb.log(
+                    {
+                        f"{model_key}/train_mae": evals_result["train"]["mae"][
+                            epoch_idx
+                        ],
+                        f"{model_key}/val_mae": evals_result["val"]["mae"][epoch_idx],
+                        f"{model_key}/epoch": epoch_idx,
+                    }
+                )
 
-            print(f"{model_key}: MAE={mae:.2f}, RMSE={rmse:.2f}, best_iter={model.best_iteration}")
+            print(
+                f"{model_key}: MAE={mae:.2f}, RMSE={rmse:.2f}, best_iter={model.best_iteration}"
+            )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         artifact_paths = []
@@ -265,7 +287,10 @@ def train(
             "dep_lag_bands": dep_lag_bands,
             "dep_feature_cols": DEP_FEATURE_COLS,
             "targets": targets,
-            "metrics": {k: {mk: round(mv, 4) for mk, mv in v.items()} for k, v in metrics.items()},
+            "metrics": {
+                k: {mk: round(mv, 4) for mk, mv in v.items()}
+                for k, v in metrics.items()
+            },
         }
         meta_path = os.path.join(tmpdir, "model_meta.json")
         with open(meta_path, "w") as f:

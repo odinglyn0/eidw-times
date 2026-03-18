@@ -5,8 +5,12 @@ import shutil
 HF_REPO = "unknown-wdie/xgboost-sm"
 MODEL_DIR = "/app/models"
 MODEL_KEYS = [
-    "t1_h60m", "t1_h120m", "t1_h180m",
-    "t2_h60m", "t2_h120m", "t2_h180m",
+    "t1_h60m",
+    "t1_h120m",
+    "t1_h180m",
+    "t2_h60m",
+    "t2_h120m",
+    "t2_h180m",
 ]
 
 HF_TOKEN = os.environ.get("HF_TOKEN")

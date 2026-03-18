@@ -12,7 +12,7 @@ from google.cloud import logging as cloud_logging
 cloud_logging.Client().setup_logging()
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get("DATABASE_URL")
 API_URL = "https://api.dublinairport.com/dap/get-security-times"
 
 
@@ -48,21 +48,30 @@ def store_security_data(t1, t2):
                 )
 
                 if t1 is not None and t2 is not None:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         INSERT INTO security_times_current (id, t1, t2, last_updated)
                         VALUES (1, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                         t1 = EXCLUDED.t1, t2 = EXCLUDED.t2, last_updated = EXCLUDED.last_updated
-                    """, (t1, t2, now))
+                    """,
+                        (t1, t2, now),
+                    )
                 elif t1 is not None:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         UPDATE security_times_current SET t1 = %s, last_updated = %s WHERE id = 1
-                    """, (t1, now))
+                    """,
+                        (t1, now),
+                    )
                     logger.warning(f"T2 was None, only updating T1={t1}")
                 else:
-                    cur.execute("""
+                    cur.execute(
+                        """
                         UPDATE security_times_current SET t2 = %s, last_updated = %s WHERE id = 1
-                    """, (t2, now))
+                    """,
+                        (t2, now),
+                    )
                     logger.warning(f"T1 was None, only updating T2={t2}")
 
                 conn.commit()
@@ -98,7 +107,9 @@ class SecuritySpider(scrapy.Spider):
     }
 
     def start_requests(self):
-        yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": 0}, dont_filter=True)
+        yield scrapy.Request(
+            API_URL, callback=self.parse, meta={"retry_count": 0}, dont_filter=True
+        )
 
     def parse(self, response):
         retry_count = response.meta.get("retry_count", 0)
@@ -108,22 +119,40 @@ class SecuritySpider(scrapy.Spider):
             data = json.loads(response.text)
             logger.info(f"Raw API response: {data}")
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse API response: {e}, body={response.text[:500]}")
+            logger.error(
+                f"Failed to parse API response: {e}, body={response.text[:500]}"
+            )
             if retry_count < self.max_retries:
-                logger.warning(f"Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})")
+                logger.warning(
+                    f"Retrying due to JSON parse failure (attempt {retry_count + 1}/{self.max_retries})"
+                )
                 import time
+
                 time.sleep(self.retry_delay)
-                yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
+                yield scrapy.Request(
+                    API_URL,
+                    callback=self.parse,
+                    meta={"retry_count": retry_count + 1},
+                    dont_filter=True,
+                )
             return
 
         t1 = parse_security_value(data.get("T1"))
         t2 = parse_security_value(data.get("T2"))
 
         if t1 is None and t2 is None and retry_count < self.max_retries:
-            logger.warning(f"Both T1 and T2 are None, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data: {data}")
+            logger.warning(
+                f"Both T1 and T2 are None, retrying (attempt {retry_count + 1}/{self.max_retries}). Raw data: {data}"
+            )
             import time
+
             time.sleep(self.retry_delay)
-            yield scrapy.Request(API_URL, callback=self.parse, meta={"retry_count": retry_count + 1}, dont_filter=True)
+            yield scrapy.Request(
+                API_URL,
+                callback=self.parse,
+                meta={"retry_count": retry_count + 1},
+                dont_filter=True,
+            )
             return
 
         store_security_data(t1, t2)

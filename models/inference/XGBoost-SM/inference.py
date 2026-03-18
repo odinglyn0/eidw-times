@@ -12,8 +12,12 @@ from psycopg2.extras import RealDictCursor
 
 HF_REPO = "unknown-wdie/xgboost-sm"
 MODEL_KEYS = [
-    "t1_h60m", "t1_h120m", "t1_h180m",
-    "t2_h60m", "t2_h120m", "t2_h180m",
+    "t1_h60m",
+    "t1_h120m",
+    "t1_h180m",
+    "t2_h60m",
+    "t2_h120m",
+    "t2_h180m",
 ]
 
 BAND_MINUTES = 5
@@ -21,13 +25,18 @@ LOOKBACK_HOURS = 24
 BAND_COUNT = (LOOKBACK_HOURS * 60) // BAND_MINUTES
 
 DEP_FEATURE_COLS = [
-    "dep_count_t1", "dep_count_t2",
-    "dep_next_1h_t1", "dep_next_1h_t2",
-    "dep_next_2h_t1", "dep_next_2h_t2",
-    "dep_next_3h_t1", "dep_next_3h_t2",
+    "dep_count_t1",
+    "dep_count_t2",
+    "dep_next_1h_t1",
+    "dep_next_1h_t2",
+    "dep_next_2h_t1",
+    "dep_next_2h_t2",
+    "dep_next_3h_t1",
+    "dep_next_3h_t2",
 ]
 
 CACHE_DIR = Path(__file__).parent / ".model_cache"
+
 
 def download_models(cache_dir: Path = CACHE_DIR) -> dict[str, xgb.Booster]:
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -42,9 +51,11 @@ def download_models(cache_dir: Path = CACHE_DIR) -> dict[str, xgb.Booster]:
     with open(meta_path) as f:
         meta = json.load(f)
 
-    print(f"[meta] features={len(meta['feature_cols'])}, "
-          f"horizons={meta['horizons_minutes']}, "
-          f"band={meta['band_minutes']}min, lookback={meta['lookback_hours']}h")
+    print(
+        f"[meta] features={len(meta['feature_cols'])}, "
+        f"horizons={meta['horizons_minutes']}, "
+        f"band={meta['band_minutes']}min, lookback={meta['lookback_hours']}h"
+    )
 
     for key in MODEL_KEYS:
         path = hf_hub_download(
@@ -59,6 +70,7 @@ def download_models(cache_dir: Path = CACHE_DIR) -> dict[str, xgb.Booster]:
         print(f"[loaded] {key}")
 
     return models, meta
+
 
 def get_db_connection(database_url: str | None = None):
     url = database_url or os.environ.get("DATABASE_URL")
@@ -81,8 +93,12 @@ def fetch_departures_for_bands(conn, band_timestamps):
         )
         rows = cur.fetchall()
 
-    t1_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T1"])
-    t2_deps = sorted([r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T2"])
+    t1_deps = sorted(
+        [r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T1"]
+    )
+    t2_deps = sorted(
+        [r["scheduled_datetime"] for r in rows if r["terminal_name"] == "T2"]
+    )
     return {"t1": t1_deps, "t2": t2_deps}
 
 
@@ -130,16 +146,32 @@ def fetch_recent_data(conn, lookback_hours: int = LOOKBACK_HOURS) -> pd.DataFram
         for terminal, key in [("t1", "t1"), ("t2", "t2")]:
             deps = dep_data.get(key, [])
             dep_features[f"dep_count_{terminal}"].append(
-                count_deps_in_window(deps, ts_aware - timedelta(minutes=30), ts_aware + timedelta(minutes=30))
+                count_deps_in_window(
+                    deps,
+                    ts_aware - timedelta(minutes=30),
+                    ts_aware + timedelta(minutes=30),
+                )
             )
             dep_features[f"dep_next_1h_{terminal}"].append(
-                count_deps_in_window(deps, ts_aware + timedelta(minutes=30), ts_aware + timedelta(minutes=90))
+                count_deps_in_window(
+                    deps,
+                    ts_aware + timedelta(minutes=30),
+                    ts_aware + timedelta(minutes=90),
+                )
             )
             dep_features[f"dep_next_2h_{terminal}"].append(
-                count_deps_in_window(deps, ts_aware + timedelta(minutes=90), ts_aware + timedelta(minutes=150))
+                count_deps_in_window(
+                    deps,
+                    ts_aware + timedelta(minutes=90),
+                    ts_aware + timedelta(minutes=150),
+                )
             )
             dep_features[f"dep_next_3h_{terminal}"].append(
-                count_deps_in_window(deps, ts_aware + timedelta(minutes=150), ts_aware + timedelta(minutes=210))
+                count_deps_in_window(
+                    deps,
+                    ts_aware + timedelta(minutes=150),
+                    ts_aware + timedelta(minutes=210),
+                )
             )
 
     for col in DEP_FEATURE_COLS:
@@ -151,6 +183,7 @@ def fetch_recent_data(conn, lookback_hours: int = LOOKBACK_HOURS) -> pd.DataFram
 
     print(f"[data] {len(df)} raw rows -> {len(banded)} 5-min bands")
     return banded
+
 
 def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
     band_count = BAND_COUNT
@@ -209,6 +242,7 @@ def build_features(df: pd.DataFrame, meta: dict) -> xgb.DMatrix:
 
     return xgb.DMatrix(X)
 
+
 def predict(
     models: dict[str, xgb.Booster],
     dmatrix: xgb.DMatrix,
@@ -252,19 +286,23 @@ def run(database_url: str | None = None) -> dict:
         if terminal not in output["predictions"]:
             output["predictions"][terminal] = []
 
-        output["predictions"][terminal].append({
-            "horizon_minutes": horizon_min,
-            "forecast_time_utc": forecast_time.isoformat(),
-            "predicted_wait_minutes": value,
-        })
+        output["predictions"][terminal].append(
+            {
+                "horizon_minutes": horizon_min,
+                "forecast_time_utc": forecast_time.isoformat(),
+                "predicted_wait_minutes": value,
+            }
+        )
 
     for terminal in output["predictions"]:
         output["predictions"][terminal].sort(key=lambda x: x["horizon_minutes"])
 
     return output
 
+
 if __name__ == "__main__":
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).resolve().parent / ".env")
 
     result = run()
@@ -278,6 +316,8 @@ if __name__ == "__main__":
     for terminal, forecasts in result["predictions"].items():
         print(f"  {terminal.upper()}:")
         for fc in forecasts:
-            print(f"    +{fc['horizon_minutes']:>3}min  ->  {fc['predicted_wait_minutes']:.1f} min  "
-                  f"(at {fc['forecast_time_utc'][:19]}Z)")
+            print(
+                f"    +{fc['horizon_minutes']:>3}min  ->  {fc['predicted_wait_minutes']:.1f} min  "
+                f"(at {fc['forecast_time_utc'][:19]}Z)"
+            )
     print()

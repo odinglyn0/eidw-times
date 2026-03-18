@@ -12,20 +12,43 @@ import pyarrow.parquet as pq
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Pull security_times + departure data to parquet files")
-    parser.add_argument("--start", required=True, help="Range start, ISO format e.g. 2025-01-01T00:00:00")
-    parser.add_argument("--end", required=True, help="Range end, ISO format e.g. 2025-02-01T00:00:00")
-    parser.add_argument("--output-dir", default="./output", help="Directory for parquet output")
-    parser.add_argument("--database-url", default=None, help="Postgres connection string (fallback: DATABASE_URL env)")
-    parser.add_argument("--date-blind", action="store_true", help="Strip date from timestamp, keep only hour:minute:second.millisecond")
-    parser.add_argument("--batch-size", type=int, default=25000, help="Rows per parquet file")
+    parser = argparse.ArgumentParser(
+        description="Pull security_times + departure data to parquet files"
+    )
+    parser.add_argument(
+        "--start",
+        required=True,
+        help="Range start, ISO format e.g. 2025-01-01T00:00:00",
+    )
+    parser.add_argument(
+        "--end", required=True, help="Range end, ISO format e.g. 2025-02-01T00:00:00"
+    )
+    parser.add_argument(
+        "--output-dir", default="./output", help="Directory for parquet output"
+    )
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="Postgres connection string (fallback: DATABASE_URL env)",
+    )
+    parser.add_argument(
+        "--date-blind",
+        action="store_true",
+        help="Strip date from timestamp, keep only hour:minute:second.millisecond",
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=25000, help="Rows per parquet file"
+    )
     return parser.parse_args()
 
 
 def get_connection(database_url):
     url = database_url or os.environ.get("DATABASE_URL")
     if not url:
-        print("ERROR: No database URL provided. Use --database-url or set DATABASE_URL env var.", file=sys.stderr)
+        print(
+            "ERROR: No database URL provided. Use --database-url or set DATABASE_URL env var.",
+            file=sys.stderr,
+        )
         sys.exit(1)
     return psycopg2.connect(url, cursor_factory=RealDictCursor)
 
@@ -64,12 +87,14 @@ def build_security_table_normal(rows):
         timestamps.append(r["timestamp"])
         t1s.append(r["t1"])
         t2s.append(r["t2"])
-    return pa.table({
-        "id": pa.array(ids, type=pa.int64()),
-        "timestamp": pa.array(timestamps, type=pa.timestamp("ms", tz="UTC")),
-        "t1": pa.array(t1s, type=pa.int32()),
-        "t2": pa.array(t2s, type=pa.int32()),
-    })
+    return pa.table(
+        {
+            "id": pa.array(ids, type=pa.int64()),
+            "timestamp": pa.array(timestamps, type=pa.timestamp("ms", tz="UTC")),
+            "t1": pa.array(t1s, type=pa.int32()),
+            "t2": pa.array(t2s, type=pa.int32()),
+        }
+    )
 
 
 def build_security_table_date_blind(rows):
@@ -89,15 +114,17 @@ def build_security_table_date_blind(rows):
         milliseconds.append(ts.microsecond // 1000)
         t1s.append(r["t1"])
         t2s.append(r["t2"])
-    return pa.table({
-        "id_md5": pa.array(id_md5s, type=pa.string()),
-        "hour": pa.array(hours, type=pa.int8()),
-        "minute": pa.array(minutes, type=pa.int8()),
-        "second": pa.array(seconds, type=pa.int8()),
-        "millisecond": pa.array(milliseconds, type=pa.int16()),
-        "t1": pa.array(t1s, type=pa.int32()),
-        "t2": pa.array(t2s, type=pa.int32()),
-    })
+    return pa.table(
+        {
+            "id_md5": pa.array(id_md5s, type=pa.string()),
+            "hour": pa.array(hours, type=pa.int8()),
+            "minute": pa.array(minutes, type=pa.int8()),
+            "second": pa.array(seconds, type=pa.int8()),
+            "millisecond": pa.array(milliseconds, type=pa.int16()),
+            "t1": pa.array(t1s, type=pa.int32()),
+            "t2": pa.array(t2s, type=pa.int32()),
+        }
+    )
 
 
 def build_departures_table_normal(departures):
@@ -118,16 +145,20 @@ def build_departures_table_normal(departures):
         destinations.append(d["destination"] or "")
         statuses.append(d["status"] if d["status"] is not None else -1)
         delayed.append(d.get("is_delayed", False) or False)
-    return pa.table({
-        "internal_flight_id": pa.array(flight_ids, type=pa.string()),
-        "scheduled_datetime": pa.array(timestamps, type=pa.timestamp("ms", tz="UTC")),
-        "terminal_name": pa.array(terminals, type=pa.string()),
-        "flight_identity": pa.array(flights, type=pa.string()),
-        "carrier_code": pa.array(carriers, type=pa.string()),
-        "destination": pa.array(destinations, type=pa.string()),
-        "status": pa.array(statuses, type=pa.int32()),
-        "is_delayed": pa.array(delayed, type=pa.bool_()),
-    })
+    return pa.table(
+        {
+            "internal_flight_id": pa.array(flight_ids, type=pa.string()),
+            "scheduled_datetime": pa.array(
+                timestamps, type=pa.timestamp("ms", tz="UTC")
+            ),
+            "terminal_name": pa.array(terminals, type=pa.string()),
+            "flight_identity": pa.array(flights, type=pa.string()),
+            "carrier_code": pa.array(carriers, type=pa.string()),
+            "destination": pa.array(destinations, type=pa.string()),
+            "status": pa.array(statuses, type=pa.int32()),
+            "is_delayed": pa.array(delayed, type=pa.bool_()),
+        }
+    )
 
 
 def build_departures_table_date_blind(departures):
@@ -141,7 +172,9 @@ def build_departures_table_date_blind(departures):
     statuses = []
     delayed = []
     for d in departures:
-        id_md5s.append(hashlib.md5(str(d["internal_flight_id"] or "").encode()).hexdigest())
+        id_md5s.append(
+            hashlib.md5(str(d["internal_flight_id"] or "").encode()).hexdigest()
+        )
         ts = d["scheduled_datetime"]
         hours.append(ts.hour)
         minutes.append(ts.minute)
@@ -151,17 +184,19 @@ def build_departures_table_date_blind(departures):
         destinations.append(d["destination"] or "")
         statuses.append(d["status"] if d["status"] is not None else -1)
         delayed.append(d.get("is_delayed", False) or False)
-    return pa.table({
-        "id_md5": pa.array(id_md5s, type=pa.string()),
-        "hour": pa.array(hours, type=pa.int8()),
-        "minute": pa.array(minutes, type=pa.int8()),
-        "terminal_name": pa.array(terminals, type=pa.string()),
-        "flight_identity": pa.array(flights, type=pa.string()),
-        "carrier_code": pa.array(carriers, type=pa.string()),
-        "destination": pa.array(destinations, type=pa.string()),
-        "status": pa.array(statuses, type=pa.int32()),
-        "is_delayed": pa.array(delayed, type=pa.bool_()),
-    })
+    return pa.table(
+        {
+            "id_md5": pa.array(id_md5s, type=pa.string()),
+            "hour": pa.array(hours, type=pa.int8()),
+            "minute": pa.array(minutes, type=pa.int8()),
+            "terminal_name": pa.array(terminals, type=pa.string()),
+            "flight_identity": pa.array(flights, type=pa.string()),
+            "carrier_code": pa.array(carriers, type=pa.string()),
+            "destination": pa.array(destinations, type=pa.string()),
+            "status": pa.array(statuses, type=pa.int32()),
+            "is_delayed": pa.array(delayed, type=pa.bool_()),
+        }
+    )
 
 
 def write_batches(table, output_dir, batch_size, prefix):
