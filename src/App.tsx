@@ -6,17 +6,32 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { FingerprintProvider } from "@fingerprint/react";
-const Index = lazy(() => import("./pages/Index"));
+function lazyWithRetry(factory: () => Promise<{ default: React.ComponentType<unknown> }>) {
+  return lazy(() =>
+    factory().catch((err) => {
+      const hasRefreshed = sessionStorage.getItem("chunk_retry");
+      if (!hasRefreshed) {
+        sessionStorage.setItem("chunk_retry", "1");
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      sessionStorage.removeItem("chunk_retry");
+      throw err;
+    })
+  );
+}
+
+const Index = lazyWithRetry(() => import("./pages/Index"));
 import { CookieConsentProvider, useCookieConsent } from "@/integrations/cookie-consent/CookieConsentProvider";
 import { ThemeProvider } from "@/components/TP";
 import { getDarkMode } from '@/lib/cookies';
 import BounceTokenGate from "@/components/BounceTokenGate";
 
-const NeuralNetworkBackground = lazy(() => import("@/components/BackG"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Settings = lazy(() => import("./pages/Settings"));
+const NeuralNetworkBackground = lazyWithRetry(() => import("@/components/BackG"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const Settings = lazyWithRetry(() => import("./pages/Settings"));
 
-const ErrorPage = lazy(() => import("./pages/ErrorPage"));
+const ErrorPage = lazyWithRetry(() => import("./pages/ErrorPage"));
 let _ReactGA: typeof import('react-ga4').default | null = null;
 let _posthog: typeof import('posthog-js').default | null = null;
 
