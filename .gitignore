@@ -88,3 +88,5 @@ desktop.ini
 .model_cache/
 .vercel
 .env*.local
+
+.terraform.tfstate.lock.info
