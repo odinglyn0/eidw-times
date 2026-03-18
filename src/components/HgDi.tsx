@@ -304,7 +304,7 @@ const HourGraphDialog: React.FC<HourGraphDialogProps> = ({
         <p className="text-[10px] text-muted-foreground text-center italic mt-1">
           {allSecValues.length} data points · {granularity}m granularity
           {range[1] > MAX_PAST_MINUTES && (
-            <span className="text-yellow-500/70 ml-1">⚠ Future data is experimental, rough error band is +/- 4.42 mins. This will improve drastically as time goes on.</span>
+            <span className="text-yellow-500/70 ml-1">⚠ Future data is experimental, rough error band is +/- 2 mins (down from 4!). This will improve drastically as time goes on.</span>
           )}
         </p>
       </DialogContent>
