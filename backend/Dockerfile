@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Force rebuild #1 for new Trition models (v2 revised, multimodal)
 ARG HF_TOKEN
 RUN HF_TOKEN=${HF_TOKEN} python download_models.py
 
