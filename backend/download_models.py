@@ -2,7 +2,7 @@ import os
 from huggingface_hub import hf_hub_download
 import shutil
 
-HF_REPO = "unknown-wdie/xgboost-sm"
+HF_REPO = "unknown-wdie/xgboost-sm" # "wdie" is eidw backwards
 MODEL_DIR = "/app/models"
 MODEL_KEYS = [
     "t1_h60m",
