@@ -13,7 +13,7 @@ cloud_logging.Client().setup_logging()
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-API_URL = "https://www.dublinairport.com/upi/SecurityTimes/GetTimes"
+API_URL = os.environ.get("SECURITY_API_URL", "https://www.dublinairport.com/upi/SecurityTimes/GetTimes")
 
 
 def get_db_connection():

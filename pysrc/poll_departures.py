@@ -13,7 +13,7 @@ cloud_logging.Client().setup_logging()
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-API_URL = "https://api.dublinairport.com/dap/flight-listing/departures"
+API_URL = os.environ.get("DEPARTURES_API_URL", "https://api.dublinairport.com/dap/flight-listing/departures")
 SCRAPE_DAYS_AHEAD = 2
 
 
