@@ -36,5 +36,14 @@ CREATE TABLE IF NOT EXISTS departures (
 CREATE INDEX IF NOT EXISTS idx_security_times_timestamp ON security_times(timestamp);
 CREATE INDEX IF NOT EXISTS idx_departures_terminal_scheduled ON departures(terminal_name, scheduled_datetime);
 CREATE INDEX IF NOT EXISTS idx_departures_scheduled ON departures(scheduled_datetime);
+CREATE TABLE IF NOT EXISTS announcements (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(256) NOT NULL,
+    message TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ
+);
+
 CREATE INDEX IF NOT EXISTS idx_feature_requests_acknowledged ON feature_requests(acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_announcements_active_expires ON announcements(active, expires_at);

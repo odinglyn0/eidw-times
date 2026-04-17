@@ -95,6 +95,7 @@ class SecuritySpider(scrapy.Spider):
             "scrapy_impersonate.RandomBrowserMiddleware": 1000,
         },
         "DEFAULT_REQUEST_HEADERS": {
+            "Accept": "application/json",
             "Origin": "https://www.dublinairport.com",
             "Referer": "https://www.dublinairport.com/",
         },

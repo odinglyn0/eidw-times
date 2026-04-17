@@ -90,6 +90,7 @@ class DeparturesSpider(scrapy.Spider):
             "scrapy_impersonate.RandomBrowserMiddleware": 1000,
         },
         "DEFAULT_REQUEST_HEADERS": {
+            "Accept": "application/json",
             "Origin": "https://www.dublinairport.com",
             "Referer": "https://www.dublinairport.com/",
         },
@@ -105,7 +106,7 @@ class DeparturesSpider(scrapy.Spider):
         today = datetime.now(timezone.utc)
         for day_offset in range(SCRAPE_DAYS_AHEAD + 1):
             target_date = (today + timedelta(days=day_offset)).strftime("%Y-%m-%d")
-            url = f"{API_URL}?date={target_date}&limit=1000"
+            url = f"{API_URL}?date={target_date}&limit=200"
             yield scrapy.Request(
                 url,
                 callback=self.parse,

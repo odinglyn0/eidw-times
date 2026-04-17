@@ -4,8 +4,8 @@ setlocal
 set PROJECT_ID=%1
 set REGION=%2
 
-if "%PROJECT_ID%"=="" set PROJECT_ID=personal
-if "%REGION%"=="" set REGION=somewhere-in-the-world
+if "%PROJECT_ID%"=="" set PROJECT_ID=orkavi-atk
+if "%REGION%"=="" set REGION=europe-west1
 
 echo Building and pushing Docker images...
 
