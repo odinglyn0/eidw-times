@@ -16,7 +16,7 @@ resource "google_sql_database_instance" "postgres" {
   name                = "eidwtimes-db"
   database_version    = "POSTGRES_15"
   region              = var.region
-  deletion_protection = false
+  deletion_protection = true
 
   settings {
     tier = "db-f1-micro"
