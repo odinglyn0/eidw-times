@@ -264,7 +264,7 @@ def verify_bounce_token():
             return jsonify({"error": "TICK::4033 — DG_REQUIRED: Use signed URL"}), 403
 
         auth_header = request.headers.get("Authorization")
-        if not auth_header.startswith("Bearer "):
+        if not auth_header or not auth_header.startswith("Bearer "):
             return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
         token = auth_header[7:]
         try:
@@ -286,7 +286,7 @@ def verify_bounce_token():
         return None
 
     auth_header = request.headers.get("Authorization")
-    if not auth_header.startswith("Bearer "):
+    if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
     token = auth_header[7:]
     try:
