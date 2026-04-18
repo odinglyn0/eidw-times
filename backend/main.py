@@ -234,6 +234,8 @@ UNPROTECTED_PATHS = {
     "/api/seo-security-data",
     "/api/current-security-data",
     "/api/dgrmV2-fp",
+    "/robots.txt",
+    "/llms.txt",
 }
 
 
@@ -822,6 +824,155 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
         )
 
     return forecasts if forecasts else None
+
+
+@app.route("/robots.txt", methods=["GET"])
+def robots_txt():
+    txt = (
+        "User-agent: *\n"
+        "Allow: /api/seo-security-data\n"
+        "Allow: /robots.txt\n"
+        "Allow: /llms.txt\n"
+        "Disallow: /\n"
+    )
+    return make_response(txt, 200, {"Content-Type": "text/plain; charset=utf-8"})
+
+
+@app.route("/llms.txt", methods=["GET"])
+def llms_txt():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT t1, t2, last_updated FROM security_times_current WHERE id = 1"
+                )
+                result = cur.fetchone()
+
+        if result:
+            t1 = result.get("t1")
+            t2 = result.get("t2")
+            last_updated_raw = result.get("last_updated")
+            if last_updated_raw:
+                if last_updated_raw.tzinfo is None:
+                    last_updated_raw = last_updated_raw.replace(tzinfo=timezone.utc)
+                last_updated = last_updated_raw.astimezone(DUBLIN_TZ).strftime(
+                    "%I:%M %p on %B %d, %Y"
+                )
+            else:
+                last_updated = "unknown"
+            t1_str = f"{t1} minutes" if t1 is not None else "No data"
+            t2_str = f"{t2} minutes" if t2 is not None else "No data"
+        else:
+            t1 = None
+            t2 = None
+            t1_str = "No data"
+            t2_str = "No data"
+            last_updated = "unknown"
+
+        if t1 is not None and t2 is not None:
+            if t1 < t2:
+                recommendation = f"Terminal 1 is currently faster ({t1} vs {t2} minutes)."
+            elif t2 < t1:
+                recommendation = f"Terminal 2 is currently faster ({t2} vs {t1} minutes)."
+            else:
+                recommendation = f"Both terminals are equal at {t1} minutes."
+        elif t1 is not None:
+            recommendation = f"Only Terminal 1 data available: {t1} minutes."
+        elif t2 is not None:
+            recommendation = f"Only Terminal 2 data available: {t2} minutes."
+        else:
+            recommendation = "No security time data currently available."
+
+        now_utc = datetime.now(timezone.utc)
+        now_dublin = datetime.now(DUBLIN_TZ)
+
+        def _format_forecasts_plain(forecasts, terminal_label):
+            if not forecasts:
+                return f"  No forecast data available for {terminal_label}."
+            lines = []
+            for fc in forecasts:
+                if fc["median"] is None:
+                    continue
+                spike = " (departure spike expected)" if fc["is_spike"] else ""
+                lines.append(
+                    f"  In {fc['label']} ({fc['time']}): ~{fc['median']} min "
+                    f"(range {fc['p10']}-{fc['p90']} min), "
+                    f"{fc['departures']} departures nearby{spike}"
+                )
+            return "\n".join(lines) if lines else f"  No forecast data available for {terminal_label}."
+
+        try:
+            t1_forecasts = _seo_build_forecasts(1, now_utc, now_dublin)
+        except Exception:
+            t1_forecasts = None
+        try:
+            t2_forecasts = _seo_build_forecasts(2, now_utc, now_dublin)
+        except Exception:
+            t2_forecasts = None
+
+        t1_forecast_txt = _format_forecasts_plain(t1_forecasts, "Terminal 1")
+        t2_forecast_txt = _format_forecasts_plain(t2_forecasts, "Terminal 2")
+
+        txt = f"""# EIDW Times
+> Live security queue wait times for Dublin Airport (DUB/EIDW).
+
+## What is EIDW Times?
+EIDW Times is a free, real-time tracker for security queue wait times at Dublin Airport, Ireland. It covers Terminal 1 (T1) and Terminal 2 (T2), with historical trends, departure boards, and machine-learning-powered forecasts. The name comes from Dublin Airport's ICAO code: EIDW.
+
+Website: https://eidwtimes.xyz
+API: https://datagram.eidwtimes.xyz
+
+## Current Security Wait Times
+Last updated: {last_updated}
+
+Terminal 1 (T1): {t1_str}
+Terminal 2 (T2): {t2_str}
+Recommendation: {recommendation}
+
+Note: At Dublin Airport, passengers can use either terminal's security regardless of which terminal their flight departs from. Choose the shorter queue.
+
+## Predicted Security Wait Times
+Forecasts generated at {now_dublin.strftime('%I:%M %p on %B %d, %Y')} using XGBoost models trained on 24 hours of historical data. Ranges show p10-p90 confidence intervals.
+
+Terminal 1 (T1):
+{t1_forecast_txt}
+
+Terminal 2 (T2):
+{t2_forecast_txt}
+
+## What data is available?
+- Live T1 and T2 security queue wait times (updated every few minutes)
+- 7 days of historical security time data with hourly breakdowns
+- Real-time departure board information per terminal
+- ML-predicted wait times for 1, 2, and 3 hours ahead (XGBoost models trained on 24h of lagged data)
+- Monte Carlo simulation-based projected wait times
+
+## Public endpoints
+- GET /api/seo-security-data — Full SEO page with current times, forecasts, structured data, and recommendation (HTML)
+- GET /api/current-security-data — JSON with current T1 and T2 wait times and last_updated timestamp
+- GET /robots.txt — Robots policy
+- GET /llms.txt — This file
+
+All other API endpoints require authentication (bounce token + datagram signing).
+
+## Data sources
+Security wait times are sourced from Dublin Airport's official API and polled every few minutes. Departure data is polled from Dublin Airport's flight listing API.
+
+## General travel advice
+Dublin Airport recommends arriving 2 hours before short-haul flights and 3 hours before long-haul flights. Security is typically busiest between 5-8 AM and 2-4 PM.
+
+## Contact
+Website: https://eidwtimes.xyz
+License: CC BY 4.0
+"""
+        return make_response(txt, 200, {"Content-Type": "text/plain; charset=utf-8"})
+    except Exception as e:
+        logging.error(f"[LLMS.TXT] Error: {e}")
+        return make_response(
+            "# EIDW Times\n\nError generating llms.txt. Visit https://eidwtimes.xyz for live data.\n",
+            500,
+            {"Content-Type": "text/plain; charset=utf-8"},
+        )
 
 
 @app.route("/api/seo-security-data", methods=["GET"])
