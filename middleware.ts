@@ -1,31 +1,34 @@
 import { next } from "@vercel/edge";
 
 const AI_BOTS = [
-  "chatgpt-user",
-  "gptbot",
-  "oai-searchbot",
-  "claude-web",
-  "claudebot",
-  "anthropic-ai",
+  "chatgpt",
+  "openai",
+  "gpt",
+  "oai-searchBot",
+  "claude",
+  "anthropic",
   "perplexity",
-  "perplexitybot",
+  "agi",
+  "devin",
+  "duckassist",
+  "applebot",
+  "cloudflare-ai-search",
+  "bravebot",
+  "anomura",
+  "googleother"
 ];
 
 const SEARCH_BOTS = [
-  "google-extended",
   "googlebot",
   "bingbot",
   "msnbot",
-  "duckduckbot",
-  "duckassistbot",
+  "duckduck",
   "yandexbot",
-  "baiduspider",
-  "facebot",
-  "facebookbot",
-  "applebot",
-  "amazonbot",
+  "baidu",
+  "facebook",
+  "amazon",
   "meta-externalagent",
-  "bytespider",
+  "byte",
 ];
 
 const DATAGRAM = "https://datagram.eidwtimes.xyz";
