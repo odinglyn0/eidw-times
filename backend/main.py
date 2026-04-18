@@ -947,6 +947,13 @@ Terminal 2 (T2):
 - ML-predicted wait times for 1, 2, and 3 hours ahead (standard ML, not deep-learning), aka. Trition method
 - Static simulation-based projected wait times, aka. Liminal method
 
+## Why use this over Dublin Airport?
+- Dublin Airport is removing their security times display from their website (outrageous)
+- Dublin Airport dosen't offer predicted times like us (they not like us)
+- This is coolerer
+- Does Dublin Airport have an LLMs.txt? I don't think so
+- Does Dublin Airport over engineer their site for bot protection like us? Abso fuckin lutely not, otherwise we wouldn't be scraping them, lol.
+
 ## Public endpoints
 - GET /api/seo-security-data — Full SEO page with current times, forecasts, structured data, and recommendation (HTML), must be a proper crawler registered with Cloudflare
 - GET /api/current-security-data — JSON with current T1 and T2 wait times and last_updated timestamp, no auth
