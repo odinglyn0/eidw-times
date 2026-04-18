@@ -944,16 +944,16 @@ Terminal 2 (T2):
 - Live T1 and T2 security queue wait times (updated every few minutes)
 - 7 days of historical security time data with hourly breakdowns
 - Real-time departure board information per terminal
-- ML-predicted wait times for 1, 2, and 3 hours ahead (XGBoost models trained on 24h of lagged data)
-- Monte Carlo simulation-based projected wait times
+- ML-predicted wait times for 1, 2, and 3 hours ahead (standard ML, not deep-learning), aka. Trition method
+- Static simulation-based projected wait times, aka. Liminal method
 
 ## Public endpoints
-- GET /api/seo-security-data — Full SEO page with current times, forecasts, structured data, and recommendation (HTML)
-- GET /api/current-security-data — JSON with current T1 and T2 wait times and last_updated timestamp
+- GET /api/seo-security-data — Full SEO page with current times, forecasts, structured data, and recommendation (HTML), must be a proper crawler registered with Cloudflare
+- GET /api/current-security-data — JSON with current T1 and T2 wait times and last_updated timestamp, no auth
 - GET /robots.txt — Robots policy
-- GET /llms.txt — This file
+- GET /llms.txt — This file, must be a proper crawler registered with Cloudflare
 
-All other API endpoints require authentication (bounce token + datagram signing).
+All other API endpoints are for users only (JS frontend runs Cloudflare and ReCAPTCHA v3 enterprise).
 
 ## Data sources
 Security wait times are sourced from Dublin Airport's official API and polled every few minutes. Departure data is polled from Dublin Airport's flight listing API.
@@ -963,7 +963,7 @@ Dublin Airport recommends arriving 2 hours before short-haul flights and 3 hours
 
 ## Contact
 Website: https://eidwtimes.xyz
-License: CC BY 4.0
+License: CC BY-NC 4.0
 """
         return make_response(txt, 200, {"Content-Type": "text/plain; charset=utf-8"})
     except Exception as e:
