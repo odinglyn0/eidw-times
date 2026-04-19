@@ -116,7 +116,7 @@ async function processFrame(frame: ArrayBuffer): Promise<void> {
   }
 
   const token = await decryptSmackToken(encrypted, _btHash, _decryptKey);
-  setCookie(getCookieName(), token, 15);
+  setCookie(getCookieName(), token, 5);
 
   if (!_firstTokenReceived && _readyResolve) {
     _firstTokenReceived = true;
