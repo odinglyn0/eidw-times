@@ -262,54 +262,20 @@ UNPROTECTED_PATHS = {
 }
 
 
-@app.before_request
-def verify_bounce_token():
-    if request.method == "OPTIONS":
-        return None
+REQUIRED_SECURITY_HEADERS = [
+    "Authorization",
+    "X-Session-Fingerprint",
+    "X-Datagram-Cookie",
+    "X-Datagram-Exp",
+    "X-Datagram-RK",
+]
 
-    path_parts = request.path.strip("/").split("/")
-    is_datagram = (
-        len(path_parts) == 2
-        and len(path_parts[0]) == 16
-        and len(path_parts[1]) == 24
-        and all(c in "0123456789abcdef" for c in path_parts[0])
-        and all(c in "0123456789abcdef" for c in path_parts[1])
-    )
 
-    if not is_datagram:
-        if request.path in UNPROTECTED_PATHS:
-            return None
-        if not request.path.startswith("/api/"):
-            return None
+def _is_unprotected_path(path):
+    return path in UNPROTECTED_PATHS
 
-        if request.path in ALL_KNOWN_ROUTES and request.path not in UNPROTECTED_PATHS:
-            logging.warning(
-                f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}"
-            )
-            return jsonify({"error": "TICK::4033 — DG_REQUIRED: Use signed URL"}), 403
 
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
-        token = auth_header[7:]
-        try:
-            payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "TICK::4011 — SEC_LAPSE: BT Exprd"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
-
-        session_fp = request.headers.get("X-Session-Fingerprint")
-        token_fp = payload.get("fp")
-        if not session_fp or session_fp != token_fp:
-            logging.warning(
-                f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
-            )
-            return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
-
-        request.bounce_claims = payload
-        return None
-
+def _authenticate_bearer(require_fingerprint=True):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "TICK::4010 — SEC_GATE: BT Absent"}), 401
@@ -321,17 +287,88 @@ def verify_bounce_token():
     except jwt.InvalidTokenError:
         return jsonify({"error": "TICK::4012 — SEC_REJECT: BT Malf"}), 401
 
-    bt_hash = hashlib.sha256(token.encode()).hexdigest()[:16]
-
-    session_fp = request.headers.get("X-Session-Fingerprint")
-    token_fp = payload.get("fp")
-    if not session_fp or session_fp != token_fp:
-        logging.warning(
-            f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
-        )
-        return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
+    if require_fingerprint:
+        session_fp = request.headers.get("X-Session-Fingerprint")
+        token_fp = payload.get("fp")
+        if not session_fp or session_fp != token_fp:
+            logging.warning(
+                f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
+            )
+            return jsonify({"error": "TICK::4030 — FP_DRIFT: Sess Mismatch"}), 403
 
     request.bounce_claims = payload
+    return None
+
+
+def _check_required_security_headers():
+    missing = [h for h in REQUIRED_SECURITY_HEADERS if not request.headers.get(h)]
+    if missing:
+        logging.warning(
+            f"[SEC-HEADERS] Missing required headers: {missing} | ip={_get_client_ip()} | path={request.path}"
+        )
+        return (
+            jsonify(
+                {
+                    "error": "TICK::4013 — SEC_HDR: Required Headers Absent",
+                    "missing": missing,
+                }
+            ),
+            400,
+        )
+    return None
+
+
+@app.before_request
+def verify_bounce_token():
+    if _is_unprotected_path(request.path):
+        return None
+
+    path_parts = request.path.strip("/").split("/")
+    is_datagram = (
+        len(path_parts) == 2
+        and len(path_parts[0]) == 16
+        and len(path_parts[1]) == 24
+        and all(c in "0123456789abcdef" for c in path_parts[0])
+        and all(c in "0123456789abcdef" for c in path_parts[1])
+    )
+
+    # Browser CORS preflight (no auth headers) — must pass through for CORS to work.
+    # The frontend sends its own authenticated OPTIONS separately.
+    if request.method == "OPTIONS":
+        has_auth = request.headers.get("Authorization")
+        if not has_auth:
+            # Bare browser preflight — let Flask-CORS handle it
+            return None
+
+        # Programmatic authenticated OPTIONS from frontend
+        auth_result = _authenticate_bearer(require_fingerprint=True)
+        if auth_result is not None:
+            return auth_result
+        hdr_result = _check_required_security_headers()
+        if hdr_result is not None:
+            return hdr_result
+        return None
+
+    hdr_result = _check_required_security_headers()
+    if hdr_result is not None:
+        return hdr_result
+
+    if not is_datagram:
+        if request.path in ALL_KNOWN_ROUTES and request.path not in UNPROTECTED_PATHS:
+            logging.warning(
+                f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}"
+            )
+            return jsonify({"error": "TICK::4033 — DG_REQUIRED: Use signed URL"}), 403
+
+        auth_result = _authenticate_bearer(require_fingerprint=True)
+        if auth_result is not None:
+            return auth_result
+        return None
+
+    auth_result = _authenticate_bearer(require_fingerprint=True)
+    if auth_result is not None:
+        return auth_result
+
     dg_valid, dg_reason, resolved_route = _verify_datagram_headers()
     if not dg_valid:
         logging.warning(
@@ -348,10 +385,14 @@ def verify_bounce_token():
 
 @app.before_request
 def datacrane_decompress():
-    if request.headers.get("X-Datacrane") != "1":
+    if _is_unprotected_path(request.path):
+        return None
+    if request.method == "OPTIONS":
         return None
     if not request.data:
         return None
+    if request.headers.get("X-Datacrane") != "1":
+        return jsonify({"error": "TICK::4014 — DC_REQUIRED: Gzip Inbound Required"}), 400
     try:
         raw_json = gzip.decompress(request.data)
         request._datacrane_body = raw_json
@@ -367,7 +408,7 @@ def datacrane_decompress():
 def datawire_blackhole_check():
     if request.method == "OPTIONS":
         return None
-    if request.path in UNPROTECTED_PATHS:
+    if _is_unprotected_path(request.path):
         return None
     fp = getattr(request, "bounce_claims", {}).get("fp", "")
     if not fp:
@@ -383,7 +424,7 @@ def datawire_blackhole_check():
 def datapulse_biometric_check():
     if request.method == "OPTIONS":
         return None
-    if request.path in UNPROTECTED_PATHS:
+    if _is_unprotected_path(request.path):
         return None
     fp = getattr(request, "bounce_claims", {}).get("fp", "")
     if not fp:
@@ -407,9 +448,9 @@ rate_limit_middleware(app)
 
 @app.after_request
 def datacrane_compress(response):
-    if request.method == "OPTIONS":
+    if _is_unprotected_path(request.path):
         return response
-    if request.path == "/api/seo-security-data":
+    if request.method == "OPTIONS":
         return response
     if response.status_code < 200 or response.status_code >= 300:
         return response
