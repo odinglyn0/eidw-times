@@ -1,5 +1,6 @@
 import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
 import { datacraneFetch } from "./datacrane";
+import { dataghostUnwrap } from "./dataghost";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -40,21 +41,46 @@ async function dgramFetch(
   originalRoute: string,
   init?: RequestInit
 ): Promise<Response> {
-  try {
-    const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
-    const existing = (init?.headers as Record<string, string>) || {};
-    const merged = { ...authHeaders(), ...extraHeaders, ...existing };
-    return datacraneFetch(url, { ...init, headers: merged });
-  } catch (e) {
-    if (e instanceof DatagramMissingError) {
-      await _ensureDatagram();
+  const doFetch = async (): Promise<Response> => {
+    try {
       const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
       const existing = (init?.headers as Record<string, string>) || {};
       const merged = { ...authHeaders(), ...extraHeaders, ...existing };
       return datacraneFetch(url, { ...init, headers: merged });
+    } catch (e) {
+      if (e instanceof DatagramMissingError) {
+        await _ensureDatagram();
+        const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);
+        const existing = (init?.headers as Record<string, string>) || {};
+        const merged = { ...authHeaders(), ...extraHeaders, ...existing };
+        return datacraneFetch(url, { ...init, headers: merged });
+      }
+      throw e;
     }
-    throw e;
-  }
+  };
+
+  const raw = await doFetch();
+
+  if (!raw.ok) return raw;
+
+  const originalJson = raw.json.bind(raw);
+  let _cachedBody: unknown = undefined;
+
+  const wrappedResponse = new Proxy(raw, {
+    get(target, prop) {
+      if (prop === "json") {
+        return async () => {
+          if (_cachedBody !== undefined) return _cachedBody;
+          const body = await originalJson();
+          _cachedBody = dataghostUnwrap(body);
+          return _cachedBody;
+        };
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  return wrappedResponse;
 }
 
 function getModelVersion(): 'liminal' | 'trition' {
@@ -248,6 +274,20 @@ export const apiClient = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recaptchaToken, fingerprint })
+    });
+    return response.json();
+  },
+
+  async verifyBounceTokenWithFlint(recaptchaToken: string, fingerprint: string, challengeId: string, nonce: string) {
+    const response = await datacraneFetch(`${API_BASE_URL}/api/bouncetoken/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recaptchaToken,
+        fingerprint,
+        dataflintChallengeId: challengeId,
+        dataflintNonce: nonce,
+      })
     });
     return response.json();
   },

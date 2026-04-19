@@ -20,6 +20,16 @@ async function datacraneDecompress(response: Response): Promise<Response> {
 export async function datacraneFetch(url: string, init?: RequestInit): Promise<Response> {
   const out = { ...init };
   const h = { ...((init?.headers as Record<string, string>) || {}) };
+
+  const { datapulseGetSealHeader } = await import("./datapulse-header");
+  const { datariftGetTemporalHeader } = await import("./datarift-header");
+
+  const sealHeader = await datapulseGetSealHeader();
+  if (sealHeader) h["X-Datapulse-Seal"] = sealHeader;
+
+  const temporalHeader = await datariftGetTemporalHeader();
+  if (temporalHeader) h["X-Datarift-Temporal"] = temporalHeader;
+
   if (init?.body && typeof init.body === "string") {
     const compressed = await datacraneCompress(init.body);
     out.body = compressed;

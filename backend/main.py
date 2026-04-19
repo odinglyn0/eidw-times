@@ -17,6 +17,38 @@ from redis_middleware import rate_limit_middleware, response_cache_middleware
 
 import hmac as hmac_mod
 import gzip
+import time as _time
+
+from dataflint import (
+    dataflint_mint_challenge,
+    dataflint_verify_solution,
+    dataflint_is_cleared,
+    dataflint_difficulty_for_score,
+)
+from datawire import (
+    datawire_generate_canaries,
+    datawire_check_canary_trip,
+    datawire_is_blackholed,
+)
+from datapulse import (
+    datapulse_extract_seal,
+    datapulse_verify_seal_signature,
+    datapulse_record_and_check,
+    datapulse_is_flagged,
+    datapulse_generate_signing_params,
+)
+from datarift import (
+    datarift_extract_temporal,
+    datarift_verify_signature,
+    datarift_record_and_check,
+    datarift_is_blocked,
+    datarift_generate_params,
+)
+from dataghost import (
+    dataghost_check_replay,
+    dataghost_is_trapped,
+    dataghost_wrap_response,
+)
 
 app = Flask(__name__)
 CORS(
@@ -37,8 +69,12 @@ CORS(
         "X-Datagram-RK",
         "X-Datagram-CV",
         "X-Datacrane",
+        "X-Dataflint-Challenge",
+        "X-Dataflint-Nonce",
+        "X-Datapulse-Seal",
+        "X-Datarift-Temporal",
     ],
-    expose_headers=["X-Datacrane"],
+    expose_headers=["X-Datacrane", "X-Dataghost"],
 )
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -340,6 +376,90 @@ def datacrane_decompress():
     return None
 
 
+@app.before_request
+def datawire_blackhole_check():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    fp = getattr(request, "bounce_claims", {}).get("fp", "")
+    if not fp:
+        return None
+    ip = _get_client_ip()
+    if datawire_is_blackholed(fp, ip):
+        logging.warning(f"[DATAWIRE] Blackholed request | fp={fp[:16]}... | ip={ip}")
+        return jsonify({"error": "TICK::4038 — DW_VOID: Blackholed"}), 403
+    return None
+
+
+@app.before_request
+def dataghost_replay_check():
+    if request.method != "POST":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    fp = getattr(request, "bounce_claims", {}).get("fp", "")
+    if not fp:
+        return None
+    ip = _get_client_ip()
+    if dataghost_is_trapped(fp, ip):
+        logging.warning(f"[DATAGHOST] Trapped entity request | fp={fp[:16]}... | ip={ip}")
+        return jsonify({"error": "TICK::4039 — DGH_TRAP: Phantom Replay"}), 403
+    body = getattr(request, "_datacrane_body", None) or request.get_data()
+    if body:
+        is_replay, phantom_id = dataghost_check_replay(body, fp, ip)
+        if is_replay:
+            return jsonify({"error": "TICK::4040 — DGH_REPLAY: Ghostload Detected"}), 403
+    return None
+
+
+@app.before_request
+def datapulse_biometric_check():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    fp = getattr(request, "bounce_claims", {}).get("fp", "")
+    if not fp:
+        return None
+    if datapulse_is_flagged(fp):
+        logging.warning(f"[DATAPULSE] Flagged entity request | fp={fp[:16]}...")
+        return jsonify({"error": "TICK::4041 — DP_FLAG: Behavioral Anomaly"}), 403
+    seal = datapulse_extract_seal(dict(request.headers))
+    if seal:
+        if not datapulse_verify_seal_signature(seal, fp):
+            logging.warning(f"[DATAPULSE] Invalid seal signature | fp={fp[:16]}...")
+            return jsonify({"error": "TICK::4042 — DP_SEAL: Sig Invalid"}), 403
+        ok, reason = datapulse_record_and_check(fp, seal)
+        if not ok:
+            return jsonify({"error": "TICK::4043 — DP_DRIFT: Kinetic Anomaly"}), 403
+    return None
+
+
+@app.before_request
+def datarift_temporal_check():
+    if request.method == "OPTIONS":
+        return None
+    if request.path in UNPROTECTED_PATHS:
+        return None
+    fp = getattr(request, "bounce_claims", {}).get("fp", "")
+    if not fp:
+        return None
+    if datarift_is_blocked(fp):
+        logging.warning(f"[DATARIFT] Blocked entity request | fp={fp[:16]}...")
+        return jsonify({"error": "TICK::4037 — DR_BLOCK: Chrono Drift"}), 403
+    temporal = datarift_extract_temporal(dict(request.headers))
+    if temporal:
+        if not datarift_verify_signature(temporal, fp):
+            logging.warning(f"[DATARIFT] Invalid temporal signature | fp={fp[:16]}...")
+            return jsonify({"error": "TICK::4044 — DR_SEAL: Temporal Sig Invalid"}), 403
+        server_time_ms = int(_time.time() * 1000)
+        ok, reason = datarift_record_and_check(fp, temporal, server_time_ms)
+        if not ok:
+            return jsonify({"error": "TICK::4037 — DR_CHRONO: Temporal Anomaly"}), 403
+    return None
+
+
 rate_limit_middleware(app)
 
 
@@ -365,6 +485,32 @@ def datacrane_compress(response):
     return response
 
 
+@app.after_request
+def dataghost_inject_phantom(response):
+    if request.method == "OPTIONS":
+        return response
+    if request.path in UNPROTECTED_PATHS:
+        return response
+    if response.status_code < 200 or response.status_code >= 300:
+        return response
+    ct = response.content_type or ""
+    if "json" not in ct:
+        return response
+    fp = getattr(request, "bounce_claims", {}).get("fp", "")
+    if not fp:
+        return response
+    resolved_route = getattr(g, "_datagram_resolved_route", request.path)
+    try:
+        raw_json = response.get_data()
+        wrapped = dataghost_wrap_response(raw_json, fp, resolved_route)
+        response.set_data(wrapped)
+        response.headers["X-Dataghost"] = "1"
+        response.headers["Content-Length"] = str(len(wrapped))
+    except Exception as e:
+        logging.error(f"[DATAGHOST] Inject phantom error: {e}")
+    return response
+
+
 response_cache_middleware(app)
 
 
@@ -372,6 +518,11 @@ response_cache_middleware(app)
 def datagram_catchall(fp_prefix, hashed_path):
     if request.method == "OPTIONS":
         return "", 200
+
+    ip = _get_client_ip()
+    is_canary, tripped_fp = datawire_check_canary_trip(hashed_path, ip)
+    if is_canary:
+        return jsonify({"error": "TICK::4038 — DW_CANARY: Wire Tripped"}), 403
 
     resolved = getattr(g, "_datagram_resolved_route", None)
     if not resolved:
@@ -395,6 +546,8 @@ def bouncetoken_verify():
         data = request.get_json()
         recaptcha_token = data.get("recaptchaToken")
         fingerprint = data.get("fingerprint")
+        dataflint_challenge_id = data.get("dataflintChallengeId")
+        dataflint_nonce = data.get("dataflintNonce")
         client_ip = _get_client_ip()
         country = _get_client_country()
 
@@ -407,6 +560,34 @@ def bouncetoken_verify():
                 f"[BOUNCE-VERIFY] Missing fields: recaptchaToken={bool(recaptcha_token)} fingerprint={bool(fingerprint)}"
             )
             return jsonify({"error": "TICK::4001 — PARAM_VOID: RC/FP Absent"}), 400
+
+        if datawire_is_blackholed(fingerprint, client_ip):
+            return jsonify({"status": "TICK::4038 — DW_VOID: Blackholed"}), 403
+
+        if not dataflint_is_cleared(fingerprint):
+            if not dataflint_challenge_id or not dataflint_nonce:
+                try:
+                    valid, score = _verify_recaptcha_enterprise(
+                        recaptcha_token, "bouncetoken_screen"
+                    )
+                except Exception:
+                    valid, score = False, 0.0
+
+                difficulty = dataflint_difficulty_for_score(score if valid else 0.0)
+                challenge = dataflint_mint_challenge(fingerprint, difficulty)
+                return jsonify({
+                    "status": "dataflint_challenge",
+                    "challenge": challenge,
+                }), 200
+
+            flint_ok, flint_reason = dataflint_verify_solution(
+                dataflint_challenge_id, dataflint_nonce, fingerprint
+            )
+            if not flint_ok:
+                logging.warning(
+                    f"[DATAFLINT] PoW verification failed: {flint_reason} | ip={client_ip}"
+                )
+                return jsonify({"status": "TICK::4045 — DF_FAIL: PoW Invalid", "reason": flint_reason}), 403
 
         try:
             valid, score = _verify_recaptcha_enterprise(
@@ -494,6 +675,14 @@ def datagram_mint():
                 "hsKey": per_route_hs_key[:32],
             }
 
+        canary_routes = datawire_generate_canaries(
+            fp, fp_hmac_prefix, route_key, DATAGRAM_SIGNING_KEY, exp
+        )
+        routes.update(canary_routes)
+
+        datapulse_params = datapulse_generate_signing_params(fp)
+        datarift_params = datarift_generate_params(fp)
+
         return jsonify(
             {
                 "host": DATAGRAM_HOST,
@@ -501,6 +690,8 @@ def datagram_mint():
                 "routes": routes,
                 "exp": exp,
                 "routeKey": route_key[:32],
+                "datapulse": datapulse_params,
+                "datarift": datarift_params,
             }
         )
     except Exception as e:

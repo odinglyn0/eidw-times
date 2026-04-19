@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useVisitorData } from "@fingerprint/react";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
+import { dataflintSolveWithFingerprint } from "@/integrations/api/dataflint";
+import type { DataflintChallenge } from "@/integrations/api/dataflint";
 const LogoAvif1x = "/intakeLogo-577w.avif";
 const LogoAvif2x = "/intakeLogo-1154w.avif";
 const LogoWebp1x = "/intakeLogo-577w.webp";
@@ -202,6 +204,33 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         );
 
         const response = await apiClient.verifyBounceToken(recaptchaToken, visitorId);
+
+        if (response.status === "dataflint_challenge" && response.challenge) {
+          const challenge: DataflintChallenge = response.challenge;
+          const nonce = await dataflintSolveWithFingerprint(challenge, visitorId);
+
+          const recaptchaToken2 = await window.grecaptcha.enterprise.execute(
+            RECAPTCHA_SITE_KEY,
+            { action: "bouncetoken_screen" }
+          );
+
+          const response2 = await apiClient.verifyBounceTokenWithFlint(
+            recaptchaToken2,
+            visitorId,
+            challenge.challengeId,
+            nonce
+          );
+
+          if (response2.status === "granted" && response2.elasticBounceTokenScreen) {
+            setCookie(COOKIE_NAME, response2.elasticBounceTokenScreen, 1);
+            try { sessionStorage.setItem("_ebfp", visitorId); } catch {}
+            setState("granted");
+            return;
+          }
+
+          setState("failed");
+          return;
+        }
 
         if (response.status === "granted" && response.elasticBounceTokenScreen) {
           setCookie(COOKIE_NAME, response.elasticBounceTokenScreen, 1);
