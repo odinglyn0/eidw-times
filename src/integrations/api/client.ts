@@ -1,6 +1,6 @@
 import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
 import { datacraneFetch } from "./datacrane";
-import { dataghostUnwrap } from "./dataghost";
+
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -72,7 +72,7 @@ async function dgramFetch(
         return async () => {
           if (_cachedBody !== undefined) return _cachedBody;
           const body = await originalJson();
-          _cachedBody = dataghostUnwrap(body);
+          _cachedBody = body;
           return _cachedBody;
         };
       }

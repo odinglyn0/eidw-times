@@ -36,11 +36,7 @@ from datapulse import (
     datapulse_is_flagged,
     datapulse_generate_signing_params,
 )
-from dataghost import (
-    dataghost_check_replay,
-    dataghost_is_trapped,
-    dataghost_wrap_response,
-)
+
 
 app = Flask(__name__)
 CORS(
@@ -65,7 +61,7 @@ CORS(
         "X-Dataflint-Nonce",
         "X-Datapulse-Seal",
     ],
-    expose_headers=["X-Datacrane", "X-Dataghost"],
+    expose_headers=["X-Datacrane"],
 )
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -383,25 +379,7 @@ def datawire_blackhole_check():
     return None
 
 
-@app.before_request
-def dataghost_replay_check():
-    if request.method != "POST":
-        return None
-    if request.path in UNPROTECTED_PATHS:
-        return None
-    fp = getattr(request, "bounce_claims", {}).get("fp", "")
-    if not fp:
-        return None
-    ip = _get_client_ip()
-    if dataghost_is_trapped(fp, ip):
-        logging.warning(f"[DATAGHOST] Trapped entity request | fp={fp[:16]}... | ip={ip}")
-        return jsonify({"error": "TICK::4039 — DGH_TRAP: Phantom Replay"}), 403
-    body = getattr(request, "_datacrane_body", None) or request.get_data()
-    if body:
-        is_replay, phantom_id = dataghost_check_replay(body, fp, ip)
-        if is_replay:
-            return jsonify({"error": "TICK::4040 — DGH_REPLAY: Ghostload Detected"}), 403
-    return None
+
 
 
 @app.before_request
@@ -452,30 +430,7 @@ def datacrane_compress(response):
     return response
 
 
-@app.after_request
-def dataghost_inject_phantom(response):
-    if request.method == "OPTIONS":
-        return response
-    if request.path in UNPROTECTED_PATHS:
-        return response
-    if response.status_code < 200 or response.status_code >= 300:
-        return response
-    ct = response.content_type or ""
-    if "json" not in ct:
-        return response
-    fp = getattr(request, "bounce_claims", {}).get("fp", "")
-    if not fp:
-        return response
-    resolved_route = getattr(g, "_datagram_resolved_route", request.path)
-    try:
-        raw_json = response.get_data()
-        wrapped = dataghost_wrap_response(raw_json, fp, resolved_route)
-        response.set_data(wrapped)
-        response.headers["X-Dataghost"] = "1"
-        response.headers["Content-Length"] = str(len(wrapped))
-    except Exception as e:
-        logging.error(f"[DATAGHOST] Inject phantom error: {e}")
-    return response
+
 
 
 response_cache_middleware(app)
