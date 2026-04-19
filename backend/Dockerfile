@@ -11,4 +11,4 @@ COPY . .
 ARG HF_TOKEN
 RUN HF_TOKEN=${HF_TOKEN} python download_models.py
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 --limit-request-field_size 32768 --limit-request-line 8190 main:app
