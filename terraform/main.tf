@@ -100,6 +100,11 @@ resource "google_cloud_run_v2_service" "backend" {
   location = var.region
 
   template {
+    scaling {
+      min_instance_count = 1
+      max_instance_count = 50
+    }
+
     containers {
       image = "gcr.io/${var.project_id}/eidw-backend:latest"
 
