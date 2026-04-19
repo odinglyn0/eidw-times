@@ -1,5 +1,6 @@
 import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
 import { datacraneFetch } from "./datacrane";
+import { smackReady } from "./smack";
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -41,6 +42,7 @@ async function dgramFetch(
   originalRoute: string,
   init?: RequestInit
 ): Promise<Response> {
+  await smackReady();
   const doFetch = async (): Promise<Response> => {
     try {
       const { url, extraHeaders } = resolveDatagramUrl(originalRoute, API_BASE_URL);

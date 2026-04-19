@@ -2,15 +2,20 @@ import os
 import json
 import logging
 import hashlib
+import secrets
+import struct
+import time
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, make_response, g
 from flask_cors import CORS
+from flask_sock import Sock
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import numpy as np
 import jwt
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from google.cloud import recaptchaenterprise_v1
 from google.cloud.recaptchaenterprise_v1 import Assessment
 from redis_middleware import rate_limit_middleware, response_cache_middleware
@@ -60,9 +65,11 @@ CORS(
         "X-Dataflint-Challenge",
         "X-Dataflint-Nonce",
         "X-Datapulse-Seal",
+        "X-Smack-Token",
     ],
     expose_headers=["X-Datacrane"],
 )
+sock = Sock(app)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
@@ -86,6 +93,7 @@ RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "")
 GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
 BOUNCE_TOKEN_SECRET = os.environ.get("BOUNCE_TOKEN_SECRET")
 DATAGRAM_SIGNING_KEY = os.environ.get("DATAGRAM_SIGNING_KEY")
+SMACK_SECRET = os.environ.get("SMACK_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
 RECAPTCHA_SCORE_THRESHOLD = 0.5
 
 
@@ -249,6 +257,7 @@ ALL_KNOWN_ROUTES = [
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
     "/api/current-security-data",
+    "/api/smack-stream",
 ]
 
 
@@ -257,6 +266,17 @@ UNPROTECTED_PATHS = {
     "/api/seo-security-data",
     "/api/current-security-data",
     "/api/dgrmV2-fp",
+    "/api/smack-stream",
+    "/robots.txt",
+    "/llms.txt",
+}
+
+SMACK_EXEMPT_PATHS = {
+    "/api/bouncetoken/verify",
+    "/api/seo-security-data",
+    "/api/current-security-data",
+    "/api/dgrmV2-fp",
+    "/api/smack-stream",
     "/robots.txt",
     "/llms.txt",
 }
@@ -318,6 +338,62 @@ def _check_required_security_headers():
     return None
 
 
+def _smack_bt_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()[:32]
+
+
+def _smack_cookie_name(bt_hash: str) -> str:
+    return f"_Smack-{bt_hash[:16]}"
+
+
+def _smack_derive_encryption_key(bt_hash: str, fingerprint: str) -> bytes:
+    ws_key = _hmac_sha512(SMACK_SECRET, f"ws-derive|{fingerprint}")[:64]
+    raw = hmac_mod.new(ws_key.encode(), bt_hash.encode(), hashlib.sha256).digest()
+    return raw[:32]
+
+
+def _smack_mint_token(bt_hash: str, fingerprint: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "bth": bt_hash,
+        "fp": fingerprint,
+        "iat": now,
+        "exp": now + timedelta(seconds=30),
+        "jti": secrets.token_hex(8),
+        "iss": "smack-stream",
+        "sub": bt_hash[:16],
+    }
+    return jwt.encode(payload, SMACK_SECRET, algorithm="HS512")
+
+
+def _smack_encrypt_token(token: str, bt_hash: str, fingerprint: str) -> bytes:
+    key = _smack_derive_encryption_key(bt_hash, fingerprint)
+    nonce = secrets.token_bytes(12)
+    aesgcm = AESGCM(key)
+    ciphertext = aesgcm.encrypt(nonce, token.encode(), bt_hash[:16].encode())
+    return nonce + ciphertext
+
+
+def _smack_verify_cookie(bt_hash: str) -> tuple[bool, str]:
+    cookie_name = _smack_cookie_name(bt_hash)
+    smack_token = request.cookies.get(cookie_name)
+    if not smack_token:
+        smack_token = request.headers.get("X-Smack-Token")
+    if not smack_token:
+        return False, "smack_absent"
+    try:
+        payload = jwt.decode(smack_token, SMACK_SECRET, algorithms=["HS512"])
+    except jwt.ExpiredSignatureError:
+        return False, "smack_expired"
+    except jwt.InvalidTokenError:
+        return False, "smack_invalid"
+    if payload.get("bth") != bt_hash:
+        return False, "smack_bt_mismatch"
+    if payload.get("iss") != "smack-stream":
+        return False, "smack_issuer_invalid"
+    return True, "valid"
+
+
 @app.before_request
 def verify_bounce_token():
     if _is_unprotected_path(request.path):
@@ -332,15 +408,11 @@ def verify_bounce_token():
         and all(c in "0123456789abcdef" for c in path_parts[1])
     )
 
-    # Browser CORS preflight (no auth headers) — must pass through for CORS to work.
-    # The frontend sends its own authenticated OPTIONS separately.
     if request.method == "OPTIONS":
         has_auth = request.headers.get("Authorization")
         if not has_auth:
-            # Bare browser preflight — let Flask-CORS handle it
             return None
 
-        # Programmatic authenticated OPTIONS from frontend
         auth_result = _authenticate_bearer(require_fingerprint=True)
         if auth_result is not None:
             return auth_result
@@ -384,14 +456,53 @@ def verify_bounce_token():
 
 
 @app.before_request
-def datacrane_decompress():
-    if _is_unprotected_path(request.path):
+def verify_smack_token():
+    if request.path in SMACK_EXEMPT_PATHS:
         return None
+    if request.method == "OPTIONS":
+        return None
+
+    path_parts = request.path.strip("/").split("/")
+    is_datagram = (
+        len(path_parts) == 2
+        and len(path_parts[0]) == 16
+        and len(path_parts[1]) == 24
+        and all(c in "0123456789abcdef" for c in path_parts[0])
+        and all(c in "0123456789abcdef" for c in path_parts[1])
+    )
+    if is_datagram:
+        resolved = getattr(g, "_datagram_resolved_route", "")
+        if resolved in SMACK_EXEMPT_PATHS:
+            return None
+
+    claims = getattr(request, "bounce_claims", None)
+    if not claims:
+        return None
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    bt_raw = auth_header[7:]
+    bt_hash = _smack_bt_hash(bt_raw)
+
+    smack_ok, smack_reason = _smack_verify_cookie(bt_hash)
+    if not smack_ok:
+        logging.warning(
+            f"[SMACK] Verification failed: {smack_reason} | ip={_get_client_ip()} | path={request.path}"
+        )
+        return jsonify({"error": f"TICK::4050 — SMACK_FAIL: {smack_reason}"}), 403
+    return None
+
+
+@app.before_request
+def datacrane_decompress():
     if request.method == "OPTIONS":
         return None
     if not request.data:
         return None
     if request.headers.get("X-Datacrane") != "1":
+        if _is_unprotected_path(request.path):
+            return None
         return jsonify({"error": "TICK::4014 — DC_REQUIRED: Gzip Inbound Required"}), 400
     try:
         raw_json = gzip.decompress(request.data)
@@ -652,6 +763,8 @@ def datagram_mint():
 
         datapulse_params = datapulse_generate_signing_params(fp)
 
+        smack_ws_key = _hmac_sha512(SMACK_SECRET, f"ws-derive|{fp}")[:64]
+
         return jsonify(
             {
                 "host": DATAGRAM_HOST,
@@ -660,11 +773,71 @@ def datagram_mint():
                 "exp": exp,
                 "routeKey": route_key[:32],
                 "datapulse": datapulse_params,
+                "smack": {
+                    "smackSecret": smack_ws_key,
+                    "wsRoute": "/api/smack-stream",
+                },
             }
         )
     except Exception as e:
         logging.error(f"[DATAGRAM-MINT] Error: {type(e).__name__}: {e}", exc_info=True)
         return jsonify({"error": "TICK::5003 — MINT_FAULT: Intrnl Err"}), 500
+
+
+@sock.route("/api/smack-stream")
+def smack_stream(ws):
+    bt_raw = request.args.get("_bt", "")
+    session_fp = request.args.get("_fp", "")
+    if not bt_raw:
+        ws.close(4001, "BT_ABSENT")
+        return
+    try:
+        payload = jwt.decode(bt_raw, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        ws.close(4002, "BT_INVALID")
+        return
+
+    token_fp = payload.get("fp", "")
+    if not session_fp or session_fp != token_fp:
+        ws.close(4003, "FP_MISMATCH")
+        return
+
+    bt_hash = _smack_bt_hash(bt_raw)
+    fingerprint = payload.get("fp", "")
+    stream_start = time.time()
+    stream_max_duration = 1800
+
+    try:
+        while True:
+            elapsed = time.time() - stream_start
+            if elapsed >= stream_max_duration:
+                ws.close(4100, "STREAM_EXPIRED")
+                return
+
+            smack_jwt = _smack_mint_token(bt_hash, fingerprint)
+            encrypted = _smack_encrypt_token(smack_jwt, bt_hash, fingerprint)
+            compressed = gzip.compress(encrypted, compresslevel=6)
+
+            ts_bytes = struct.pack(">d", time.time())
+            hash_check = hmac_mod.new(
+                bt_hash.encode(), compressed, hashlib.sha256
+            ).digest()[:8]
+            frame = ts_bytes + hash_check + compressed
+
+            try:
+                ws.send(frame)
+            except Exception:
+                return
+
+            deadline = time.time() + 10
+            while time.time() < deadline:
+                elapsed = time.time() - stream_start
+                if elapsed >= stream_max_duration:
+                    ws.close(4100, "STREAM_EXPIRED")
+                    return
+                time.sleep(0.5)
+    except Exception:
+        return
 
 
 @app.route("/api/current-security-data", methods=["GET"])
@@ -913,7 +1086,9 @@ def _seo_build_forecasts(terminal_id, now_utc, now_dublin):
     if not preds:
         return None
 
-    t_key = f"t{terminal_id}"
+    t_key = TERMINAL_COLS.get(terminal_id)
+    if not t_key:
+        return None
     horizon_preds = {}
     for key, val in preds.items():
         if key.startswith(t_key + "_h"):
@@ -2239,8 +2414,10 @@ def get_processed_security_data():
         terminal_id = request.args.get("terminalId", type=int)
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -2363,6 +2540,8 @@ def get_processed_departure_data():
         terminal_id = request.args.get("terminalId", type=int)
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         terminal_name = f"T{terminal_id}"
         now_dublin = datetime.now(DUBLIN_TZ)
@@ -2441,8 +2620,10 @@ def get_chart_data():
 
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
         start_dt = datetime.fromisoformat(start_iso)
         end_dt = datetime.fromisoformat(end_iso)
         now = datetime.now(timezone.utc)
@@ -2549,8 +2730,10 @@ def get_hourly_detail_stats():
 
         if not terminal_id or not current_timestamp:
             return jsonify({"error": "TICK::4008 — PARAM_VOID: Req Flds Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
 
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -2643,7 +2826,7 @@ def _projected_hourly_stats_trition(terminal_id):
     if not preds:
         return jsonify({"stats": None})
 
-    t_key = f"t{terminal_id}"
+    t_key = TERMINAL_COLS[terminal_id]
     h60 = preds.get(f"{t_key}_h60m")
     if h60 is None:
         return jsonify({"stats": None})
@@ -2729,6 +2912,8 @@ def get_projected_hourly_stats():
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         if model == "trition":
             return _projected_hourly_stats_trition(terminal_id)
@@ -2936,8 +3121,20 @@ def _run_departure_aware(
     return result
 
 
+TERMINAL_COLS = {1: "t1", 2: "t2"}
+
+
+def _validate_terminal_id(terminal_id):
+    col = TERMINAL_COLS.get(terminal_id)
+    if not col:
+        return None
+    return col
+
+
 def _fetch_security_for_hour(terminal_id, hour_start_utc, hour_end_utc):
-    t_key = f"t{terminal_id}"
+    t_key = _validate_terminal_id(terminal_id)
+    if not t_key:
+        return []
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -2958,7 +3155,9 @@ def _fetch_security_for_hour(terminal_id, hour_start_utc, hour_end_utc):
 
 
 def _fetch_security_range(terminal_id, start_utc, end_utc):
-    t_key = f"t{terminal_id}"
+    t_key = _validate_terminal_id(terminal_id)
+    if not t_key:
+        return []
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -3109,6 +3308,8 @@ def simulate_liminal_method_b():
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         now = datetime.now(DUBLIN_TZ)
         hour_start = now.replace(minute=0, second=0, microsecond=0)
@@ -3142,6 +3343,8 @@ def simulate_liminal_method_d():
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         if hour_timestamp:
             ref_time = datetime.fromisoformat(hour_timestamp)
@@ -3192,6 +3395,9 @@ def simulate_liminal_method_a():
         num_sims = 200
 
         if not terminal_id or not start_iso or not end_iso:
+            return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
             return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
 
         start_dt = datetime.fromisoformat(start_iso)
@@ -3535,6 +3741,8 @@ def simulate_trition_method_a():
 
         if not terminal_id or not start_iso or not end_iso:
             return jsonify({"error": "TICK::4009 — PARAM_VOID: TID/Rng Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -3549,7 +3757,7 @@ def simulate_trition_method_a():
         if effective_steps <= 0:
             return jsonify({"bands": {}})
 
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
         horizon_preds = {}
         for key, val in preds.items():
             if key.startswith(t_key + "_h"):
@@ -3618,6 +3826,8 @@ def simulate_trition_method_b():
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -3626,7 +3836,7 @@ def simulate_trition_method_b():
         now = datetime.now(DUBLIN_TZ)
         now_utc = datetime.now(timezone.utc)
         last_minute = now.minute
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
 
         sec_rows = _fetch_security_for_hour(
             terminal_id,
@@ -3695,6 +3905,8 @@ def simulate_trition_method_d():
 
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -3709,7 +3921,7 @@ def simulate_trition_method_d():
 
         current_minute = ref_time.minute
         now_utc = datetime.now(timezone.utc)
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
 
         sec_rows = _fetch_security_for_hour(
             terminal_id,
@@ -3779,6 +3991,8 @@ def simulate_trition_method_c():
         terminal_id = data.get("terminalId")
         if not terminal_id:
             return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Absent"}), 400
+        if terminal_id not in TERMINAL_COLS:
+            return jsonify({"error": "TICK::4007 — PARAM_VOID: TID Invalid"}), 400
 
         preds = _trition_predict_all()
         if not preds:
@@ -3786,7 +4000,7 @@ def simulate_trition_method_c():
 
         now_utc = datetime.now(timezone.utc)
         now_dublin = datetime.now(DUBLIN_TZ)
-        t_key = f"t{terminal_id}"
+        t_key = TERMINAL_COLS[terminal_id]
 
         horizon_preds = {}
         for key, val in preds.items():

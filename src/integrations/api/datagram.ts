@@ -18,6 +18,7 @@ export interface DatagramManifest {
   exp: number;
   routeKey: string;
   datapulse?: { datapulseSessionKey: string; datapulseVersion: number };
+  smack?: { smackSecret: string; wsRoute: string };
 }
 
 export function storeDatagramManifest(manifest: DatagramManifest): void {

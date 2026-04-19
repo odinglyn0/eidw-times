@@ -22,6 +22,7 @@ const UNPROTECTED_PATHS = [
   "/api/seo-security-data",
   "/api/current-security-data",
   "/api/dgrmV2-fp",
+  "/api/smack-stream",
   "/robots.txt",
   "/llms.txt",
 ];
@@ -49,9 +50,13 @@ export async function datacraneFetch(url: string, init?: RequestInit): Promise<R
   const h = { ...((init?.headers as Record<string, string>) || {}) };
 
   const { datapulseGetSealHeader } = await import("./datapulse-header");
+  const { smackGetToken } = await import("./smack");
 
   const sealHeader = await datapulseGetSealHeader();
   if (sealHeader) h["X-Datapulse-Seal"] = sealHeader;
+
+  const smackToken = smackGetToken();
+  if (smackToken && !isUnprotectedUrl(url)) h["X-Smack-Token"] = smackToken;
 
   if (init?.body && typeof init.body === "string") {
     const compressed = await datacraneCompress(init.body);
@@ -61,7 +66,6 @@ export async function datacraneFetch(url: string, init?: RequestInit): Promise<R
   }
   out.headers = h;
 
-  // Send authenticated OPTIONS preflight for protected routes
   if (!isUnprotectedUrl(url)) {
     await sendAuthenticatedPreflight(url, h);
   }

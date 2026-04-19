@@ -4,6 +4,7 @@ import { useVisitorData } from "@fingerprint/react";
 import { apiClient } from "@/integrations/api/client";
 import { mintDatagram, storeDatagramManifest, getDatagramManifest } from "@/integrations/api/datagram";
 import { dataflintSolveWithFingerprint } from "@/integrations/api/dataflint";
+import { smackInit, smackDestroy } from "@/integrations/api/smack";
 import type { DataflintChallenge } from "@/integrations/api/dataflint";
 const LogoAvif1x = "/intakeLogo-577w.avif";
 const LogoAvif2x = "/intakeLogo-1154w.avif";
@@ -128,6 +129,25 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
   const Loader = useMemo(() => LOADERS[Math.floor(Math.random() * LOADERS.length)], []);
   const { getData: getFpData } = useVisitorData({ immediate: false });
 
+  const initSmackAndGrant = useCallback(async () => {
+    const bt = getCookie(COOKIE_NAME);
+    const fp = sessionStorage.getItem("_ebfp");
+    const manifest = getDatagramManifest();
+    if (bt && fp && manifest?.smack) {
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${wsProtocol}//${manifest.host}${manifest.smack.wsRoute}`;
+      try {
+        await smackInit({
+          bounceToken: bt,
+          fingerprint: fp,
+          wsUrl,
+          smackSecret: manifest.smack.smackSecret,
+        });
+      } catch {}
+    }
+    setState("granted");
+  }, []);
+
   const hasValidToken = useCallback(() => {
     const token = getCookie(COOKIE_NAME);
     if (!token) return false;
@@ -162,9 +182,9 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         mintDatagram(fp)
           .then(m => storeDatagramManifest(m))
           .catch(() => {})
-          .finally(() => setState("granted"));
+          .finally(() => initSmackAndGrant());
       } else {
-        setState("granted");
+        initSmackAndGrant();
       }
       return;
     }
@@ -224,7 +244,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
           if (response2.status === "granted" && response2.elasticBounceTokenScreen) {
             setCookie(COOKIE_NAME, response2.elasticBounceTokenScreen, 1);
             try { sessionStorage.setItem("_ebfp", visitorId); } catch {}
-            setState("granted");
+            await initSmackAndGrant();
             return;
           }
 
@@ -235,7 +255,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         if (response.status === "granted" && response.elasticBounceTokenScreen) {
           setCookie(COOKIE_NAME, response.elasticBounceTokenScreen, 1);
           try { sessionStorage.setItem("_ebfp", visitorId); } catch {}
-          setState("granted");
+          await initSmackAndGrant();
           return;
         }
 
@@ -251,6 +271,7 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
 
   useEffect(() => {
     if (state === "failed") {
+      smackDestroy();
       try {
         localStorage.clear();
         sessionStorage.clear();
