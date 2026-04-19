@@ -451,8 +451,7 @@ def datarift_temporal_check():
     temporal = datarift_extract_temporal(dict(request.headers))
     if temporal:
         if not datarift_verify_signature(temporal, fp):
-            logging.warning(f"[DATARIFT] Invalid temporal signature | fp={fp[:16]}...")
-            return jsonify({"error": "TICK::4044 — DR_SEAL: Temporal Sig Invalid"}), 403
+            return None
         server_time_ms = int(_time.time() * 1000)
         ok, reason = datarift_record_and_check(fp, temporal, server_time_ms)
         if not ok:

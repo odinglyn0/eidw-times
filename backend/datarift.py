@@ -9,10 +9,12 @@ import time
 logger = logging.getLogger(__name__)
 
 DATARIFT_SECRET = os.environ.get("DATARIFT_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
-DATARIFT_MAX_DRIFT_RATE = 0.05
-DATARIFT_MIN_SAMPLES = 4
-DATARIFT_WINDOW_SIZE = 20
-DATARIFT_ANOMALY_THRESHOLD = 3
+DATARIFT_MIN_GAP_MS = 10_000
+DATARIFT_PERF_RATIO_LOW = 0.2
+DATARIFT_PERF_RATIO_HIGH = 5.0
+DATARIFT_WINDOW_SIZE = 30
+DATARIFT_ANOMALY_THRESHOLD = 6
+DATARIFT_BLOCK_AFTER = 3
 DATARIFT_TTL = 86400
 
 _redis_ref = None
@@ -69,13 +71,12 @@ def datarift_record_and_check(fingerprint: str, temporal: dict, server_time_ms: 
         client_mono = temporal.get("mono", 0)
         seq = temporal.get("seq", 0)
 
-        now_ms = server_time_ms
-        clock_offset = now_ms - client_epoch
+        clock_offset = server_time_ms - client_epoch
 
         timeline_key = f"datarift:timeline:{fingerprint}"
 
         entry = json.dumps({
-            "server_ms": now_ms,
+            "server_ms": server_time_ms,
             "client_epoch": client_epoch,
             "client_perf": client_perf,
             "client_mono": client_mono,
@@ -91,73 +92,67 @@ def datarift_record_and_check(fingerprint: str, temporal: dict, server_time_ms: 
         samples = [json.loads(s) for s in samples_raw]
         samples.reverse()
 
-        if len(samples) < DATARIFT_MIN_SAMPLES:
+        if len(samples) < 2:
             return True, "timeline_building"
 
-        offsets = [s["offset"] for s in samples]
-        server_times = [s["server_ms"] for s in samples]
+        anomaly_score = 0
 
-        drift_rates = []
-        for i in range(1, len(offsets)):
-            dt_server = server_times[i] - server_times[i - 1]
-            if dt_server > 0:
-                d_offset = offsets[i] - offsets[i - 1]
-                rate = d_offset / dt_server
-                drift_rates.append(rate)
-
-        if not drift_rates:
-            return True, "insufficient_drift_data"
-
-        mean_drift = sum(drift_rates) / len(drift_rates)
-        variance = sum((d - mean_drift) ** 2 for d in drift_rates) / len(drift_rates)
-        stddev = math.sqrt(variance) if variance > 0 else 0
-
-        latest_rate = drift_rates[-1]
-        if stddev > 0 and len(drift_rates) >= 3:
-            z_score = abs(latest_rate - mean_drift) / stddev
-        else:
-            z_score = 0
-
-        mono_violations = 0
         for i in range(1, len(samples)):
-            if samples[i]["client_mono"] <= samples[i - 1]["client_mono"]:
-                mono_violations += 1
             if samples[i]["seq"] <= samples[i - 1]["seq"]:
-                mono_violations += 1
+                anomaly_score += 3
 
-        perf_jumps = 0
         for i in range(1, len(samples)):
-            perf_diff = samples[i]["client_perf"] - samples[i - 1]["client_perf"]
-            server_diff = samples[i]["server_ms"] - samples[i - 1]["server_ms"]
-            if server_diff > 0:
-                perf_ratio = perf_diff / server_diff
-                if perf_ratio < 0.5 or perf_ratio > 2.0:
-                    perf_jumps += 1
+            server_gap = samples[i]["server_ms"] - samples[i - 1]["server_ms"]
+            if server_gap < DATARIFT_MIN_GAP_MS:
+                continue
 
-        anomaly_score = mono_violations * 2 + perf_jumps + (1 if z_score > 3.0 else 0)
+            perf_diff = samples[i]["client_perf"] - samples[i - 1]["client_perf"]
+            if perf_diff <= 0:
+                anomaly_score += 3
+                continue
+
+            perf_ratio = perf_diff / server_gap
+            if perf_ratio < DATARIFT_PERF_RATIO_LOW or perf_ratio > DATARIFT_PERF_RATIO_HIGH:
+                anomaly_score += 2
+
+            mono_diff = samples[i]["client_mono"] - samples[i - 1]["client_mono"]
+            if mono_diff <= 0:
+                anomaly_score += 3
+
+        qualified_offsets = []
+        for i in range(1, len(samples)):
+            server_gap = samples[i]["server_ms"] - samples[i - 1]["server_ms"]
+            if server_gap >= DATARIFT_MIN_GAP_MS:
+                d_offset = samples[i]["offset"] - samples[i - 1]["offset"]
+                rate = d_offset / server_gap
+                qualified_offsets.append(rate)
+
+        if len(qualified_offsets) >= 3:
+            mean_drift = sum(qualified_offsets) / len(qualified_offsets)
+            variance = sum((d - mean_drift) ** 2 for d in qualified_offsets) / len(qualified_offsets)
+            stddev = math.sqrt(variance) if variance > 0 else 0
+            if stddev > 0:
+                latest_z = abs(qualified_offsets[-1] - mean_drift) / stddev
+                if latest_z > 4.0:
+                    anomaly_score += 2
 
         if anomaly_score >= DATARIFT_ANOMALY_THRESHOLD:
             logger.warning(
                 f"[DATARIFT] Temporal anomaly | fp={fingerprint[:16]}... | "
-                f"anomaly_score={anomaly_score} | z_score={z_score:.2f} | "
-                f"mono_violations={mono_violations} | perf_jumps={perf_jumps} | "
-                f"mean_drift={mean_drift:.6f}"
+                f"anomaly_score={anomaly_score} | samples={len(samples)}"
             )
 
             flag_key = f"datarift:flagged:{fingerprint}"
             count = r.incr(flag_key)
             r.expire(flag_key, 3600)
 
-            if count >= 2:
+            if count >= DATARIFT_BLOCK_AFTER:
                 r.setex(
                     f"datarift:blocked:{fingerprint}",
-                    3600,
+                    1800,
                     json.dumps({
                         "blocked_at": int(time.time()),
                         "anomaly_score": anomaly_score,
-                        "z_score": z_score,
-                        "mono_violations": mono_violations,
-                        "perf_jumps": perf_jumps,
                     }),
                 )
                 return False, "chrono_drift_blocked"
