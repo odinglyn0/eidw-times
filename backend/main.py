@@ -379,9 +379,6 @@ def datawire_blackhole_check():
     return None
 
 
-
-
-
 @app.before_request
 def datapulse_biometric_check():
     if request.method == "OPTIONS":
@@ -428,9 +425,6 @@ def datacrane_compress(response):
     response.headers["X-Datacrane"] = "1"
     response.headers["Content-Length"] = str(len(compressed))
     return response
-
-
-
 
 
 response_cache_middleware(app)
@@ -497,10 +491,15 @@ def bouncetoken_verify():
 
                 difficulty = dataflint_difficulty_for_score(score if valid else 0.0)
                 challenge = dataflint_mint_challenge(fingerprint, difficulty)
-                return jsonify({
-                    "status": "dataflint_challenge",
-                    "challenge": challenge,
-                }), 200
+                return (
+                    jsonify(
+                        {
+                            "status": "dataflint_challenge",
+                            "challenge": challenge,
+                        }
+                    ),
+                    200,
+                )
 
             flint_ok, flint_reason = dataflint_verify_solution(
                 dataflint_challenge_id, dataflint_nonce, fingerprint
@@ -509,7 +508,15 @@ def bouncetoken_verify():
                 logging.warning(
                     f"[DATAFLINT] PoW verification failed: {flint_reason} | ip={client_ip}"
                 )
-                return jsonify({"status": "TICK::4045 — DF_FAIL: PoW Invalid", "reason": flint_reason}), 403
+                return (
+                    jsonify(
+                        {
+                            "status": "TICK::4045 — DF_FAIL: PoW Invalid",
+                            "reason": flint_reason,
+                        }
+                    ),
+                    403,
+                )
 
         try:
             valid, score = _verify_recaptcha_enterprise(
@@ -982,9 +989,13 @@ def llms_txt():
 
         if t1 is not None and t2 is not None:
             if t1 < t2:
-                recommendation = f"Terminal 1 is currently faster ({t1} vs {t2} minutes)."
+                recommendation = (
+                    f"Terminal 1 is currently faster ({t1} vs {t2} minutes)."
+                )
             elif t2 < t1:
-                recommendation = f"Terminal 2 is currently faster ({t2} vs {t1} minutes)."
+                recommendation = (
+                    f"Terminal 2 is currently faster ({t2} vs {t1} minutes)."
+                )
             else:
                 recommendation = f"Both terminals are equal at {t1} minutes."
         elif t1 is not None:
@@ -1010,7 +1021,11 @@ def llms_txt():
                     f"(range {fc['p10']}-{fc['p90']} min), "
                     f"{fc['departures']} departures nearby{spike}"
                 )
-            return "\n".join(lines) if lines else f"  No forecast data available for {terminal_label}."
+            return (
+                "\n".join(lines)
+                if lines
+                else f"  No forecast data available for {terminal_label}."
+            )
 
         try:
             t1_forecasts = _seo_build_forecasts(1, now_utc, now_dublin)

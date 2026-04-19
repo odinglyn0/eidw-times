@@ -8,7 +8,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-DATAPULSE_SECRET = os.environ.get("DATAPULSE_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
+DATAPULSE_SECRET = os.environ.get(
+    "DATAPULSE_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", "")
+)
 DATAPULSE_BASELINE_WINDOW = 10
 DATAPULSE_DEVIATION_THRESHOLD = 3.5
 DATAPULSE_MIN_SAMPLES = 3
@@ -23,6 +25,7 @@ def _get_redis():
         return _redis_ref
     try:
         from redis_middleware import _get_redis as _mw_redis
+
         _redis_ref = _mw_redis()
         return _redis_ref
     except Exception:
@@ -54,7 +57,9 @@ def datapulse_verify_seal_signature(seal: dict, fingerprint: str) -> bool:
 
     now_bucket = int(time.time()) // 300
     for bucket in [now_bucket, now_bucket - 1, now_bucket + 1]:
-        session_key = _hmac_sha256(DATAPULSE_SECRET, f"session|{fingerprint}|{bucket}")[:32]
+        session_key = _hmac_sha256(DATAPULSE_SECRET, f"session|{fingerprint}|{bucket}")[
+            :32
+        ]
         expected = _hmac_sha256(session_key, f"{fingerprint}|{canonical}")
         if hmac_mod.compare_digest(provided_sig, expected):
             return True
@@ -125,12 +130,14 @@ def datapulse_record_and_check(fingerprint: str, seal: dict) -> tuple[bool, str]
                 r.setex(
                     f"datapulse:flagged:{fingerprint}",
                     3600,
-                    json.dumps({
-                        "flagged_at": now,
-                        "anomaly_count": count,
-                        "last_entropy": entropy,
-                        "baseline_mean": mean,
-                    }),
+                    json.dumps(
+                        {
+                            "flagged_at": now,
+                            "anomaly_count": count,
+                            "last_entropy": entropy,
+                            "baseline_mean": mean,
+                        }
+                    ),
                 )
                 return False, "behavioral_anomaly_threshold"
 
@@ -153,7 +160,9 @@ def datapulse_is_flagged(fingerprint: str) -> bool:
 
 
 def datapulse_generate_signing_params(fingerprint: str) -> dict:
-    session_key = _hmac_sha256(DATAPULSE_SECRET, f"session|{fingerprint}|{int(time.time() // 300)}")
+    session_key = _hmac_sha256(
+        DATAPULSE_SECRET, f"session|{fingerprint}|{int(time.time() // 300)}"
+    )
     return {
         "datapulseSessionKey": session_key[:32],
         "datapulseVersion": 2,

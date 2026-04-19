@@ -8,7 +8,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-DATAFLINT_SECRET = os.environ.get("DATAFLINT_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
+DATAFLINT_SECRET = os.environ.get(
+    "DATAFLINT_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", "")
+)
 DATAFLINT_DEFAULT_DIFFICULTY = 4
 DATAFLINT_MAX_DIFFICULTY = 7
 DATAFLINT_CHALLENGE_TTL = 120
@@ -24,6 +26,7 @@ def _get_redis():
         return _redis_ref
     try:
         from redis_middleware import _get_redis as _mw_redis
+
         _redis_ref = _mw_redis()
         return _redis_ref
     except Exception:
@@ -57,14 +60,16 @@ def dataflint_mint_challenge(fingerprint: str, difficulty: int = None) -> dict:
             r.setex(
                 f"dataflint:challenge:{challenge_id}",
                 DATAFLINT_CHALLENGE_TTL,
-                json.dumps({
-                    "fp": fingerprint,
-                    "nonce_prefix": nonce_prefix,
-                    "difficulty": difficulty,
-                    "ts": timestamp,
-                    "hash": challenge_hash,
-                    "solved": False,
-                }),
+                json.dumps(
+                    {
+                        "fp": fingerprint,
+                        "nonce_prefix": nonce_prefix,
+                        "difficulty": difficulty,
+                        "ts": timestamp,
+                        "hash": challenge_hash,
+                        "solved": False,
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"[DATAFLINT] Redis store failed: {e}")
@@ -78,7 +83,9 @@ def dataflint_mint_challenge(fingerprint: str, difficulty: int = None) -> dict:
     }
 
 
-def dataflint_verify_solution(challenge_id: str, nonce: str, fingerprint: str) -> tuple[bool, str]:
+def dataflint_verify_solution(
+    challenge_id: str, nonce: str, fingerprint: str
+) -> tuple[bool, str]:
     r = _get_redis()
     if not r:
         return True, "redis_unavailable"

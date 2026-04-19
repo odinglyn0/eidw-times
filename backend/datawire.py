@@ -8,7 +8,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-DATAWIRE_SECRET = os.environ.get("DATAWIRE_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
+DATAWIRE_SECRET = os.environ.get(
+    "DATAWIRE_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", "")
+)
 DATAWIRE_CANARY_COUNT = 7
 DATAWIRE_BLACKHOLE_TTL = 86400 * 7
 
@@ -21,6 +23,7 @@ def _get_redis():
         return _redis_ref
     try:
         from redis_middleware import _get_redis as _mw_redis
+
         _redis_ref = _mw_redis()
         return _redis_ref
     except Exception:
@@ -47,7 +50,9 @@ CANARY_ROUTE_TEMPLATES = [
 ]
 
 
-def datawire_generate_canaries(fingerprint: str, fp_hmac_prefix: str, route_key: str, signing_key: str, exp: int) -> dict:
+def datawire_generate_canaries(
+    fingerprint: str, fp_hmac_prefix: str, route_key: str, signing_key: str, exp: int
+) -> dict:
     canaries = {}
 
     for i in range(DATAWIRE_CANARY_COUNT):
@@ -71,12 +76,14 @@ def datawire_generate_canaries(fingerprint: str, fp_hmac_prefix: str, route_key:
                 r.setex(
                     f"datawire:canary:{hashed_path}",
                     86400,
-                    json.dumps({
-                        "fp": fingerprint,
-                        "canary_id": canary_id,
-                        "fake_route": canary_route,
-                        "created": int(time.time()),
-                    }),
+                    json.dumps(
+                        {
+                            "fp": fingerprint,
+                            "canary_id": canary_id,
+                            "fake_route": canary_route,
+                            "created": int(time.time()),
+                        }
+                    ),
                 )
             except Exception as e:
                 logger.error(f"[DATAWIRE] Redis canary store failed: {e}")
@@ -112,22 +119,26 @@ def datawire_check_canary_trip(hashed_path: str, client_ip: str) -> tuple[bool, 
         r.setex(
             f"datawire:blackhole:fp:{fingerprint}",
             DATAWIRE_BLACKHOLE_TTL,
-            json.dumps({
-                "tripped_at": int(time.time()),
-                "ip": client_ip,
-                "canary_id": canary["canary_id"],
-                "fake_route": canary["fake_route"],
-            }),
+            json.dumps(
+                {
+                    "tripped_at": int(time.time()),
+                    "ip": client_ip,
+                    "canary_id": canary["canary_id"],
+                    "fake_route": canary["fake_route"],
+                }
+            ),
         )
 
         r.setex(
             f"datawire:blackhole:ip:{client_ip}",
             DATAWIRE_BLACKHOLE_TTL,
-            json.dumps({
-                "tripped_at": int(time.time()),
-                "fp": fingerprint,
-                "canary_id": canary["canary_id"],
-            }),
+            json.dumps(
+                {
+                    "tripped_at": int(time.time()),
+                    "fp": fingerprint,
+                    "canary_id": canary["canary_id"],
+                }
+            ),
         )
 
         r.incr("datawire:trip_count")
@@ -164,10 +175,12 @@ def datawire_rotate_manifest(fingerprint: str):
         r.setex(
             f"datawire:rotated:{fingerprint}",
             86400,
-            json.dumps({
-                "rotated_at": int(time.time()),
-                "reason": "canary_trip",
-            }),
+            json.dumps(
+                {
+                    "rotated_at": int(time.time()),
+                    "reason": "canary_trip",
+                }
+            ),
         )
         keys = r.keys(f"datawire:canary:*")
         for key in keys:
