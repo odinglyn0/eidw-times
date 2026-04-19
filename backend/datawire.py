@@ -48,13 +48,13 @@ CANARY_ROUTE_TEMPLATES = [
 
 
 def datawire_generate_canaries(fingerprint: str, fp_hmac_prefix: str, route_key: str, signing_key: str, exp: int) -> dict:
-    canary_seed = _hmac_sha512(DATAWIRE_SECRET, f"canary|{fingerprint}|{exp}")
     canaries = {}
 
     for i in range(DATAWIRE_CANARY_COUNT):
-        idx = (int(canary_seed[i * 4:(i * 4) + 4], 16)) % len(CANARY_ROUTE_TEMPLATES)
+        seed = _hmac_sha512(DATAWIRE_SECRET, f"canary|{fingerprint}|{exp}|{i}")
+        idx = int(seed[:4], 16) % len(CANARY_ROUTE_TEMPLATES)
         fake_route = CANARY_ROUTE_TEMPLATES[idx]
-        suffix = canary_seed[(i * 6):(i * 6) + 6]
+        suffix = seed[4:16]
         canary_route = f"{fake_route}-{suffix}"
 
         hashed_path = _hmac_sha512(route_key, canary_route)[:24]
@@ -62,7 +62,7 @@ def datawire_generate_canaries(fingerprint: str, fp_hmac_prefix: str, route_key:
         sign_payload = f"datagram.eidwtimes.xyz/{fp_hmac_prefix}/{hashed_path}|{exp}"
         cookie_value = _hmac_sha512(per_route_hs_key, sign_payload)
 
-        canary_id = secrets.token_hex(8)
+        canary_id = seed[16:32]
         cookie_name = f"_cw_{hashed_path[:6]}"
 
         r = _get_redis()
