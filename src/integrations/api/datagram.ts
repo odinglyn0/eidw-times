@@ -1,7 +1,6 @@
 import { datacraneFetch } from "./datacrane";
 import { datapulseInit } from "./datapulse";
 import { datapulseStartCollecting } from "./datapulse-header";
-import { datariftInit } from "./datarift";
 
 const STORAGE_KEY = "_dgrm_v2";
 
@@ -19,7 +18,6 @@ export interface DatagramManifest {
   exp: number;
   routeKey: string;
   datapulse?: { datapulseSessionKey: string; datapulseVersion: number };
-  datarift?: { datariftEpochKey: string; datariftVersion: number };
 }
 
 export function storeDatagramManifest(manifest: DatagramManifest): void {
@@ -117,10 +115,6 @@ export async function mintDatagram(fingerprint: string): Promise<DatagramManifes
   if (manifest.datapulse?.datapulseSessionKey) {
     datapulseInit(manifest.datapulse.datapulseSessionKey, fingerprint);
     datapulseStartCollecting();
-  }
-
-  if (manifest.datarift?.datariftEpochKey) {
-    datariftInit(manifest.datarift.datariftEpochKey, fingerprint);
   }
 
   return manifest;

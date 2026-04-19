@@ -9,7 +9,7 @@ import time
 logger = logging.getLogger(__name__)
 
 DATAWIRE_SECRET = os.environ.get("DATAWIRE_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
-DATAWIRE_CANARY_COUNT = 4
+DATAWIRE_CANARY_COUNT = 100
 DATAWIRE_BLACKHOLE_TTL = 86400 * 7
 
 _redis_ref = None

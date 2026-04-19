@@ -17,7 +17,6 @@ from redis_middleware import rate_limit_middleware, response_cache_middleware
 
 import hmac as hmac_mod
 import gzip
-import time as _time
 
 from dataflint import (
     dataflint_mint_challenge,
@@ -36,13 +35,6 @@ from datapulse import (
     datapulse_record_and_check,
     datapulse_is_flagged,
     datapulse_generate_signing_params,
-)
-from datarift import (
-    datarift_extract_temporal,
-    datarift_verify_signature,
-    datarift_record_and_check,
-    datarift_is_blocked,
-    datarift_generate_params,
 )
 from dataghost import (
     dataghost_check_replay,
@@ -72,7 +64,6 @@ CORS(
         "X-Dataflint-Challenge",
         "X-Dataflint-Nonce",
         "X-Datapulse-Seal",
-        "X-Datarift-Temporal",
     ],
     expose_headers=["X-Datacrane", "X-Dataghost"],
 )
@@ -436,29 +427,6 @@ def datapulse_biometric_check():
     return None
 
 
-@app.before_request
-def datarift_temporal_check():
-    if request.method == "OPTIONS":
-        return None
-    if request.path in UNPROTECTED_PATHS:
-        return None
-    fp = getattr(request, "bounce_claims", {}).get("fp", "")
-    if not fp:
-        return None
-    if datarift_is_blocked(fp):
-        logging.warning(f"[DATARIFT] Blocked entity request | fp={fp[:16]}...")
-        return jsonify({"error": "TICK::4037 — DR_BLOCK: Chrono Drift"}), 403
-    temporal = datarift_extract_temporal(dict(request.headers))
-    if temporal:
-        if not datarift_verify_signature(temporal, fp):
-            return None
-        server_time_ms = int(_time.time() * 1000)
-        ok, reason = datarift_record_and_check(fp, temporal, server_time_ms)
-        if not ok:
-            return jsonify({"error": "TICK::4037 — DR_CHRONO: Temporal Anomaly"}), 403
-    return None
-
-
 rate_limit_middleware(app)
 
 
@@ -680,7 +648,6 @@ def datagram_mint():
         routes.update(canary_routes)
 
         datapulse_params = datapulse_generate_signing_params(fp)
-        datarift_params = datarift_generate_params(fp)
 
         return jsonify(
             {
@@ -690,7 +657,6 @@ def datagram_mint():
                 "exp": exp,
                 "routeKey": route_key[:32],
                 "datapulse": datapulse_params,
-                "datarift": datarift_params,
             }
         )
     except Exception as e:
