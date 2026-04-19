@@ -93,7 +93,9 @@ RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "")
 GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
 BOUNCE_TOKEN_SECRET = os.environ.get("BOUNCE_TOKEN_SECRET")
 DATAGRAM_SIGNING_KEY = os.environ.get("DATAGRAM_SIGNING_KEY")
-SMACK_SECRET = os.environ.get("SMACK_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", ""))
+SMACK_SECRET = os.environ.get(
+    "SMACK_SECRET", os.environ.get("DATAGRAM_SIGNING_KEY", "")
+)
 RECAPTCHA_SCORE_THRESHOLD = 0.5
 
 
@@ -503,7 +505,10 @@ def datacrane_decompress():
     if request.headers.get("X-Datacrane") != "1":
         if _is_unprotected_path(request.path):
             return None
-        return jsonify({"error": "TICK::4014 — DC_REQUIRED: Gzip Inbound Required"}), 400
+        return (
+            jsonify({"error": "TICK::4014 — DC_REQUIRED: Gzip Inbound Required"}),
+            400,
+        )
     try:
         raw_json = gzip.decompress(request.data)
         request._datacrane_body = raw_json
