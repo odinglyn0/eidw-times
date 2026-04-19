@@ -267,7 +267,8 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
     };
 
     run();
-  }, [hasValidToken, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasValidToken]);
 
   useEffect(() => {
     if (state === "failed") {

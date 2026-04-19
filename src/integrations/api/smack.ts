@@ -116,7 +116,7 @@ async function processFrame(frame: ArrayBuffer): Promise<void> {
   }
 
   const token = await decryptSmackToken(encrypted, _btHash, _decryptKey);
-  setCookie(getCookieName(), token, 30);
+  setCookie(getCookieName(), token, 15);
 
   if (!_firstTokenReceived && _readyResolve) {
     _firstTokenReceived = true;
@@ -125,12 +125,25 @@ async function processFrame(frame: ArrayBuffer): Promise<void> {
   }
 }
 
+let _retryCount = 0;
+const MAX_RETRIES = 5;
+const BASE_DELAY = 2000;
+
 function connect(): void {
   if (_ws) {
     try {
       _ws.close();
     } catch {}
     _ws = null;
+  }
+
+  if (_retryCount >= MAX_RETRIES) {
+    _active = false;
+    if (_readyResolve) {
+      _readyResolve();
+      _readyResolve = null;
+    }
+    return;
   }
 
   const params = new URLSearchParams({
@@ -143,6 +156,7 @@ function connect(): void {
   _ws.binaryType = "arraybuffer";
 
   _ws.onopen = () => {
+    _retryCount = 0;
     scheduleReconnect();
   };
 
@@ -155,24 +169,26 @@ function connect(): void {
   _ws.onclose = (event: CloseEvent) => {
     if (!_active) return;
     if (event.code === 4100) {
+      _retryCount = 0;
       reconnect();
       return;
     }
     if (event.code >= 4001 && event.code <= 4003) {
       _active = false;
+      if (_readyResolve) {
+        _readyResolve();
+        _readyResolve = null;
+      }
       return;
     }
+    _retryCount++;
+    const delay = Math.min(BASE_DELAY * Math.pow(2, _retryCount - 1), 30000);
     setTimeout(() => {
-      if (_active) reconnect();
-    }, 2000);
+      if (_active) connect();
+    }, delay);
   };
 
-  _ws.onerror = () => {
-    if (!_active) return;
-    setTimeout(() => {
-      if (_active) reconnect();
-    }, 3000);
-  };
+  _ws.onerror = () => {};
 }
 
 function reconnect(): void {
@@ -199,6 +215,21 @@ export interface SmackInitParams {
 }
 
 export function smackInit(params: SmackInitParams): Promise<void> {
+  if (_active && _ws && _ws.readyState <= WebSocket.OPEN) {
+    if (_firstTokenReceived) return Promise.resolve();
+    if (_readyPromise) return _readyPromise;
+    return Promise.resolve();
+  }
+
+  if (_ws) {
+    try { _ws.close(); } catch {}
+    _ws = null;
+  }
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+
   _btRaw = params.bounceToken;
   _fingerprint = params.fingerprint;
   _wsUrl = params.wsUrl;
@@ -206,6 +237,7 @@ export function smackInit(params: SmackInitParams): Promise<void> {
   _active = true;
   _firstTokenReceived = false;
   _decryptKey = null;
+  _retryCount = 0;
 
   _readyPromise = new Promise<void>((resolve) => {
     _readyResolve = resolve;
@@ -241,6 +273,7 @@ export function smackDestroy(): void {
   _readyPromise = null;
   _firstTokenReceived = false;
   _decryptKey = null;
+  _retryCount = 0;
 }
 
 export function smackGetToken(): string | null {

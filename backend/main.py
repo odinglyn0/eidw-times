@@ -360,7 +360,7 @@ def _smack_mint_token(bt_hash: str, fingerprint: str) -> str:
         "bth": bt_hash,
         "fp": fingerprint,
         "iat": now,
-        "exp": now + timedelta(seconds=30),
+        "exp": now + timedelta(seconds=15),
         "jti": secrets.token_hex(8),
         "iss": "smack-stream",
         "sub": bt_hash[:16],

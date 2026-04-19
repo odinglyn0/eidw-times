@@ -1,4 +1,4 @@
-const CACHE_NAME = "eidw-assets-v1";
+const CACHE_NAME = "eidw-assets-v2";
 
 const ASSET_EXTENSIONS = /\.(js|css|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|avif|webp|ico|wasm)(\?.*)?$/i;
 
@@ -63,7 +63,10 @@ self.addEventListener("activate", function (event) {
 self.addEventListener("fetch", function (event) {
   var req = event.request;
   if (req.method !== "GET") return;
-  if (!shouldCache(req.url)) return;
+  var url = req.url;
+  if (url.startsWith("ws:") || url.startsWith("wss:")) return;
+  if (url.includes("smack-stream")) return;
+  if (!shouldCache(url)) return;
 
   event.respondWith(
     caches.match(req).then(function (cached) {
