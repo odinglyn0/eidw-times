@@ -315,6 +315,25 @@ resource "google_cloud_run_v2_job" "tweeter" {
   depends_on = [google_sql_database_instance.postgres]
 }
 
+resource "google_cloud_scheduler_job" "tweeter_schedule" {
+  name             = "eidw-tweeter-schedule"
+  description      = "Post tweet at :59 every hour"
+  schedule         = "59 * * * *"
+  time_zone        = "Europe/Dublin"
+  attempt_deadline = "300s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/eidw-tweeter:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_sa.email
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_job.tweeter]
+}
+
 output "database_connection_string" {
   value     = local.database_url
   sensitive = true
