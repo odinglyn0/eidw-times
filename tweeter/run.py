@@ -148,6 +148,9 @@ async def send_tweet(tweet_text, image_bytes):
                 await client.create_tweet(text=tweet_text, media_ids=[media_id])
                 log.info("Tweet posted successfully")
                 break
+            except KeyError as e:
+                log.info("Tweet posted (twikit response parse error ignored: %s)", e)
+                break
             except Exception as e:
                 if "500" in str(e) and attempt < 2:
                     log.warning("Twitter 500 on attempt %d, retrying in %ds", attempt + 1, 5 * (attempt + 1))
