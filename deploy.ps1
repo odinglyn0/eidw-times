@@ -19,6 +19,9 @@ docker push "gcr.io/$ProjectId/eidw-backend:latest"
 docker build --build-arg "HF_TOKEN=$HfToken" -t "gcr.io/$ProjectId/eidw-predictor:latest" ./predictor
 docker push "gcr.io/$ProjectId/eidw-predictor:latest"
 
+docker build -t "gcr.io/$ProjectId/eidw-tweeter:latest" ./tweeter
+docker push "gcr.io/$ProjectId/eidw-tweeter:latest"
+
 Write-Host "Deploying infrastructure with Terraform..."
 Push-Location terraform
 

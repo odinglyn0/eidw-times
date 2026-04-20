@@ -271,6 +271,50 @@ resource "google_cloud_scheduler_job" "predictor_schedule" {
   depends_on = [google_cloud_run_v2_job.predictor]
 }
 
+resource "google_cloud_run_v2_job" "tweeter" {
+  name     = "eidw-tweeter"
+  location = var.region
+
+  template {
+    template {
+      containers {
+        image = "gcr.io/${var.project_id}/eidw-tweeter:latest"
+
+        env {
+          name  = "DATABASE_URL"
+          value = local.database_url
+        }
+
+        env {
+          name  = "TWITTER_USERNAME"
+          value = var.twitter_username
+        }
+
+        env {
+          name  = "TWITTER_EMAIL"
+          value = var.twitter_email
+        }
+
+        env {
+          name  = "TWITTER_PASSWORD"
+          value = var.twitter_password
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+      timeout     = "120s"
+      max_retries = 1
+    }
+  }
+
+  depends_on = [google_sql_database_instance.postgres]
+}
+
 output "database_connection_string" {
   value     = local.database_url
   sensitive = true

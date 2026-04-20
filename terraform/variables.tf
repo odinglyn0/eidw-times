@@ -37,3 +37,19 @@ variable "redis_url" {
   type        = string
   sensitive   = true
 }
+
+variable "twitter_username" {
+  description = "Twitter account username for the tweeter service"
+  type        = string
+}
+
+variable "twitter_email" {
+  description = "Twitter account email for the tweeter service"
+  type        = string
+}
+
+variable "twitter_password" {
+  description = "Twitter account password for the tweeter service"
+  type        = string
+  sensitive   = true
+}

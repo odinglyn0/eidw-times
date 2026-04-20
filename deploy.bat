@@ -24,6 +24,9 @@ docker push gcr.io/%PROJECT_ID%/eidw-backend:latest
 docker build --build-arg HF_TOKEN=%HF_TOKEN% -t gcr.io/%PROJECT_ID%/eidw-predictor:latest ./predictor
 docker push gcr.io/%PROJECT_ID%/eidw-predictor:latest
 
+docker build -t gcr.io/%PROJECT_ID%/eidw-tweeter:latest ./tweeter
+docker push gcr.io/%PROJECT_ID%/eidw-tweeter:latest
+
 echo Deploying infrastructure with Terraform...
 cd terraform
 
