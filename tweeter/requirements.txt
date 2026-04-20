@@ -1,6 +1,6 @@
 psycopg2-binary==2.9.7
 twikit==2.3.3
-matplotlib
+matplotlib==3.10.8
 seaborn==0.13.2
 fonttools[woff]
 brotli==1.2.0
