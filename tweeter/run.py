@@ -142,9 +142,18 @@ async def send_tweet(tweet_text, image_bytes):
         tmp_path = f.name
 
     try:
-        media_id = await client.upload_media(tmp_path)
-        await client.create_tweet(text=tweet_text, media_ids=[media_id])
-        log.info("Tweet posted successfully")
+        media_id = await client.upload_media(tmp_path, wait_for_completion=True)
+        for attempt in range(3):
+            try:
+                await client.create_tweet(text=tweet_text, media_ids=[media_id])
+                log.info("Tweet posted successfully")
+                break
+            except Exception as e:
+                if "500" in str(e) and attempt < 2:
+                    log.warning("Twitter 500 on attempt %d, retrying in %ds", attempt + 1, 5 * (attempt + 1))
+                    await asyncio.sleep(5 * (attempt + 1))
+                else:
+                    raise
     finally:
         os.unlink(tmp_path)
 
