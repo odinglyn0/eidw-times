@@ -317,8 +317,8 @@ resource "google_cloud_run_v2_job" "tweeter" {
 
 resource "google_cloud_scheduler_job" "tweeter_schedule" {
   name             = "eidw-tweeter-schedule"
-  description      = "Post tweet at :59 every hour"
-  schedule         = "59 * * * *"
+  description      = "Post tweet at :29 and :59 every hour"
+  schedule         = "29,59 * * * *"
   time_zone        = "Europe/Dublin"
   attempt_deadline = "300s"
 
