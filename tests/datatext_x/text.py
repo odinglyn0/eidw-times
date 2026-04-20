@@ -376,20 +376,20 @@ def generate_tweet(
 
     if past_surge_t1 and past_surge_t2:
         lines.append(
-            f"Both terminals have already surged in the last hour — plan ahead."
+            f"Both terminals surged in the last hour."
         )
     elif past_surge_t1:
         lines.append(
-            f"T1 has already jumped {fmt_pct(t1_past_trend)} in the last hour."
+            f"T1 jumped {fmt_pct(t1_past_trend)} in the last hour."
         )
     elif past_surge_t2:
         lines.append(
-            f"T2 has already jumped {fmt_pct(t2_past_trend)} in the last hour."
+            f"T2 jumped {fmt_pct(t2_past_trend)} in the last hour."
         )
 
     if t1_converging and not t1_diverging:
         lines.append(
-            f"Both terminals converging — gap narrowing to ~{abs(t1_in_3_hours - t2_in_3_hours)} mins in 3hrs."
+            f"Gap narrowing to ~{abs(t1_in_3_hours - t2_in_3_hours)} mins in 3hrs."
         )
 
     if (
@@ -408,8 +408,8 @@ def generate_tweet(
 
     tweet = " ".join(lines)
 
-    if len(tweet) > 280:
-        tweet = tweet[:277] + "..."
+    if len(tweet) > 270:
+        tweet = tweet[:267] + "..."
 
     return tweet
 

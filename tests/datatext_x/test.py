@@ -381,7 +381,7 @@ class TestPastSurgeAnnotation:
             t2_in_2_hours=12,
             t2_in_3_hours=13,
         )
-        assert "T1 has already jumped" in tweet
+        assert "T1 jumped" in tweet
 
     def test_t2_past_surge(self):
         tweet = generate_tweet(
@@ -396,7 +396,7 @@ class TestPastSurgeAnnotation:
             t2_in_2_hours=30,
             t2_in_3_hours=35,
         )
-        assert "T2 has already jumped" in tweet
+        assert "T2 jumped" in tweet
 
     def test_both_past_surge(self):
         tweet = generate_tweet(
@@ -411,7 +411,7 @@ class TestPastSurgeAnnotation:
             t2_in_2_hours=30,
             t2_in_3_hours=35,
         )
-        assert "Both terminals have already surged" in tweet
+        assert "Both terminals surged" in tweet
 
     def test_no_past_surge_when_low(self):
         tweet = generate_tweet(
