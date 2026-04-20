@@ -100,7 +100,10 @@ def generate_tweet(
 
     tweet = "\n".join(lines)
 
-    if len(tweet) > 270:
+    hashtags = "#daa #dublinairport"
+    if len(tweet) + 1 + len(hashtags) <= 270:
+        tweet = tweet + "\n" + hashtags
+    elif len(tweet) > 270:
         tweet = tweet[:267] + "..."
 
     return tweet
