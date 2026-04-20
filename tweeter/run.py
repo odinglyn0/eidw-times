@@ -4,10 +4,15 @@ import asyncio
 import logging
 import tempfile
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
+import bs4
+import httpx
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from twikit import Client
+from x_client_transaction import ClientTransaction as XClientTransaction
+from x_client_transaction.utils import generate_headers, get_ondemand_file_url
 
 from viz import plot_security_times
 from text import generate_tweet
@@ -95,6 +100,19 @@ def fetch_predictions(conn):
     return results
 
 
+async def _build_transaction_generator():
+    async with httpx.AsyncClient(headers=generate_headers()) as session:
+        home_page = await session.get("https://x.com")
+        home_page_response = bs4.BeautifulSoup(home_page.content, "html.parser")
+        ondemand_url = get_ondemand_file_url(response=home_page_response)
+        ondemand_file = await session.get(ondemand_url)
+        ondemand_text = ondemand_file.text
+    return XClientTransaction(
+        home_page_response=home_page_response,
+        ondemand_file_response=ondemand_text,
+    )
+
+
 async def send_tweet(tweet_text, image_bytes):
     client = Client("en-US")
 
@@ -103,11 +121,19 @@ async def send_tweet(tweet_text, image_bytes):
 
     client.load_cookies(COOKIES_PATH)
 
+    log.info("Building X-Client-Transaction-Id generator")
+    xct = await _build_transaction_generator()
+
     async def _noop_init(*args, **kwargs):
         pass
 
+    def _generate_tid(**kwargs):
+        method = kwargs.get("method", "GET")
+        path = kwargs.get("path", "/")
+        return xct.generate_transaction_id(method=method, path=path)
+
     client.client_transaction.init = _noop_init
-    client.client_transaction.generate_transaction_id = lambda **kwargs: ""
+    client.client_transaction.generate_transaction_id = _generate_tid
 
     log.info("Loaded cookies from %s", COOKIES_PATH)
 
