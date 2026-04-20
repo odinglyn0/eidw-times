@@ -64,6 +64,4 @@ CREATE TABLE IF NOT EXISTS prediction_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_prediction_history_target ON prediction_history(terminal, target_hour, predicted_at);
-
-CREATE INDEX IF NOT EXISTS idx_feature_requests_acknowledged ON feature_requests(acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_announcements_active_expires ON announcements(active, expires_at);

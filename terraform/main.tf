@@ -255,7 +255,7 @@ resource "google_cloud_scheduler_job" "departure_poller_schedule" {
 resource "google_cloud_scheduler_job" "predictor_schedule" {
   name             = "eidw-predictor-schedule"
   description      = "Run XGBoost predictions at :59 every hour"
-  schedule         = "59 * * * *"
+  schedule         = "55 * * * *"
   time_zone        = "Europe/Dublin"
   attempt_deadline = "300s"
 
