@@ -12,3 +12,4 @@ xgboost
 pandas
 pyarrow
 huggingface_hub
+sentry-sdk[flask]

@@ -9,6 +9,11 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import xgboost as xgb
+import sentry_sdk
+
+sentry_dsn = os.environ.get("SENTRY_DSN", "")
+if sentry_dsn:
+    sentry_sdk.init(dsn=sentry_dsn, traces_sample_rate=0.1)
 
 HF_REPO = "unknown-wdie/xgboost-sm"
 MODEL_DIR = Path("/app/models")

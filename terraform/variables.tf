@@ -53,3 +53,27 @@ variable "twitter_password" {
   type        = string
   sensitive   = true
 }
+
+variable "sentry_dsn_backend" {
+  description = "Sentry DSN for the backend service"
+  type        = string
+  sensitive   = true
+}
+
+variable "sentry_dsn_predictor" {
+  description = "Sentry DSN for the predictor job"
+  type        = string
+  sensitive   = true
+}
+
+variable "sentry_dsn_pysrc" {
+  description = "Sentry DSN for the pysrc pollers"
+  type        = string
+  sensitive   = true
+}
+
+variable "sentry_dsn_tweeter" {
+  description = "Sentry DSN for the tweeter job"
+  type        = string
+  sensitive   = true
+}

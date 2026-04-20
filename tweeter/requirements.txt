@@ -7,3 +7,4 @@ seaborn==0.13.2
 fonttools[woff]
 brotli==1.2.0
 Pillow==12.2.0
+sentry-sdk

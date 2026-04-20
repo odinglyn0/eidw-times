@@ -64,6 +64,11 @@ resource "google_cloud_run_v2_job" "security_poller" {
           name  = "DATABASE_URL"
           value = local.database_url
         }
+
+        env {
+          name  = "SENTRY_DSN"
+          value = var.sentry_dsn_pysrc
+        }
       }
       timeout     = "60s"
       max_retries = 1
@@ -86,6 +91,11 @@ resource "google_cloud_run_v2_job" "departure_poller" {
           name  = "DATABASE_URL"
           value = local.database_url
         }
+
+        env {
+          name  = "SENTRY_DSN"
+          value = var.sentry_dsn_pysrc
+        }
       }
       timeout     = "120s"
       max_retries = 1
@@ -107,6 +117,11 @@ resource "google_cloud_run_v2_job" "predictor" {
         env {
           name  = "DATABASE_URL"
           value = local.database_url
+        }
+
+        env {
+          name  = "SENTRY_DSN"
+          value = var.sentry_dsn_predictor
         }
 
         resources {
@@ -170,6 +185,11 @@ resource "google_cloud_run_v2_service" "backend" {
       env {
         name  = "REDIS_URL"
         value = var.redis_url
+      }
+
+      env {
+        name  = "SENTRY_DSN"
+        value = var.sentry_dsn_backend
       }
     }
   }
@@ -283,6 +303,11 @@ resource "google_cloud_run_v2_job" "tweeter" {
         env {
           name  = "DATABASE_URL"
           value = local.database_url
+        }
+
+        env {
+          name  = "SENTRY_DSN"
+          value = var.sentry_dsn_tweeter
         }
 
         env {
