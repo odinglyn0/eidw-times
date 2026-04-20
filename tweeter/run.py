@@ -153,7 +153,11 @@ async def send_tweet(tweet_text, image_bytes):
                 break
             except Exception as e:
                 if "500" in str(e) and attempt < 2:
-                    log.warning("Twitter 500 on attempt %d, retrying in %ds", attempt + 1, 5 * (attempt + 1))
+                    log.warning(
+                        "Twitter 500 on attempt %d, retrying in %ds",
+                        attempt + 1,
+                        5 * (attempt + 1),
+                    )
                     await asyncio.sleep(5 * (attempt + 1))
                 else:
                     raise
