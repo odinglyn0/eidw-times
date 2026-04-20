@@ -16,11 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-TWITTER_USERNAME = os.environ["TWITTER_USERNAME"]
-TWITTER_EMAIL = os.environ["TWITTER_EMAIL"]
-TWITTER_PASSWORD = os.environ["TWITTER_PASSWORD"]
-
-COOKIES_PATH = "/tmp/twikit_cookies.json"
+COOKIES_PATH = os.environ.get("TWITTER_COOKIES_PATH", "/app/cookies.json")
 
 
 def get_db_connection():
@@ -102,17 +98,18 @@ def fetch_predictions(conn):
 async def send_tweet(tweet_text, image_bytes):
     client = Client("en-US")
 
-    if os.path.exists(COOKIES_PATH):
-        client.load_cookies(COOKIES_PATH)
-        log.info("Loaded existing cookies")
-    else:
-        await client.login(
-            auth_info_1=TWITTER_USERNAME,
-            auth_info_2=TWITTER_EMAIL,
-            password=TWITTER_PASSWORD,
-        )
-        client.save_cookies(COOKIES_PATH)
-        log.info("Logged in and saved cookies")
+    if not os.path.exists(COOKIES_PATH):
+        raise RuntimeError(f"Cookies file not found at {COOKIES_PATH}")
+
+    client.load_cookies(COOKIES_PATH)
+
+    async def _noop_init(*args, **kwargs):
+        pass
+
+    client.client_transaction.init = _noop_init
+    client.client_transaction.generate_transaction_id = lambda **kwargs: ""
+
+    log.info("Loaded cookies from %s", COOKIES_PATH)
 
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         f.write(image_bytes)

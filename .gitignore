@@ -83,7 +83,7 @@ desktop.ini
 
 *.parquet
 
-
+cookies.json
 # XGBoost model cache
 .model_cache/
 .vercel
