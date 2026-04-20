@@ -95,6 +95,35 @@ resource "google_cloud_run_v2_job" "departure_poller" {
   depends_on = [google_sql_database_instance.postgres]
 }
 
+resource "google_cloud_run_v2_job" "predictor" {
+  name     = "eidw-predictor"
+  location = var.region
+
+  template {
+    template {
+      containers {
+        image = "gcr.io/${var.project_id}/eidw-predictor:latest"
+
+        env {
+          name  = "DATABASE_URL"
+          value = local.database_url
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+      timeout     = "300s"
+      max_retries = 1
+    }
+  }
+
+  depends_on = [google_sql_database_instance.postgres]
+}
+
 resource "google_cloud_run_v2_service" "backend" {
   name     = "eidwtimesbackend"
   location = var.region
@@ -221,6 +250,25 @@ resource "google_cloud_scheduler_job" "departure_poller_schedule" {
   }
 
   depends_on = [google_cloud_run_v2_job.departure_poller]
+}
+
+resource "google_cloud_scheduler_job" "predictor_schedule" {
+  name             = "eidw-predictor-schedule"
+  description      = "Run XGBoost predictions at :59 every hour"
+  schedule         = "59 * * * *"
+  time_zone        = "Europe/Dublin"
+  attempt_deadline = "300s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/eidw-predictor:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_sa.email
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_job.predictor]
 }
 
 output "database_connection_string" {

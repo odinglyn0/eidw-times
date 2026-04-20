@@ -45,5 +45,25 @@ CREATE TABLE IF NOT EXISTS announcements (
     expires_at TIMESTAMPTZ
 );
 
+CREATE TABLE IF NOT EXISTS predictions (
+    terminal SMALLINT NOT NULL,
+    target_hour TIMESTAMPTZ NOT NULL,
+    predicted_wait REAL NOT NULL,
+    horizon TEXT NOT NULL,
+    last_prediction_time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (terminal, target_hour)
+);
+
+CREATE TABLE IF NOT EXISTS prediction_history (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    terminal SMALLINT NOT NULL,
+    target_hour TIMESTAMPTZ NOT NULL,
+    predicted_wait REAL NOT NULL,
+    horizon TEXT NOT NULL,
+    predicted_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_prediction_history_target ON prediction_history(terminal, target_hour, predicted_at);
+
 CREATE INDEX IF NOT EXISTS idx_feature_requests_acknowledged ON feature_requests(acknowledged_at);
 CREATE INDEX IF NOT EXISTS idx_announcements_active_expires ON announcements(active, expires_at);

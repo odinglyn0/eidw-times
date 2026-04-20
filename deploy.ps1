@@ -16,6 +16,9 @@ $HfToken = ($envContent | Where-Object { $_ -match "^HF_TOKEN=" }) -replace "^HF
 docker build --build-arg "HF_TOKEN=$HfToken" -t "gcr.io/$ProjectId/eidw-backend:latest" ./backend
 docker push "gcr.io/$ProjectId/eidw-backend:latest"
 
+docker build --build-arg "HF_TOKEN=$HfToken" -t "gcr.io/$ProjectId/eidw-predictor:latest" ./predictor
+docker push "gcr.io/$ProjectId/eidw-predictor:latest"
+
 Write-Host "Deploying infrastructure with Terraform..."
 Push-Location terraform
 

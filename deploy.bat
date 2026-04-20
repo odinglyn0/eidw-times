@@ -21,6 +21,9 @@ for /f "tokens=1,2 delims==" %%a in (backend\.env) do (
 docker build --build-arg HF_TOKEN=%HF_TOKEN% -t gcr.io/%PROJECT_ID%/eidw-backend:latest ./backend
 docker push gcr.io/%PROJECT_ID%/eidw-backend:latest
 
+docker build --build-arg HF_TOKEN=%HF_TOKEN% -t gcr.io/%PROJECT_ID%/eidw-predictor:latest ./predictor
+docker push gcr.io/%PROJECT_ID%/eidw-predictor:latest
+
 echo Deploying infrastructure with Terraform...
 cd terraform
 
