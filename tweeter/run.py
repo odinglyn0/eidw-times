@@ -93,9 +93,7 @@ def fetch_predictions(conn):
                 )
                 row = cur.fetchone()
             if not row:
-                raise RuntimeError(
-                    f"No prediction found for T{terminal} near {label}"
-                )
+                raise RuntimeError(f"No prediction found for T{terminal} near {label}")
             results[f"t{terminal}_{label}"] = round(row["predicted_wait"])
 
     return results
@@ -152,14 +150,30 @@ def main():
     t2_in_3_hours = preds["t2_3h"]
 
     tweet_text = generate_tweet(
-        t1_last_hour, t1_now, t1_next_hour, t1_in_2_hours, t1_in_3_hours,
-        t2_last_hour, t2_now, t2_next_hour, t2_in_2_hours, t2_in_3_hours,
+        t1_last_hour,
+        t1_now,
+        t1_next_hour,
+        t1_in_2_hours,
+        t1_in_3_hours,
+        t2_last_hour,
+        t2_now,
+        t2_next_hour,
+        t2_in_2_hours,
+        t2_in_3_hours,
     )
     log.info("Generated tweet (%d chars): %s", len(tweet_text), tweet_text)
 
     image_bytes = plot_security_times(
-        t1_last_hour, t1_now, t1_next_hour, t1_in_2_hours, t1_in_3_hours,
-        t2_last_hour, t2_now, t2_next_hour, t2_in_2_hours, t2_in_3_hours,
+        t1_last_hour,
+        t1_now,
+        t1_next_hour,
+        t1_in_2_hours,
+        t1_in_3_hours,
+        t2_last_hour,
+        t2_now,
+        t2_next_hour,
+        t2_in_2_hours,
+        t2_in_3_hours,
     )
     log.info("Generated image (%d bytes)", len(image_bytes))
 

@@ -36,7 +36,6 @@ from datawire import (
 )
 
 
-
 app = Flask(__name__)
 CORS(
     app,
@@ -58,7 +57,6 @@ CORS(
         "X-Datacrane",
         "X-Dataflint-Challenge",
         "X-Dataflint-Nonce",
-
         "X-Smack-Token",
     ],
     expose_headers=["X-Datacrane"],
@@ -517,9 +515,6 @@ def datawire_blackhole_check():
         logging.warning(f"[DATAWIRE] Blackholed request | fp={fp[:16]}... | ip={ip}")
         return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
     return None
-
-
-
 
 
 rate_limit_middleware(app)

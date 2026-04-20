@@ -260,7 +260,8 @@ def upsert_predictions(conn, predictions, now):
 
 def ensure_tables(conn):
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             CREATE TABLE IF NOT EXISTS predictions (
                 terminal SMALLINT NOT NULL,
                 target_hour TIMESTAMPTZ NOT NULL,
@@ -269,8 +270,10 @@ def ensure_tables(conn):
                 last_prediction_time TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (terminal, target_hour)
             )
-        """)
-        cur.execute("""
+        """
+        )
+        cur.execute(
+            """
             CREATE TABLE IF NOT EXISTS prediction_history (
                 id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 terminal SMALLINT NOT NULL,
@@ -279,11 +282,14 @@ def ensure_tables(conn):
                 horizon TEXT NOT NULL,
                 predicted_at TIMESTAMPTZ NOT NULL
             )
-        """)
-        cur.execute("""
+        """
+        )
+        cur.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_prediction_history_target
             ON prediction_history (terminal, target_hour, predicted_at)
-        """)
+        """
+        )
     conn.commit()
 
 
@@ -317,7 +323,9 @@ def main():
             target = (now + timedelta(minutes=horizon_minutes)).replace(
                 minute=0, second=0, microsecond=0
             )
-            print(f"  {terminal_str.upper()} +{horizon_minutes}min -> {value}min (target: {target.isoformat()})")
+            print(
+                f"  {terminal_str.upper()} +{horizon_minutes}min -> {value}min (target: {target.isoformat()})"
+            )
 
         print("Done.")
     finally:
