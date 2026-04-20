@@ -5,7 +5,7 @@ psycopg2-binary==2.9.7
 gunicorn==22.0.0
 numpy
 PyJWT==2.9.0
-cryptography==44.0.0
+cryptography==46.0.7
 google-cloud-recaptcha-enterprise==1.23.0
 redis>=5.0.0
 xgboost
