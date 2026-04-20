@@ -49,11 +49,7 @@ export async function datacraneFetch(url: string, init?: RequestInit): Promise<R
   const out = { ...init };
   const h = { ...((init?.headers as Record<string, string>) || {}) };
 
-  const { datapulseGetSealHeader } = await import("./datapulse-header");
   const { smackGetToken } = await import("./smack");
-
-  const sealHeader = await datapulseGetSealHeader();
-  if (sealHeader) h["X-Datapulse-Seal"] = sealHeader;
 
   const smackToken = smackGetToken();
   if (smackToken && !isUnprotectedUrl(url)) h["X-Smack-Token"] = smackToken;

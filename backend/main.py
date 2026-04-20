@@ -34,13 +34,7 @@ from datawire import (
     datawire_check_canary_trip,
     datawire_is_blackholed,
 )
-from datapulse import (
-    datapulse_extract_seal,
-    datapulse_verify_seal_signature,
-    datapulse_record_and_check,
-    datapulse_is_flagged,
-    datapulse_generate_signing_params,
-)
+
 
 
 app = Flask(__name__)
@@ -64,7 +58,7 @@ CORS(
         "X-Datacrane",
         "X-Dataflint-Challenge",
         "X-Dataflint-Nonce",
-        "X-Datapulse-Seal",
+
         "X-Smack-Token",
     ],
     expose_headers=["X-Datacrane"],
@@ -525,27 +519,7 @@ def datawire_blackhole_check():
     return None
 
 
-@app.before_request
-def datapulse_biometric_check():
-    if request.method == "OPTIONS":
-        return None
-    if _is_unprotected_path(request.path):
-        return None
-    fp = getattr(request, "bounce_claims", {}).get("fp", "")
-    if not fp:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
-    if datapulse_is_flagged(fp):
-        logging.warning(f"[DATAPULSE] Flagged entity request | fp={fp[:16]}...")
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
-    seal = datapulse_extract_seal(dict(request.headers))
-    if seal:
-        if not datapulse_verify_seal_signature(seal, fp):
-            logging.warning(f"[DATAPULSE] Invalid seal signature | fp={fp[:16]}...")
-            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
-        ok, reason = datapulse_record_and_check(fp, seal)
-        if not ok:
-            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
-    return None
+
 
 
 rate_limit_middleware(app)
@@ -755,8 +729,6 @@ def datagram_mint():
         )
         routes.update(canary_routes)
 
-        datapulse_params = datapulse_generate_signing_params(fp)
-
         smack_ws_key = _hmac_sha512(SMACK_SECRET, f"ws-derive|{fp}")[:64]
 
         return jsonify(
@@ -766,7 +738,6 @@ def datagram_mint():
                 "routes": routes,
                 "exp": exp,
                 "routeKey": route_key[:32],
-                "datapulse": datapulse_params,
                 "smack": {
                     "smackSecret": smack_ws_key,
                     "wsRoute": "/api/smack-stream",
