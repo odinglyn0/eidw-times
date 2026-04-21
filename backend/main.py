@@ -23,7 +23,17 @@ import sentry_sdk
 
 sentry_dsn = os.environ.get("SENTRY_DSN", "")
 if sentry_dsn:
-    sentry_sdk.init(dsn=sentry_dsn, traces_sample_rate=0.1)
+
+    def _before_send(event, hint):
+        if "exc_info" in hint:
+            exc_type, exc_value, _ = hint["exc_info"]
+            if exc_type is StopIteration:
+                return None
+        return event
+
+    sentry_sdk.init(
+        dsn=sentry_dsn, traces_sample_rate=0.1, before_send=_before_send
+    )
 
 import hmac as hmac_mod
 import gzip

@@ -199,6 +199,8 @@ const Index = () => {
         <a href="https://datagram.eidwtimes.xyz/api/seo-security-data" className="hover:underline">I'm a search engine</a>
         {" · "}
         <a href="/llms.txt" className="hover:underline">I'm an LLM</a>
+        {" · "}
+        <a href="https://x.com/eidwtimes" target="_blank" rel="noopener noreferrer" className="hover:underline">@eidwtimes</a>
       </nav>
 
       <BottomNotch />

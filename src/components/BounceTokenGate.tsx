@@ -324,12 +324,35 @@ const BounceTokenGate = ({ children }: BounceTokenGateProps) => {
         <p style={{ color: "#64748b", fontSize: "0.8125rem" }}>
           Verifying you are not an evil hacker
         </p>
-        <nav style={{ textAlign: "center", fontSize: "0.75rem", color: "#9ca3af", marginTop: "1rem" }}>
-          <a href="https://datagram.eidwtimes.xyz/api/seo-security-data" style={{ color: "#9ca3af", textDecoration: "none" }}>I'm a search engine</a>
-          {" · "}
-          <a href="/llms.txt" style={{ color: "#9ca3af", textDecoration: "none" }}>I'm an LLM</a>
-        </nav>
       </div>
+      <a
+        href="https://x.com/eidwtimes"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Follow EIDW Times on X"
+        style={{
+          position: "fixed",
+          bottom: "2rem",
+          right: "2rem",
+          opacity: 0.75,
+          zIndex: 2,
+          transition: "opacity 0.2s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={e => (e.currentTarget.style.opacity = "0.75")}
+      >
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="white" aria-hidden="true">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+        <style>{`
+          @media (max-width: 768px) {
+            a[aria-label="Follow EIDW Times on X"] {
+              right: 50% !important;
+              transform: translateX(50%);
+            }
+          }
+        `}</style>
+      </a>
     </div>
   );
 };
