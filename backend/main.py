@@ -359,7 +359,7 @@ def _smack_mint_token(bt_hash: str, fingerprint: str) -> str:
         "bth": bt_hash,
         "fp": fingerprint,
         "iat": now,
-        "exp": now + timedelta(seconds=5),
+        "exp": now + timedelta(seconds=15),
         "jti": secrets.token_hex(8),
         "iss": "smack-stream",
         "sub": bt_hash[:16],
@@ -804,13 +804,13 @@ def smack_stream(ws):
             except Exception:
                 return
 
-            deadline = time.time() + 1
+            deadline = time.time() + 0.5
             while time.time() < deadline:
                 elapsed = time.time() - stream_start
                 if elapsed >= stream_max_duration:
                     ws.close(4100, "STREAM_EXPIRED")
                     return
-                time.sleep(0.25)
+                time.sleep(0.1)
     except Exception:
         return
 

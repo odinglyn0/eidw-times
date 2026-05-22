@@ -99,6 +99,8 @@ async function hmacSha256Verify(
 let _decryptKey: CryptoKey | null = null;
 let _smackSecret: string = "";
 
+const _nextTokenWaiters: Array<(token: string) => void> = [];
+
 async function processFrame(frame: ArrayBuffer): Promise<void> {
   const raw = new Uint8Array(frame);
   if (raw.length < FRAME_HEADER_SIZE + 10) return;
@@ -116,12 +118,17 @@ async function processFrame(frame: ArrayBuffer): Promise<void> {
   }
 
   const token = await decryptSmackToken(encrypted, _btHash, _decryptKey);
-  setCookie(getCookieName(), token, 5);
+  setCookie(getCookieName(), token, 15);
 
   if (!_firstTokenReceived && _readyResolve) {
     _firstTokenReceived = true;
     _readyResolve();
     _readyResolve = null;
+  }
+
+  if (_nextTokenWaiters.length) {
+    const waiters = _nextTokenWaiters.splice(0);
+    for (const w of waiters) w(token);
   }
 }
 
@@ -283,4 +290,26 @@ export function smackGetToken(): string | null {
     new RegExp("(?:^|; )" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^;]*)")
   );
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+export function smackWaitForFreshToken(timeoutMs: number = 1500): Promise<string | null> {
+  if (!_active || !_ws || _ws.readyState > WebSocket.OPEN) {
+    return Promise.resolve(smackGetToken());
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    _nextTokenWaiters.push((tok) => done(tok));
+    setTimeout(() => done(smackGetToken()), timeoutMs);
+  });
+}
+
+export function smackForceReconnect(): void {
+  if (!_active) return;
+  _retryCount = 0;
+  reconnect();
 }

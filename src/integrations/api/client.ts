@@ -1,9 +1,12 @@
 import { resolveDatagramUrl, DatagramMissingError, mintDatagram, storeDatagramManifest } from "./datagram";
 import { datacraneFetch } from "./datacrane";
-import { smackReady } from "./smack";
+import { smackReady, smackForceReconnect, smackWaitForFreshToken } from "./smack";
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const RETRY_STATUS_CODES = new Set([400, 401, 402, 403, 500, 502, 503]);
+const RETRY_DELAYS_MS = [500, 1000, 2000];
 
 function getCookie(name: string): string | null {
   const match = document.cookie.match(
@@ -61,7 +64,42 @@ async function dgramFetch(
     }
   };
 
-  const raw = await doFetch();
+  let raw: Response | null = null;
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt - 1]));
+      try {
+        const fp = sessionStorage.getItem("_ebfp");
+        if (fp) {
+          const manifest = await mintDatagram(fp);
+          storeDatagramManifest(manifest);
+        }
+      } catch { /* keep existing manifest */ }
+      try {
+        smackForceReconnect();
+        await smackWaitForFreshToken(1500);
+      } catch { /* fall through with whatever token we have */ }
+    }
+
+    try {
+      raw = await doFetch();
+    } catch (e) {
+      lastError = e;
+      raw = null;
+      if (attempt === RETRY_DELAYS_MS.length) throw e;
+      continue;
+    }
+
+    if (raw.ok || !RETRY_STATUS_CODES.has(raw.status)) {
+      break;
+    }
+  }
+
+  if (!raw) {
+    throw lastError ?? new Error("dgramFetch: no response");
+  }
 
   if (!raw.ok) return raw;
 
