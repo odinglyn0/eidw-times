@@ -31,7 +31,7 @@ def get_db_connection():
 def store_departures(flights):
     if not flights:
         logger.info("No departure data returned")
-        return
+        return False
 
     now = datetime.now(timezone.utc)
     try:
@@ -78,14 +78,17 @@ def store_departures(flights):
                     )
                 conn.commit()
                 logger.info(f"Stored {len(flights)} departure records")
+                return True
     except Exception as e:
         logger.error(f"Failed to store departure data: {e}")
+        return False
 
 
 class DeparturesSpider(scrapy.Spider):
     name = "departures_spider"
     max_retries = 5
     retry_delay = 0.75
+    wrote_to_db = False
     custom_settings = {
         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
         "USER_AGENT": None,
@@ -109,7 +112,7 @@ class DeparturesSpider(scrapy.Spider):
         "LOG_LEVEL": "WARNING",
     }
 
-    def start_requests(self):
+    async def start(self):
         today = datetime.now(timezone.utc)
         for day_offset in range(SCRAPE_DAYS_AHEAD + 1):
             target_date = (today + timedelta(days=day_offset)).strftime("%Y-%m-%d")
@@ -179,10 +182,35 @@ class DeparturesSpider(scrapy.Spider):
             return
 
         logger.info(f"[{target_date}] Got {len(flights)} flights from API")
-        store_departures(flights)
+        if store_departures(flights):
+            self.wrote_to_db = True
 
 
 if __name__ == "__main__":
+    import sys
+
     process = CrawlerProcess()
-    process.crawl(DeparturesSpider)
+    crawler = process.create_crawler(DeparturesSpider)
+    process.crawl(crawler)
     process.start()
+    stats = crawler.stats.get_stats() if crawler.stats else {}
+    response_count = stats.get("response_received_count", 0)
+    wrote = getattr(crawler.spider, "wrote_to_db", False) if crawler.spider else False
+
+    if response_count == 0:
+        logger.error(
+            "Spider finished without receiving any responses "
+            "(response_received_count=0). This usually means the spider's "
+            "entrypoint method was never called by Scrapy (API change?) or "
+            "all requests failed. Failing the run."
+        )
+        sys.exit(2)
+    if not wrote:
+        logger.error(
+            f"Spider received {response_count} response(s) but wrote nothing "
+            "to the database. Failing the run so this is visible."
+        )
+        sys.exit(3)
+    logger.info(
+        f"Run OK: {response_count} response(s) received, DB write succeeded."
+    )

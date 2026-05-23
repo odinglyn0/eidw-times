@@ -44,7 +44,7 @@ def store_security_data(t1, t2):
 
     if t1 is None and t2 is None:
         logger.warning("Both T1 and T2 are None, skipping DB write.")
-        return
+        return False
 
     try:
         with get_db_connection() as conn:
@@ -83,14 +83,17 @@ def store_security_data(t1, t2):
 
                 conn.commit()
                 logger.info(f"Stored security data: T1={t1}, T2={t2}")
+                return True
     except Exception as e:
         logger.error(f"Failed to store security data: {e}")
+        return False
 
 
 class SecuritySpider(scrapy.Spider):
     name = "security_spider"
     max_retries = 5
     retry_delay = 0.75
+    wrote_to_db = False
     custom_settings = {
         "TWISTED_REACTOR": "twisted.internet.asyncioreactor.AsyncioSelectorReactor",
         "USER_AGENT": None,
@@ -114,7 +117,7 @@ class SecuritySpider(scrapy.Spider):
         "LOG_LEVEL": "WARNING",
     }
 
-    def start_requests(self):
+    async def start(self):
         yield scrapy.Request(
             API_URL, callback=self.parse, meta={"retry_count": 0}, dont_filter=True
         )
@@ -163,10 +166,35 @@ class SecuritySpider(scrapy.Spider):
             )
             return
 
-        store_security_data(t1, t2)
+        if store_security_data(t1, t2):
+            self.wrote_to_db = True
 
 
 if __name__ == "__main__":
+    import sys
+
     process = CrawlerProcess()
-    process.crawl(SecuritySpider)
+    crawler = process.create_crawler(SecuritySpider)
+    process.crawl(crawler)
     process.start()
+    stats = crawler.stats.get_stats() if crawler.stats else {}
+    response_count = stats.get("response_received_count", 0)
+    wrote = getattr(crawler.spider, "wrote_to_db", False) if crawler.spider else False
+
+    if response_count == 0:
+        logger.error(
+            "Spider finished without receiving any responses "
+            "(response_received_count=0). This usually means the spider's "
+            "entrypoint method was never called by Scrapy (API change?) or "
+            "all requests failed. Failing the run."
+        )
+        sys.exit(2)
+    if not wrote:
+        logger.error(
+            f"Spider received {response_count} response(s) but wrote nothing "
+            "to the database. Failing the run so this is visible."
+        )
+        sys.exit(3)
+    logger.info(
+        f"Run OK: {response_count} response(s) received, DB write succeeded."
+    )
