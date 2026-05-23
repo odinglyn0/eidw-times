@@ -30,6 +30,7 @@ import BounceTokenGate from "@/components/BounceTokenGate";
 const NeuralNetworkBackground = lazyWithRetry(() => import("@/components/BackG"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
+const Contact = lazyWithRetry(() => import("./pages/Contact"));
 
 const ErrorPage = lazyWithRetry(() => import("./pages/ErrorPage"));
 let _ReactGA: typeof import('react-ga4').default | null = null;
@@ -144,6 +145,7 @@ const App = () => (
                       <Routes>
                         <Route path="/" element={<Index />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/contact" element={<Contact />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

@@ -8,6 +8,7 @@ import { differenceInMinutes, parseISO } from "date-fns";
 import PhoneNotch from "@/components/N";
 import BottomNotch from "@/components/BotN";
 import SettingsPageLink from "@/components/Set";
+import ContactPageLink from "@/components/Cnt";
 import { getAutoPollEnabled, getAutoPollInterval, getShowRecommendation } from '@/lib/cookies';
 import AnnouncementBanner from "@/components/AnnounB";
 import LaserPulseBorder from "@/components/LPB";
@@ -88,6 +89,7 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pt-24 relative">
       <PhoneNotch />
+      <ContactPageLink />
       <SettingsPageLink />
       <AnnouncementBanner />
 

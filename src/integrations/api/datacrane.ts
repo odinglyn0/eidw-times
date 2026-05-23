@@ -20,7 +20,6 @@ async function datacraneDecompress(response: Response): Promise<Response> {
 const UNPROTECTED_PATHS = [
   "/api/bouncetoken/verify",
   "/api/seo-security-data",
-  "/api/current-security-data",
   "/api/dgrmV2-fp",
   "/api/smack-stream",
   "/robots.txt",

@@ -155,7 +155,7 @@ export default defineConfig(() => ({
     }),
     Sitemap({
       hostname: "https://eidwtimes.xyz",
-      dynamicRoutes: ["/", "/settings"],
+      dynamicRoutes: ["/", "/settings", "/contact"],
       generateRobotsTxt: false,
       changefreq: "hourly",
       priority: 1.0,

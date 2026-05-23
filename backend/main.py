@@ -273,7 +273,6 @@ ALL_KNOWN_ROUTES = [
 UNPROTECTED_PATHS = {
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
-    "/api/current-security-data",
     "/api/dgrmV2-fp",
     "/api/smack-stream",
     "/robots.txt",
@@ -283,7 +282,6 @@ UNPROTECTED_PATHS = {
 SMACK_EXEMPT_PATHS = {
     "/api/bouncetoken/verify",
     "/api/seo-security-data",
-    "/api/current-security-data",
     "/api/dgrmV2-fp",
     "/api/smack-stream",
     "/robots.txt",
@@ -1237,7 +1235,7 @@ def llms_txt():
 EIDW Times is a free, real-time tracker for security queue wait times at Dublin Airport, Ireland. It covers Terminal 1 (T1) and Terminal 2 (T2), with historical trends, departure boards, and machine-learning-powered forecasts. The name comes from Dublin Airport's ICAO code: EIDW.
 
 Website: https://eidwtimes.xyz
-API: https://datagram.eidwtimes.xyz (MUST be a registered bot with Cloudflare or you will get 403'd, except for /api/current-security-data)
+API: https://datagram.eidwtimes.xyz (MUST be a registered bot with Cloudflare or you will get 403'd)
 
 ## Current Security Wait Times
 Last updated: {last_updated}
@@ -1274,7 +1272,6 @@ Terminal 2 (T2):
 
 ## Endpoints
 - GET /api/seo-security-data — Full SEO page with current times, forecasts, structured data, and recommendation (HTML), must be a registered bot with Cloudflare (you likely are if you are reading this)
-- GET /api/current-security-data — JSON with current T1 and T2 wait times and last_updated timestamp, no auth
 - GET /robots.txt — Robots policy, must be a registered bot with Cloudflare (you likely are if you are reading this)
 - GET /llms.txt — This file, must be a registered bot with Cloudflare (you likely are if you are reading this)
 
