@@ -305,14 +305,14 @@ def _is_unprotected_path(path):
 def _authenticate_bearer(require_fingerprint=True):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     token = auth_header[7:]
     try:
         payload = jwt.decode(token, BOUNCE_TOKEN_SECRET, algorithms=["HS512"])
     except jwt.ExpiredSignatureError:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     except jwt.InvalidTokenError:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
     if require_fingerprint:
         session_fp = request.headers.get("X-Session-Fingerprint")
@@ -321,7 +321,7 @@ def _authenticate_bearer(require_fingerprint=True):
             logging.warning(
                 f"[BOUNCE] Fingerprint mismatch: header={session_fp[:12] if session_fp else 'MISSING'}... token={token_fp[:12] if token_fp else 'MISSING'}..."
             )
-            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
     request.bounce_claims = payload
     return None
@@ -333,7 +333,7 @@ def _check_required_security_headers():
         logging.warning(
             f"[SEC-HEADERS] Missing required headers: {missing} | ip={_get_client_ip()} | path={request.path}"
         )
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     return None
 
 
@@ -429,7 +429,7 @@ def verify_bounce_token():
             logging.warning(
                 f"[BOUNCE] Direct access to datagram-protected route blocked: {request.path} | ip={_get_client_ip()}"
             )
-            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+            return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
         auth_result = _authenticate_bearer(require_fingerprint=True)
         if auth_result is not None:
@@ -445,10 +445,10 @@ def verify_bounce_token():
         logging.warning(
             f"[DATAGRAM] Verification failed: {dg_reason} | ip={_get_client_ip()}"
         )
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
     if not resolved_route:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
     g._datagram_resolved_route = resolved_route
     return None
@@ -476,11 +476,11 @@ def verify_smack_token():
 
     claims = getattr(request, "bounce_claims", None)
     if not claims:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     bt_raw = auth_header[7:]
     bt_hash = _smack_bt_hash(bt_raw)
 
@@ -489,7 +489,7 @@ def verify_smack_token():
         logging.warning(
             f"[SMACK] Verification failed: {smack_reason} | ip={_get_client_ip()} | path={request.path}"
         )
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     return None
 
 
@@ -502,7 +502,7 @@ def datacrane_decompress():
     if request.headers.get("X-Datacrane") != "1":
         if _is_unprotected_path(request.path):
             return None
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     try:
         raw_json = gzip.decompress(request.data)
         request._datacrane_body = raw_json
@@ -510,7 +510,7 @@ def datacrane_decompress():
             raw_json
         )
     except Exception:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     return None
 
 
@@ -522,11 +522,11 @@ def datawire_blackhole_check():
         return None
     fp = getattr(request, "bounce_claims", {}).get("fp", "")
     if not fp:
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     ip = _get_client_ip()
     if datawire_is_blackholed(fp, ip):
         logging.warning(f"[DATAWIRE] Blackholed request | fp={fp[:16]}... | ip={ip}")
-        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied"}), 403
+        return jsonify({"error": "TICK::4030 — SEC_GATE: Denied", "message": "For free push based data, historical archives and other custom data, just contact me at: eidwtimes@proton.me"}), 403
     return None
 
 
