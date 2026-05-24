@@ -166,7 +166,7 @@ def _get_client_country():
 
 def _rand_block_status():
     import random
-    _BLOCK_CODES = list(range(104, 200)) + list(range(227, 300))
+    _BLOCK_CODES = list(range(227, 300)) + list(range(309, 399))
     return random.choice(_BLOCK_CODES)
 
 
