@@ -5,7 +5,7 @@ import { smackReady, smackForceReconnect, smackWaitForFreshToken } from "./smack
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const RETRY_STATUS_CODES = new Set([400, 401, 402, 403, 500, 502, 503]);
+const RETRY_STATUS_CODES = new Set([500, 502, 503]);
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 
 function getCookie(name: string): string | null {
@@ -92,7 +92,9 @@ async function dgramFetch(
       continue;
     }
 
-    if (raw.ok || !RETRY_STATUS_CODES.has(raw.status)) {
+    const s = raw.status;
+    const isRetryable = RETRY_STATUS_CODES.has(s) || (s >= 418 && s <= 499);
+    if (!isRetryable) {
       break;
     }
   }
