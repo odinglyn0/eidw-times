@@ -325,6 +325,21 @@ resource "google_cloud_run_v2_job" "tweeter" {
           value = var.twitter_password
         }
 
+        env {
+          name  = "FACEBOOK_PAGE_ID"
+          value = var.facebook_page_id
+        }
+
+        env {
+          name  = "FACEBOOK_PAGE_ACCESS_TOKEN"
+          value = var.facebook_page_access_token
+        }
+
+        env {
+          name  = "FACEBOOK_GRAPH_API_VERSION"
+          value = var.facebook_graph_api_version
+        }
+
         resources {
           limits = {
             cpu    = "1"

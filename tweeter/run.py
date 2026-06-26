@@ -21,6 +21,7 @@ if sentry_dsn:
 
 from viz import plot_security_times
 from text import generate_tweet
+from facebook import post_to_facebook, is_facebook_configured
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -221,8 +222,34 @@ def main():
     )
     log.info("Generated image (%d bytes)", len(image_bytes))
 
-    asyncio.run(send_tweet(tweet_text, image_bytes))
-    log.info("Tweeter run complete")
+    twitter_ok = False
+    try:
+        asyncio.run(send_tweet(tweet_text, image_bytes))
+        twitter_ok = True
+        log.info("Tweet step complete")
+    except Exception as e:
+        log.error("Failed to post to Twitter: %s", e)
+        sentry_sdk.capture_exception(e)
+
+    facebook_ok = False
+    if is_facebook_configured():
+        try:
+            post_to_facebook(tweet_text, image_bytes)
+            facebook_ok = True
+        except Exception as e:
+            log.error("Failed to post to Facebook: %s", e)
+            sentry_sdk.capture_exception(e)
+    else:
+        log.info("Facebook not configured, skipping Facebook post")
+
+    log.info(
+        "Tweeter run complete (twitter=%s, facebook=%s)",
+        "ok" if twitter_ok else "failed",
+        "ok" if facebook_ok else ("skipped" if not is_facebook_configured() else "failed"),
+    )
+
+    if not twitter_ok and not facebook_ok:
+        raise RuntimeError("All posting targets failed")
 
 
 if __name__ == "__main__":

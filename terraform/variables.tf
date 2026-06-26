@@ -54,6 +54,25 @@ variable "twitter_password" {
   sensitive   = true
 }
 
+variable "facebook_page_id" {
+  description = "Facebook Page ID for the tweeter service"
+  type        = string
+  default     = ""
+}
+
+variable "facebook_page_access_token" {
+  description = "Facebook Page access token for posting via the Graph API"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "facebook_graph_api_version" {
+  description = "Facebook Graph API version used by the tweeter service"
+  type        = string
+  default     = "v21.0"
+}
+
 variable "sentry_dsn_backend" {
   description = "Sentry DSN for the backend service"
   type        = string

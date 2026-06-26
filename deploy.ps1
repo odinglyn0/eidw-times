@@ -26,7 +26,7 @@ Write-Host "Deploying infrastructure with Terraform..."
 Push-Location terraform
 
 terraform init
-terraform apply -var="project_id=$ProjectId" -var="region=$Region" -auto-approve
+terraform apply -var="project_id=$ProjectId" -var="region=$Region"
 
 Write-Host "Getting database connection details..."
 $DbConnection = terraform output -raw database_connection_string

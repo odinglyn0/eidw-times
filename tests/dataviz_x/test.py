@@ -10,7 +10,7 @@ img_bytes = plot_security_times(
     t2_now=14,
     t2_next_hour=20,
     t2_in_2_hours=25,
-    t2_in_3_hours=18,
+    t2_in_3_hours=999,
 )
 
 with open("my_graph.png", "wb") as f:
